@@ -1,9 +1,190 @@
 const KEY = "fx_finance_v1";
-const AUTH_KEY = "fx_auth_v1";
+const ACCOUNT_KEY = "fx_account_v1";
+const SESSION_KEY = "fx_session_v1";
 
 
 /* =========================
-   CATEGORIAS PADRÃO
+   CONTA
+========================= */
+
+function getAccount() {
+  try {
+    return JSON.parse(localStorage.getItem(ACCOUNT_KEY));
+  } catch {
+    return null;
+  }
+}
+
+function saveAccount(account) {
+  localStorage.setItem(
+    ACCOUNT_KEY,
+    JSON.stringify(account)
+  );
+}
+
+function isLogged() {
+  return localStorage.getItem(SESSION_KEY) === "true";
+}
+
+function login(username, password) {
+
+  const account = getAccount();
+
+  if (!account) {
+    showLoginMessage("Nenhuma conta criada ainda.");
+    return;
+  }
+
+  if (
+    username !== account.username ||
+    password !== account.password
+  ) {
+    showLoginMessage("Usuário ou senha incorretos.");
+    return;
+  }
+
+  localStorage.setItem(SESSION_KEY, "true");
+
+  showApp();
+}
+
+function createAccount() {
+
+  const username =
+    document
+      .getElementById("createUsername")
+      .value
+      .trim();
+
+  const password =
+    document
+      .getElementById("createPassword")
+      .value;
+
+  const confirmation =
+    document
+      .getElementById("createPasswordConfirm")
+      .value;
+
+  if (username.length < 2 || username.length > 6) {
+    showLoginMessage(
+      "O usuário precisa ter de 2 a 6 caracteres."
+    );
+
+    return;
+  }
+
+  if (password.length !== 8) {
+    showLoginMessage(
+      "A senha precisa ter exatamente 8 caracteres."
+    );
+
+    return;
+  }
+
+  if (password !== confirmation) {
+    showLoginMessage(
+      "As senhas não são iguais."
+    );
+
+    return;
+  }
+
+  if (getAccount()) {
+    showLoginMessage(
+      "Já existe uma conta neste aparelho."
+    );
+
+    return;
+  }
+
+  saveAccount({
+    username,
+    password
+  });
+
+  localStorage.setItem(
+    SESSION_KEY,
+    "true"
+  );
+
+  showApp();
+}
+
+function logout() {
+
+  localStorage.removeItem(
+    SESSION_KEY
+  );
+
+  document
+    .getElementById("appScreen")
+    .classList.add("hidden");
+
+  document
+    .getElementById("loginScreen")
+    .classList.remove("hidden");
+
+  document
+    .getElementById("loginUsername")
+    .value = "";
+
+  document
+    .getElementById("loginPassword")
+    .value = "";
+
+  showLoginMessage("");
+}
+
+function showLoginMessage(message) {
+
+  document
+    .getElementById("loginMessage")
+    .textContent = message;
+}
+
+function showCreateAccount() {
+
+  document
+    .getElementById("loginForm")
+    .classList.add("hidden");
+
+  document
+    .getElementById("createForm")
+    .classList.remove("hidden");
+
+  showLoginMessage("");
+}
+
+function showLoginForm() {
+
+  document
+    .getElementById("createForm")
+    .classList.add("hidden");
+
+  document
+    .getElementById("loginForm")
+    .classList.remove("hidden");
+
+  showLoginMessage("");
+}
+
+function showApp() {
+
+  document
+    .getElementById("loginScreen")
+    .classList.add("hidden");
+
+  document
+    .getElementById("appScreen")
+    .classList.remove("hidden");
+
+  initFinance();
+}
+
+
+/* =========================
+   FINANÇAS
 ========================= */
 
 const defaultCategories = [
@@ -14,7 +195,6 @@ const defaultCategories = [
     type: "expense",
     budget: 600
   },
-
   {
     id: "reserve",
     name: "Reserva",
@@ -22,7 +202,6 @@ const defaultCategories = [
     type: "reserve",
     budget: 315
   },
-
   {
     id: "meds",
     name: "Medicamentos",
@@ -30,7 +209,6 @@ const defaultCategories = [
     type: "expense",
     budget: 200
   },
-
   {
     id: "leisure",
     name: "Lazer",
@@ -38,7 +216,6 @@ const defaultCategories = [
     type: "expense",
     budget: 200
   },
-
   {
     id: "phone",
     name: "Celular",
@@ -48,41 +225,26 @@ const defaultCategories = [
   }
 ];
 
+const state =
+  load() || {
 
-/* =========================
-   ESTADO
-========================= */
+    settings: {
+      plannedSalary: 1350,
+      advancePercent: 40,
+      advanceDay: 20,
+      mainPaymentLabel: "5º dia útil",
+      reserveGoal: 0
+    },
 
-const state = load() || {
+    categories: defaultCategories,
 
-  settings: {
+    months: {},
 
-    plannedSalary: 1350,
+    reserveBalance: 0,
 
-    advancePercent: 40,
+    currentMonth: monthKey(new Date())
+  };
 
-    advanceDay: 20,
-
-    mainPaymentLabel: "5º dia útil",
-
-    reserveGoal: 0
-
-  },
-
-  categories: defaultCategories,
-
-  months: {},
-
-  reserveBalance: 0,
-
-  currentMonth: monthKey(new Date())
-
-};
-
-
-/* =========================
-   LOCAL STORAGE
-========================= */
 
 function load() {
 
@@ -110,10 +272,6 @@ function save() {
 
 }
 
-
-/* =========================
-   MESES
-========================= */
 
 function monthKey(d) {
 
@@ -152,6 +310,19 @@ function getMonth(
 }
 
 
+function money(v) {
+
+  return new Intl.NumberFormat(
+    "pt-BR",
+    {
+      style: "currency",
+      currency: "BRL"
+    }
+  ).format(Number(v) || 0);
+
+}
+
+
 function monthLabel(key) {
 
   const [y, m] =
@@ -186,38 +357,14 @@ function monthShift(key, delta) {
 }
 
 
-/* =========================
-   DINHEIRO
-========================= */
-
-function money(v) {
-
-  return new Intl.NumberFormat(
-    "pt-BR",
-    {
-      style: "currency",
-      currency: "BRL"
-    }
-  ).format(
-    Number(v) || 0
-  );
-
-}
-
-
-/* =========================
-   CATEGORIAS
-========================= */
-
-function categorySpent(
-  id,
-  month
-) {
+function categorySpent(id, month) {
 
   return month.expenses
+
     .filter(
       e => e.categoryId === id
     )
+
     .reduce(
       (s, e) =>
         s + Number(e.amount),
@@ -262,10 +409,6 @@ function calculatedReserveContribution(
 
 }
 
-
-/* =========================
-   RESERVA
-========================= */
 
 function syncReserve() {
 
@@ -347,31 +490,6 @@ function available(month) {
 }
 
 
-/* =========================
-   HTML SEGURO
-========================= */
-
-function escapeHtml(s) {
-
-  return String(s).replace(
-    /[&<>"']/g,
-    x =>
-      ({
-        "&": "&amp;",
-        "<": "&lt;",
-        ">": "&gt;",
-        '"': "&quot;",
-        "'": "&#039;"
-      }[x])
-  );
-
-}
-
-
-/* =========================
-   RENDER
-========================= */
-
 function render() {
 
   const month =
@@ -379,14 +497,12 @@ function render() {
 
   syncReserve();
 
-
   document.getElementById(
     "monthTitle"
   ).textContent =
     monthLabel(
       state.currentMonth
     );
-
 
   document.getElementById(
     "availableValue"
@@ -398,14 +514,12 @@ function render() {
       )
     );
 
-
   document.getElementById(
     "salaryValue"
   ).textContent =
     money(
       month.salaryReceived
     );
-
 
   document.getElementById(
     "spentValue"
@@ -414,14 +528,12 @@ function render() {
       totalSpent(month)
     );
 
-
   document.getElementById(
     "reserveValue"
   ).textContent =
     money(
       state.reserveBalance
     );
-
 
   document.getElementById(
     "reserveBig"
@@ -440,18 +552,15 @@ function render() {
     ) /
     100;
 
-
   document.getElementById(
     "advanceValue"
   ).textContent =
     money(adv);
 
-
   document.getElementById(
     "advanceDate"
   ).textContent =
     `Dia ${state.settings.advanceDay}`;
-
 
   document.getElementById(
     "mainPayValue"
@@ -461,7 +570,6 @@ function render() {
         month.salaryReceived || 0
       ) - adv
     );
-
 
   document.getElementById(
     "mainPayDate"
@@ -474,25 +582,24 @@ function render() {
       state.settings.reserveGoal || 0
     );
 
-
   const goalBox =
     document.getElementById(
       "goalBox"
     );
 
-
   goalBox.innerHTML =
     goal > 0
 
       ? `Meta ${money(goal)}
-         <div class="progress">
-           <div style="width:${Math.min(
-             100,
-             state.reserveBalance /
-             goal *
-             100
-           )}%"></div>
-         </div>`
+
+        <div class="progress">
+          <div style="width:${Math.min(
+            100,
+            state.reserveBalance /
+              goal *
+              100
+          )}%"></div>
+        </div>`
 
       : "Defina uma meta em ⚙️";
 
@@ -502,173 +609,177 @@ function render() {
       "categories"
     );
 
-
   wrap.innerHTML = "";
 
 
-  state.categories.forEach(
-    c => {
+  state.categories.forEach(c => {
 
-      const spent =
-        c.type === "reserve"
+    const spent =
+      c.type === "reserve"
 
-          ? Number(
-              month.reserveContribution || 0
-            )
+        ? Number(
+            month.reserveContribution || 0
+          )
 
-          : categorySpent(
-              c.id,
-              month
-            );
-
-
-      const remaining =
-        c.type === "reserve"
-
-          ? Number(
-              month.reserveContribution || 0
-            )
-
-          : Number(
-              c.budget || 0
-            ) - spent;
+        : categorySpent(
+            c.id,
+            month
+          );
 
 
-      const pct =
-        c.type === "reserve"
+    const remaining =
+      c.type === "reserve"
 
-          ? 100
+        ? Number(
+            month.reserveContribution || 0
+          )
 
-          : Math.min(
-              100,
-              Math.max(
-                0,
-                (
-                  spent /
-                  Math.max(
-                    1,
-                    Number(
-                      c.budget || 0
-                    )
+        : Number(
+            c.budget || 0
+          ) - spent;
+
+
+    const pct =
+      c.type === "reserve"
+
+        ? 100
+
+        : Math.min(
+            100,
+            Math.max(
+              0,
+              (
+                spent /
+                Math.max(
+                  1,
+                  Number(
+                    c.budget || 0
                   )
-                ) *
-                100
-              )
-            );
+                )
+              ) *
+              100
+            )
+          );
 
 
-      const el =
-        document.createElement(
-          "div"
-        );
+    const el =
+      document.createElement(
+        "div"
+      );
+
+    el.className =
+      "category" +
+      (
+        c.type === "reserve"
+          ? " reserve-cat"
+          : ""
+      );
 
 
-      el.className =
-        "category" +
-        (
-          c.type === "reserve"
-            ? " reserve-cat"
-            : ""
-        );
+    el.innerHTML = `
 
+      <div class="cat-icon">
+        ${c.icon}
+      </div>
 
-      el.innerHTML = `
+      <div class="cat-main">
 
-        <div class="cat-icon">
-          ${c.icon}
+        <div class="cat-name">
+          ${escapeHtml(c.name)}
         </div>
 
-        <div class="cat-main">
+        <div class="cat-sub">
 
-          <div class="cat-name">
-            ${escapeHtml(c.name)}
-          </div>
+          ${
+            c.type === "reserve"
 
-          <div class="cat-sub">
+              ? "Aporte deste mês"
 
-            ${
-              c.type === "reserve"
-
-                ? "Aporte deste mês"
-
-                : `${money(
-                    Math.max(
-                      0,
-                      remaining
-                    )
-                  )} disponíveis`
-
-            }
-
-          </div>
-
-          <div class="progress">
-
-            <div
-              style="width:${pct}%"
-            ></div>
-
-          </div>
+              : `${money(
+                  Math.max(
+                    0,
+                    remaining
+                  )
+                )} disponíveis`
+          }
 
         </div>
 
-        <div class="cat-value">
-
-          <strong>
-            ${money(spent)}
-          </strong>
-
-          <small>
-
-            ${
-              c.type === "reserve"
-
-                ? "aporte"
-
-                : `de ${money(
-                    c.budget
-                  )}`
-
-            }
-
-          </small>
-
+        <div class="progress">
+          <div
+            style="width:${pct}%"
+          ></div>
         </div>
 
-      `;
+      </div>
+
+      <div class="cat-value">
+
+        <strong>
+          ${money(spent)}
+        </strong>
+
+        <small>
+
+          ${
+            c.type === "reserve"
+
+              ? "aporte"
+
+              : `de ${money(
+                  c.budget
+                )}`
+          }
+
+        </small>
+
+      </div>
+    `;
 
 
-      if (
-        c.type !== "reserve"
-      ) {
+    if (
+      c.type !== "reserve"
+    ) {
 
-        el.addEventListener(
-          "click",
-          () =>
-            openExpense(c.id)
-        );
+      el.addEventListener(
+        "click",
+        () =>
+          openExpense(c.id)
+      );
 
-      } else {
+    } else {
 
-        el.addEventListener(
-          "click",
-          openReserve
-        );
-
-      }
-
-
-      wrap.appendChild(el);
+      el.addEventListener(
+        "click",
+        openReserve
+      );
 
     }
-  );
+
+
+    wrap.appendChild(el);
+
+  });
 
 }
 
 
-/* =========================
-   MODAL
-========================= */
+function escapeHtml(s) {
+
+  return String(s).replace(
+    /[&<>"']/g,
+    x =>
+      ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#039;"
+      }[x])
+  );
+
+}
+
 
 function openModal(
   title,
@@ -680,29 +791,27 @@ function openModal(
   ).textContent =
     title;
 
-
   document.getElementById(
     "modalBody"
   ).innerHTML =
     html;
 
-
-  document
-    .getElementById("modal")
-    .classList.remove(
-      "hidden"
-    );
+  document.getElementById(
+    "modal"
+  ).classList.remove(
+    "hidden"
+  );
 
 }
 
 
 function closeModal() {
 
-  document
-    .getElementById("modal")
-    .classList.add(
-      "hidden"
-    );
+  document.getElementById(
+    "modal"
+  ).classList.add(
+    "hidden"
+  );
 
 }
 
@@ -727,14 +836,11 @@ function openExpense(
 
       .map(
         c =>
-          `<option
-            value="${c.id}"
-            ${
-              c.id === categoryId
-                ? "selected"
-                : ""
-            }
-          >
+          `<option value="${c.id}" ${
+            c.id === categoryId
+              ? "selected"
+              : ""
+          }>
             ${c.icon}
             ${escapeHtml(c.name)}
           </option>`
@@ -745,8 +851,8 @@ function openExpense(
 
   openModal(
     "Adicionar gasto",
-    `
 
+    `
     <form
       class="form"
       id="expenseForm"
@@ -799,7 +905,6 @@ function openExpense(
       </button>
 
     </form>
-
     `
   );
 
@@ -812,19 +917,12 @@ function openExpense(
 
 
     const raw =
-      document
-        .getElementById(
-          "expenseAmount"
-        )
-        .value
-        .replace(
-          /\./g,
-          ""
-        )
-        .replace(
-          ",",
-          "."
-        );
+      document.getElementById(
+        "expenseAmount"
+      )
+      .value
+      .replace(/\./g, "")
+      .replace(",", ".");
 
 
     const amount =
@@ -883,15 +981,16 @@ function openExpense(
 
 
 /* =========================
-   NOVA CATEGORIA
+   CATEGORIA
 ========================= */
 
 function openCategory() {
 
   openModal(
-    "Nova categoria",
-    `
 
+    "Nova categoria",
+
+    `
     <form
       class="form"
       id="categoryForm"
@@ -949,7 +1048,6 @@ function openCategory() {
       </button>
 
     </form>
-
     `
   );
 
@@ -963,39 +1061,27 @@ function openCategory() {
 
     const amount =
       Number(
-        document
-          .getElementById(
-            "catBudget"
-          )
-          .value
-          .replace(
-            /\./g,
-            ""
-          )
-          .replace(
-            ",",
-            "."
-          )
+        document.getElementById(
+          "catBudget"
+        )
+        .value
+        .replace(/\./g, "")
+        .replace(",", ".")
       );
 
 
     const name =
-      document
-        .getElementById(
-          "catName"
-        )
-        .value
-        .trim();
+      document.getElementById(
+        "catName"
+      )
+      .value
+      .trim();
 
 
     if (
       !name ||
       !(amount >= 0)
-    ) {
-
-      return;
-
-    }
+    ) return;
 
 
     state.categories.push({
@@ -1041,9 +1127,10 @@ function openCategory() {
 function openSettings() {
 
   openModal(
-    "Configurações",
-    `
 
+    "Configurações",
+
+    `
     <form
       class="form"
       id="settingsForm"
@@ -1059,7 +1146,6 @@ function openSettings() {
         value="${state.settings.plannedSalary}"
       >
 
-
       <label>
         Percentual do adiantamento
       </label>
@@ -1071,7 +1157,6 @@ function openSettings() {
         max="100"
         value="${state.settings.advancePercent}"
       >
-
 
       <label>
         Dia do adiantamento
@@ -1085,7 +1170,6 @@ function openSettings() {
         value="${state.settings.advanceDay}"
       >
 
-
       <label>
         Texto do pagamento principal
       </label>
@@ -1096,7 +1180,6 @@ function openSettings() {
           state.settings.mainPaymentLabel
         )}"
       >
-
 
       <label>
         Meta da reserva
@@ -1123,9 +1206,7 @@ function openSettings() {
           >
 
           <span class="theme-slider">
-
             <span class="theme-dot"></span>
-
           </span>
 
         </label>
@@ -1145,19 +1226,14 @@ function openSettings() {
       style="margin-top:12px"
     >
       Os dados ficam somente neste aparelho.
-      Use a opção de exportação antes de limpar
-      o navegador.
+      Use a opção de exportação antes de
+      limpar o navegador.
     </div>
 
 
     <button
       class="secondary"
-      style="
-        width:100%;
-        margin-top:10px;
-        padding:13px;
-        border-radius:12px
-      "
+      style="width:100%;margin-top:10px;padding:13px;border-radius:12px"
       id="exportBtn"
     >
       Exportar backup JSON
@@ -1166,17 +1242,11 @@ function openSettings() {
 
     <button
       class="danger"
-      style="
-        width:100%;
-        margin-top:10px;
-        padding:13px;
-        border-radius:12px
-      "
+      style="width:100%;margin-top:10px;padding:13px;border-radius:12px"
       id="resetBtn"
     >
       Apagar todos os dados
     </button>
-
     `
   );
 
@@ -1285,25 +1355,16 @@ function openSettings() {
 }
 
 
-/* =========================
-   NÚMEROS
-========================= */
-
 function num(id) {
 
   return Number(
 
-    document
-      .getElementById(id)
-      .value
-      .replace(
-        /\./g,
-        ""
-      )
-      .replace(
-        ",",
-        "."
-      )
+    document.getElementById(
+      id
+    )
+    .value
+    .replace(/\./g, "")
+    .replace(",", ".")
 
   ) || 0;
 
@@ -1327,13 +1388,13 @@ function openReserve() {
 
 
   openModal(
-    "Reserva",
-    `
 
+    "Reserva",
+
+    `
     <div class="notice">
 
       Aporte deste mês:
-
       <strong>
         ${money(contribution)}
       </strong>
@@ -1341,11 +1402,8 @@ function openReserve() {
       <br>
 
       Reserva acumulada:
-
       <strong>
-        ${money(
-          state.reserveBalance
-        )}
+        ${money(state.reserveBalance)}
       </strong>
 
     </div>
@@ -1367,7 +1425,6 @@ function openReserve() {
         placeholder="R$ 0,00"
       >
 
-
       <button class="danger">
         Registrar retirada
       </button>
@@ -1378,16 +1435,10 @@ function openReserve() {
     <button
       class="secondary"
       id="closeReserveBtn"
-      style="
-        width:100%;
-        padding:13px;
-        border-radius:12px;
-        margin-top:10px
-      "
+      style="width:100%;padding:13px;border-radius:12px;margin-top:10px"
     >
       Fechar
     </button>
-
     `
   );
 
@@ -1400,9 +1451,7 @@ function openReserve() {
 
 
     const amount =
-      num(
-        "withdrawAmount"
-      );
+      num("withdrawAmount");
 
 
     if (
@@ -1452,9 +1501,10 @@ function openPayments() {
 
 
   openModal(
-    "Pagamentos",
-    `
 
+    "Pagamentos",
+
+    `
     <div class="notice">
 
       <strong>
@@ -1472,9 +1522,7 @@ function openPayments() {
       — dia
       ${state.settings.advanceDay}
 
-
       <br><br>
-
 
       <strong>
         Pagamento principal
@@ -1497,7 +1545,6 @@ function openPayments() {
       )}
 
     </div>
-
     `
   );
 
@@ -1553,8 +1600,54 @@ function exportData() {
 
 
 /* =========================
-   BOTÕES
+   EVENTOS
 ========================= */
+
+document.getElementById(
+  "loginBtn"
+).onclick = () => {
+
+  const username =
+    document.getElementById(
+      "loginUsername"
+    ).value.trim();
+
+  const password =
+    document.getElementById(
+      "loginPassword"
+    ).value;
+
+  login(
+    username,
+    password
+  );
+
+};
+
+
+document.getElementById(
+  "createBtn"
+).onclick =
+  createAccount;
+
+
+document.getElementById(
+  "showCreateBtn"
+).onclick =
+  showCreateAccount;
+
+
+document.getElementById(
+  "backLoginBtn"
+).onclick =
+  showLoginForm;
+
+
+document.getElementById(
+  "logoutBtn"
+).onclick =
+  logout;
+
 
 document.getElementById(
   "prevMonth"
@@ -1593,8 +1686,7 @@ document.getElementById(
 document.getElementById(
   "addExpenseBtn"
 ).onclick =
-  () =>
-    openExpense();
+  () => openExpense();
 
 
 document.getElementById(
@@ -1634,8 +1726,7 @@ document
     e => {
 
       if (
-        e.target.id ===
-        "modal"
+        e.target.id === "modal"
       ) {
 
         closeModal();
@@ -1647,52 +1738,32 @@ document
 
 
 /* =========================
-   MODO ESCURO
-========================= */
-
-document.body.classList.toggle(
-  "dark",
-  localStorage.getItem(
-    "fxDarkMode"
-  ) === "true"
-);
-
-
-/* =========================
    INICIALIZAÇÃO
 ========================= */
 
-getMonth();
+function initFinance() {
 
-syncReserve();
+  document.body.classList.toggle(
+    "dark",
+    localStorage.getItem(
+      "fxDarkMode"
+    ) === "true"
+  );
 
-render();
+  getMonth();
 
+  syncReserve();
 
-/* =========================
-   LOGIN / CONTA
-========================= */
-
-function getAuth() {
-
-  try {
-
-    return JSON.parse(
-      localStorage.getItem(
-        AUTH_KEY
-      )
-    );
-
-  } catch {
-
-    return null;
-
-  }
+  render();
 
 }
 
 
-function showLogin() {
+if (isLogged()) {
+
+  showApp();
+
+} else {
 
   document
     .getElementById(
@@ -1702,272 +1773,12 @@ function showLogin() {
       "hidden"
     );
 
-}
-
-
-function hideLogin() {
-
   document
     .getElementById(
-      "loginScreen"
+      "appScreen"
     )
     .classList.add(
       "hidden"
     );
 
-}
-
-
-function showLoginMessage(
-  message
-) {
-
-  document.getElementById(
-    "loginMessage"
-  ).textContent =
-    message;
-
-}
-
-
-/* =========================
-   CRIAR CONTA
-========================= */
-
-function openCreateAccount() {
-
-  openModal(
-    "Criar conta",
-    `
-
-    <form
-      class="form"
-      id="createAccountForm"
-    >
-
-      <label>
-        Login
-      </label>
-
-      <input
-        id="newUser"
-        type="text"
-        minlength="2"
-        maxlength="6"
-        placeholder="De 2 a 6 caracteres"
-        required
-      >
-
-
-      <label>
-        Senha
-      </label>
-
-      <input
-        id="newPassword"
-        type="password"
-        minlength="8"
-        placeholder="Mínimo de 8 caracteres"
-        required
-      >
-
-
-      <label>
-        Confirmar senha
-      </label>
-
-      <input
-        id="confirmPassword"
-        type="password"
-        minlength="8"
-        placeholder="Digite a senha novamente"
-        required
-      >
-
-
-      <button>
-        Criar conta
-      </button>
-
-    </form>
-
-    `
-  );
-
-
-  document.getElementById(
-    "createAccountForm"
-  ).onsubmit = e => {
-
-    e.preventDefault();
-
-
-    const user =
-      document
-        .getElementById(
-          "newUser"
-        )
-        .value
-        .trim();
-
-
-    const password =
-      document.getElementById(
-        "newPassword"
-      ).value;
-
-
-    const confirm =
-      document.getElementById(
-        "confirmPassword"
-      ).value;
-
-
-    if (
-      user.length < 2 ||
-      user.length > 6
-    ) {
-
-      return alert(
-        "O login precisa ter de 2 a 6 caracteres."
-      );
-
-    }
-
-
-    if (
-      password.length < 8
-    ) {
-
-      return alert(
-        "A senha precisa ter pelo menos 8 caracteres."
-      );
-
-    }
-
-
-    if (
-      password !== confirm
-    ) {
-
-      return alert(
-        "As senhas não são iguais."
-      );
-
-    }
-
-
-    localStorage.setItem(
-      AUTH_KEY,
-      JSON.stringify({
-
-        user,
-
-        password
-
-      })
-    );
-
-
-    closeModal();
-
-
-    document.getElementById(
-      "loginUser"
-    ).value =
-      user;
-
-
-    document.getElementById(
-      "loginPassword"
-    ).value =
-      "";
-
-
-    showLoginMessage(
-      "Conta criada. Agora entre no FX."
-    );
-
-  };
-
-}
-
-
-/* =========================
-   ENTRAR
-========================= */
-
-document.getElementById(
-  "loginForm"
-).onsubmit = e => {
-
-  e.preventDefault();
-
-
-  const auth =
-    getAuth();
-
-
-  if (!auth) {
-
-    return showLoginMessage(
-      "Você ainda não possui uma conta."
-    );
-
-  }
-
-
-  const user =
-    document
-      .getElementById(
-        "loginUser"
-      )
-      .value
-      .trim();
-
-
-  const password =
-    document.getElementById(
-      "loginPassword"
-    ).value;
-
-
-  if (
-    user === auth.user &&
-    password === auth.password
-  ) {
-
-    hideLogin();
-
-    showLoginMessage("");
-
-  } else {
-
-    showLoginMessage(
-      "Login ou senha incorretos."
-    );
-
-  }
-
-};
-
-
-document.getElementById(
-  "createAccountBtn"
-).onclick =
-  openCreateAccount;
-
-
-/* =========================
-   LOGIN INICIAL
-========================= */
-
-if (!getAuth()) {
-
-  showLoginMessage(
-    "Crie sua conta para começar."
-  );
-
-}
-
-showLogin();
+                 }
