@@ -3,9 +3,16 @@
 
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 
-  <meta name="theme-color" content="#111827">
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1, viewport-fit=cover"
+  >
+
+  <meta
+    name="theme-color"
+    content="#111827"
+  >
 
   <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="style.css">
@@ -15,48 +22,121 @@
 
 <body>
 
+  <!-- =========================
+       TELA DE LOGIN
+  ========================== -->
+
+  <div id="loginScreen" class="login-screen">
+
+    <div class="login-card">
+
+      <div class="login-logo">FX</div>
+
+      <h1>Alisson Finance</h1>
+
+      <p>Seu dinheiro. Suas regras.</p>
+
+      <form id="loginForm">
+
+        <input
+          id="loginUser"
+          type="text"
+          minlength="2"
+          maxlength="6"
+          placeholder="Login"
+          autocomplete="username"
+          required
+        >
+
+        <input
+          id="loginPassword"
+          type="password"
+          minlength="8"
+          placeholder="Senha"
+          autocomplete="current-password"
+          required
+        >
+
+        <button
+          type="submit"
+          class="login-btn"
+        >
+          Entrar
+        </button>
+
+      </form>
+
+      <button
+        id="createAccountBtn"
+        class="create-account-btn"
+      >
+        Criar conta
+      </button>
+
+      <div
+        id="loginMessage"
+        class="login-message"
+      ></div>
+
+    </div>
+
+  </div>
+
+
+  <!-- =========================
+       PAINEL PRINCIPAL
+  ========================== -->
+
   <header class="topbar">
+
     <div>
-      <div class="brand">Alisson Finance</div>
-      <div class="tagline">Seu dinheiro. Suas regras.</div>
+
+      <div class="brand">
+        Alisson Finance
+      </div>
+
+      <div class="tagline">
+        Seu dinheiro. Suas regras.
+      </div>
+
     </div>
 
     <button
       class="icon-btn"
       id="settingsBtn"
-      aria-label="Configurações">
+      aria-label="Configurações"
+    >
       ⚙️
     </button>
+
   </header>
 
 
   <main>
 
-    <!-- NAVEGAÇÃO DO MÊS -->
-
     <section class="month-nav">
 
       <button
         class="icon-btn"
-        id="prevMonth">
+        id="prevMonth"
+      >
         ‹
       </button>
 
       <div
         class="month-title"
-        id="monthTitle">
-      </div>
+        id="monthTitle"
+      ></div>
 
       <button
         class="icon-btn"
-        id="nextMonth">
+        id="nextMonth"
+      >
         ›
       </button>
 
     </section>
 
-
-    <!-- VALOR DISPONÍVEL -->
 
     <section class="hero card">
 
@@ -66,20 +146,20 @@
 
       <div
         class="hero-value"
-        id="availableValue">
+        id="availableValue"
+      >
         R$ 0,00
       </div>
 
       <div
         class="muted"
-        id="availableHint">
+        id="availableHint"
+      >
         Depois de separar a reserva e considerar os gastos.
       </div>
 
     </section>
 
-
-    <!-- ESTATÍSTICAS -->
 
     <section class="stats">
 
@@ -124,8 +204,6 @@
     </section>
 
 
-    <!-- CATEGORIAS -->
-
     <section class="section-head">
 
       <h2>
@@ -134,41 +212,19 @@
 
       <button
         class="text-btn"
-        id="addCategoryBtn">
+        id="addCategoryBtn"
+      >
         + Nova
       </button>
 
     </section>
 
+
     <section
       id="categories"
-      class="categories">
-    </section>
+      class="categories"
+    ></section>
 
-
-    <!-- HISTÓRICO -->
-
-    <section class="section-head">
-
-      <h2>
-        Histórico
-      </h2>
-
-      <span
-        class="muted"
-        id="historyCount">
-        0 gastos
-      </span>
-
-    </section>
-
-    <section
-      id="history"
-      class="history">
-    </section>
-
-
-    <!-- PAGAMENTOS -->
 
     <section class="payment card">
 
@@ -180,7 +236,8 @@
 
         <button
           class="text-btn"
-          id="paymentsSettingsBtn">
+          id="paymentsSettingsBtn"
+        >
           Ajustar
         </button>
 
@@ -227,8 +284,6 @@
     </section>
 
 
-    <!-- RESERVA -->
-
     <section class="reserve card">
 
       <div class="section-head compact">
@@ -239,7 +294,8 @@
 
         <button
           class="text-btn"
-          id="reserveBtn">
+          id="reserveBtn"
+        >
           Ver
         </button>
 
@@ -260,24 +316,22 @@
 
         </div>
 
-
         <div
           class="goal"
-          id="goalBox">
-        </div>
+          id="goalBox"
+        ></div>
 
       </div>
 
     </section>
 
 
-    <!-- AÇÃO PRINCIPAL -->
-
     <section class="actions">
 
       <button
         class="primary"
-        id="addExpenseBtn">
+        id="addExpenseBtn"
+      >
         + Adicionar gasto
       </button>
 
@@ -286,11 +340,14 @@
   </main>
 
 
-  <!-- MODAL -->
+  <!-- =========================
+       MODAL
+  ========================== -->
 
   <div
     class="modal hidden"
-    id="modal">
+    id="modal"
+  >
 
     <div class="modal-sheet">
 
@@ -303,7 +360,7 @@
         <button
           class="icon-btn"
           id="closeModal"
-          aria-label="Fechar">
+        >
           ✕
         </button>
 
@@ -316,16 +373,15 @@
   </div>
 
 
-  <!-- JAVASCRIPT -->
-
   <script src="app.js"></script>
 
   <script>
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("service-worker.js");
+      navigator.serviceWorker.register(
+        "service-worker.js"
+      );
     }
   </script>
 
 </body>
-
 </html>
