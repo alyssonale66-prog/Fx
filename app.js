@@ -4,6 +4,55 @@ const SESSION_KEY = "fx_session_v1";
 
 
 /* =====================================================
+   CATEGORIAS PADRÃO
+===================================================== */
+
+const defaultCategories = [
+
+  {
+    id: "fixed",
+    name: "Gasto fixo",
+    icon: "🏠",
+    type: "expense",
+    budget: 600
+  },
+
+  {
+    id: "reserve",
+    name: "Reserva",
+    icon: "🏦",
+    type: "reserve",
+    budget: 0
+  },
+
+  {
+    id: "meds",
+    name: "Medicamentos",
+    icon: "💊",
+    type: "expense",
+    budget: 200
+  },
+
+  {
+    id: "leisure",
+    name: "Lazer",
+    icon: "🎮",
+    type: "expense",
+    budget: 200
+  },
+
+  {
+    id: "phone",
+    name: "Celular",
+    icon: "📱",
+    type: "expense",
+    budget: 35
+  }
+
+];
+
+
+/* =====================================================
    CONTA
 ===================================================== */
 
@@ -185,9 +234,14 @@ function logout() {
 
 function showLoginMessage(message) {
 
-  document
-    .getElementById("loginMessage")
-    .textContent = message;
+  const element =
+    document.getElementById("loginMessage");
+
+  if (element) {
+
+    element.textContent = message;
+
+  }
 
 }
 
@@ -237,57 +291,6 @@ function showApp() {
 }
 
 
-
-/* =====================================================
-   CATEGORIAS PADRÃO
-===================================================== */
-
-const defaultCategories = [
-
-  {
-    id: "fixed",
-    name: "Gasto fixo",
-    icon: "🏠",
-    type: "expense",
-    budget: 600
-  },
-
-  {
-    id: "reserve",
-    name: "Reserva",
-    icon: "🏦",
-    type: "reserve",
-    budget: 0
-  },
-
-  {
-    id: "meds",
-    name: "Medicamentos",
-    icon: "💊",
-    type: "expense",
-    budget: 200
-  },
-
-  {
-    id: "leisure",
-    name: "Lazer",
-    icon: "🎮",
-    type: "expense",
-    budget: 200
-  },
-
-  {
-    id: "phone",
-    name: "Celular",
-    icon: "📱",
-    type: "expense",
-    budget: 35
-  }
-
-];
-
-
-
 /* =====================================================
    ESTADO
 ===================================================== */
@@ -322,12 +325,9 @@ const state =
     reserveBalance: 0,
 
     currentMonth:
-      monthKey(
-        new Date()
-      )
+      monthKey(new Date())
 
   };
-
 
 
 /* =====================================================
@@ -342,10 +342,6 @@ function normalizeState(data) {
 
   }
 
-
-  /* =====================================================
-     CONFIGURAÇÕES
-  ===================================================== */
 
   if (
     !data.settings ||
@@ -403,63 +399,68 @@ function normalizeState(data) {
   }
 
 
-  /* =====================================================
-     CATEGORIAS
-     
-     NÃO APAGA CATEGORIAS EXISTENTES.
-     APENAS RECUPERA AS PADRÃO QUE ESTIVEREM FALTANDO.
-  ===================================================== */
+  /*
+    CORREÇÃO DAS CATEGORIAS
 
-  if (!Array.isArray(data.categories)) {
+    Se não existir array OU estiver vazio,
+    recupera as cinco categorias padrão.
+  */
 
-    data.categories = [];
+  if (
+    !Array.isArray(data.categories) ||
+    data.categories.length === 0
+  ) {
+
+    data.categories =
+      defaultCategories.map(
+        category => ({
+          ...category
+        })
+      );
 
   }
 
 
+  /*
+    Corrige categorias existentes.
+  */
+
   data.categories =
-    data.categories
-      .filter(
-        category =>
-          category &&
-          typeof category === "object"
-      )
-      .map(
-        category => ({
+    data.categories.map(
+      category => ({
 
-          id:
-            category.id ||
-            "cat_" + createId(),
+        id:
+          category.id ||
+          "cat_" +
+          createId(),
 
-          name:
-            String(
-              category.name ||
-              "Categoria"
-            ),
+        name:
+          category.name ||
+          "Categoria",
 
-          icon:
-            String(
-              category.icon ||
-              "💰"
-            ),
+        icon:
+          category.icon ||
+          "💰",
 
-          type:
-            category.type === "reserve"
-              ? "reserve"
-              : "expense",
+        type:
+          category.type === "reserve"
+            ? "reserve"
+            : "expense",
 
-          budget:
-            Number(
-              category.budget
-            ) || 0
+        budget:
+          Number(category.budget) || 0
 
-        })
-      );
+      })
+    );
 
 
-  /* =====================================================
-     RECUPERA AS 5 CATEGORIAS PADRÃO
-  ===================================================== */
+  /*
+    Garante que as cinco categorias
+    fundamentais existam.
+
+    Categorias criadas pelo usuário
+    continuam intactas.
+  */
 
   defaultCategories.forEach(
     defaultCategory => {
@@ -467,13 +468,12 @@ function normalizeState(data) {
       const exists =
         data.categories.some(
           category =>
-            category.id ===
-            defaultCategory.id
+            category.id === defaultCategory.id
         );
 
       if (!exists) {
 
-        data.categories.push({
+        data.categories.unshift({
           ...defaultCategory
         });
 
@@ -482,38 +482,6 @@ function normalizeState(data) {
     }
   );
 
-
-  /* =====================================================
-     GARANTE RESERVA
-  ===================================================== */
-
-  if (
-    !data.categories.some(
-      category =>
-        category.id === "reserve"
-    )
-  ) {
-
-    data.categories.push({
-
-      id: "reserve",
-
-      name: "Reserva",
-
-      icon: "🏦",
-
-      type: "reserve",
-
-      budget: 0
-
-    });
-
-  }
-
-
-  /* =====================================================
-     MESES
-  ===================================================== */
 
   if (
     !data.months ||
@@ -525,25 +493,11 @@ function normalizeState(data) {
   }
 
 
-  Object.values(
-    data.months
-  ).forEach(
-    month => {
+  Object.values(data.months)
+    .forEach(month => {
 
       if (
-        !month ||
-        typeof month !== "object"
-      ) {
-
-        return;
-
-      }
-
-
-      if (
-        !Array.isArray(
-          month.expenses
-        )
+        !Array.isArray(month.expenses)
       ) {
 
         month.expenses = [];
@@ -552,9 +506,7 @@ function normalizeState(data) {
 
 
       if (
-        !Array.isArray(
-          month.extras
-        )
+        !Array.isArray(month.extras)
       ) {
 
         month.extras = [];
@@ -563,9 +515,7 @@ function normalizeState(data) {
 
 
       if (
-        !Array.isArray(
-          month.reserveTransactions
-        )
+        !Array.isArray(month.reserveTransactions)
       ) {
 
         month.reserveTransactions = [];
@@ -590,29 +540,8 @@ function normalizeState(data) {
           month.reserveWithdrawal
         ) || 0;
 
+    });
 
-      /* Compatibilidade com versões antigas */
-
-      if (
-        Object.prototype.hasOwnProperty.call(
-          month,
-          "_autoReserve"
-        )
-      ) {
-
-        month.reserveContribution = 0;
-
-        delete month._autoReserve;
-
-      }
-
-    }
-  );
-
-
-  /* =====================================================
-     RESERVA
-  ===================================================== */
 
   if (
     typeof data.reserveBalance !== "number"
@@ -623,26 +552,29 @@ function normalizeState(data) {
   }
 
 
-  /* =====================================================
-     MÊS ATUAL
-  ===================================================== */
-
   if (
     typeof data.currentMonth !== "string"
   ) {
 
     data.currentMonth =
-      monthKey(
-        new Date()
-      );
+      monthKey(new Date());
 
   }
+
+
+  /*
+    Salva a normalização imediatamente.
+  */
+
+  localStorage.setItem(
+    KEY,
+    JSON.stringify(data)
+  );
 
 
   return data;
 
 }
-
 
 
 /* =====================================================
@@ -686,7 +618,6 @@ function save() {
 }
 
 
-
 /* =====================================================
    MESES
 ===================================================== */
@@ -704,9 +635,7 @@ function getMonth(
   key = state.currentMonth
 ) {
 
-  if (
-    !state.months[key]
-  ) {
+  if (!state.months[key]) {
 
     state.months[key] = {
 
@@ -736,22 +665,14 @@ function getMonth(
     state.months[key];
 
 
-  if (
-    !Array.isArray(
-      month.expenses
-    )
-  ) {
+  if (!Array.isArray(month.expenses)) {
 
     month.expenses = [];
 
   }
 
 
-  if (
-    !Array.isArray(
-      month.extras
-    )
-  ) {
+  if (!Array.isArray(month.extras)) {
 
     month.extras = [];
 
@@ -801,10 +722,7 @@ function monthLabel(key) {
 }
 
 
-function monthShift(
-  key,
-  delta
-) {
+function monthShift(key, delta) {
 
   const [
     y,
@@ -823,7 +741,6 @@ function monthShift(
   );
 
 }
-
 
 
 /* =====================================================
@@ -858,9 +775,7 @@ function parseMoney(value) {
 
 
   let text =
-    String(value)
-      .trim();
-
+    String(value).trim();
 
   if (!text) {
 
@@ -918,15 +833,11 @@ function num(id) {
 }
 
 
-
 /* =====================================================
    GASTOS
 ===================================================== */
 
-function categorySpent(
-  id,
-  month
-) {
+function categorySpent(id, month) {
 
   return month.expenses
     .filter(
@@ -934,14 +845,9 @@ function categorySpent(
         expense.categoryId === id
     )
     .reduce(
-      (
-        sum,
-        expense
-      ) =>
+      (sum, expense) =>
         sum +
-        Number(
-          expense.amount
-        ),
+        Number(expense.amount || 0),
       0
     );
 
@@ -952,19 +858,13 @@ function totalSpent(month) {
 
   return month.expenses
     .reduce(
-      (
-        sum,
-        expense
-      ) =>
+      (sum, expense) =>
         sum +
-        Number(
-          expense.amount
-        ),
+        Number(expense.amount || 0),
       0
     );
 
 }
-
 
 
 /* =====================================================
@@ -975,19 +875,13 @@ function totalExtras(month) {
 
   return month.extras
     .reduce(
-      (
-        sum,
-        extra
-      ) =>
+      (sum, extra) =>
         sum +
-        Number(
-          extra.amount
-        ),
+        Number(extra.amount || 0),
       0
     );
 
 }
-
 
 
 /* =====================================================
@@ -998,25 +892,21 @@ function getReserveBalance() {
 
   let balance = 0;
 
-  Object.values(
-    state.months
-  ).forEach(
-    month => {
+  Object.values(state.months)
+    .forEach(month => {
 
       balance +=
         Number(
-          month.reserveContribution ||
-          0
+          month.reserveContribution || 0
         );
 
       balance -=
         Number(
-          month.reserveWithdrawal ||
-          0
+          month.reserveWithdrawal || 0
         );
 
-    }
-  );
+    });
+
 
   return Math.max(
     0,
@@ -1036,7 +926,6 @@ function syncReserve() {
 }
 
 
-
 /* =====================================================
    DISPONÍVEL
 ===================================================== */
@@ -1044,9 +933,7 @@ function syncReserve() {
 function available(month) {
 
   const salary =
-    Number(
-      month.salaryReceived
-    ) || 0;
+    Number(month.salaryReceived) || 0;
 
   const extras =
     totalExtras(month);
@@ -1076,7 +963,6 @@ function available(month) {
 }
 
 
-
 /* =====================================================
    RENDER
 ===================================================== */
@@ -1085,7 +971,6 @@ function render() {
 
   const month =
     getMonth();
-
 
   syncReserve();
 
@@ -1130,14 +1015,6 @@ function render() {
     .textContent =
     money(
       totalSpent(month)
-    );
-
-
-  document
-    .getElementById("reserveValue")
-    .textContent =
-    money(
-      state.reserveBalance
     );
 
 
@@ -1195,9 +1072,7 @@ function render() {
 
 
   const goalBox =
-    document.getElementById(
-      "goalBox"
-    );
+    document.getElementById("goalBox");
 
 
   if (goal > 0) {
@@ -1245,7 +1120,6 @@ function render() {
 }
 
 
-
 /* =====================================================
    CATEGORIAS
 ===================================================== */
@@ -1256,9 +1130,8 @@ function renderCategories() {
     getMonth();
 
   const wrap =
-    document.getElementById(
-      "categories"
-    );
+    document.getElementById("categories");
+
 
   if (!wrap) {
 
@@ -1266,199 +1139,52 @@ function renderCategories() {
 
   }
 
+
   wrap.innerHTML = "";
 
 
-  state.categories.forEach(
-    category => {
+  state.categories.forEach(category => {
 
-      const c =
-        category;
+    if (
+      category.type === "reserve"
+    ) {
 
-
-      if (
-        c.type === "reserve"
-      ) {
-
-        const contribution =
-          Number(
-            month.reserveContribution ||
-            0
-          );
-
-
-        const el =
-          document.createElement(
-            "div"
-          );
-
-
-        el.className =
-          "category reserve-cat";
-
-
-        el.innerHTML = `
-
-          <div class="cat-icon">
-            ${escapeHtml(c.icon)}
-          </div>
-
-          <div class="cat-main">
-
-            <div class="cat-name">
-              ${escapeHtml(c.name)}
-            </div>
-
-            <div class="cat-sub">
-              Aporte real deste mês
-            </div>
-
-            <div class="progress">
-
-              <div
-                style="width:${contribution > 0 ? 100 : 0}%"
-              ></div>
-
-            </div>
-
-          </div>
-
-          <div class="cat-value">
-
-            <strong>
-              ${money(contribution)}
-            </strong>
-
-            <small>
-              aporte
-            </small>
-
-          </div>
-
-          <div class="cat-actions">
-
-            <button
-              class="cat-edit"
-              type="button"
-              title="Editar categoria"
-            >
-              ✎
-            </button>
-
-          </div>
-
-        `;
-
-
-        el.addEventListener(
-          "click",
-          event => {
-
-            if (
-              event.target.closest(
-                ".cat-edit"
-              )
-            ) {
-
-              return;
-
-            }
-
-            openReserve();
-
-          }
+      const contribution =
+        Number(
+          month.reserveContribution || 0
         );
-
-
-        el
-          .querySelector(".cat-edit")
-          .addEventListener(
-            "click",
-            event => {
-
-              event.stopPropagation();
-
-              openEditCategory(c.id);
-
-            }
-          );
-
-
-        wrap.appendChild(el);
-
-        return;
-
-      }
-
-
-      const spent =
-        categorySpent(
-          c.id,
-          month
-        );
-
-
-      const budget =
-        Number(c.budget) || 0;
-
-
-      const remaining =
-        budget -
-        spent;
-
-
-      const pct =
-        budget > 0
-          ? Math.min(
-              100,
-              Math.max(
-                0,
-                (
-                  spent /
-                  budget
-                ) *
-                100
-              )
-            )
-          : 0;
 
 
       const el =
-        document.createElement(
-          "div"
-        );
+        document.createElement("div");
 
 
       el.className =
-        "category";
+        "category reserve-cat";
 
 
       el.innerHTML = `
 
         <div class="cat-icon">
-          ${escapeHtml(c.icon)}
+          ${escapeHtml(category.icon)}
         </div>
 
         <div class="cat-main">
 
           <div class="cat-name">
-            ${escapeHtml(c.name)}
+            ${escapeHtml(category.name)}
           </div>
 
           <div class="cat-sub">
-            ${money(
-              Math.max(
-                0,
-                remaining
-              )
-            )}
-            disponíveis
+            Aporte real deste mês
           </div>
 
           <div class="progress">
 
             <div
-              style="width:${pct}%"
+              style="width:${
+                contribution > 0 ? 100 : 0
+              }%"
             ></div>
 
           </div>
@@ -1468,12 +1194,11 @@ function renderCategories() {
         <div class="cat-value">
 
           <strong>
-            ${money(spent)}
+            ${money(contribution)}
           </strong>
 
           <small>
-            de
-            ${money(budget)}
+            aporte
           </small>
 
         </div>
@@ -1498,16 +1223,14 @@ function renderCategories() {
         event => {
 
           if (
-            event.target.closest(
-              ".cat-edit"
-            )
+            event.target.closest(".cat-edit")
           ) {
 
             return;
 
           }
 
-          openExpense(c.id);
+          openReserve();
 
         }
       );
@@ -1521,7 +1244,9 @@ function renderCategories() {
 
             event.stopPropagation();
 
-            openEditCategory(c.id);
+            openEditCategory(
+              category.id
+            );
 
           }
         );
@@ -1529,582 +1254,149 @@ function renderCategories() {
 
       wrap.appendChild(el);
 
+      return;
+
     }
-  );
-
-}
 
 
-
-/* =====================================================
-   EXTRAS
-===================================================== */
-
-function renderExtras() {
-
-  const month =
-    getMonth();
-
-  const container =
-    document.getElementById(
-      "extrasList"
-    );
-
-  if (!container) {
-
-    return;
-
-  }
+    const spent =
+      categorySpent(
+        category.id,
+        month
+      );
 
 
-  if (
-    month.extras.length === 0
-  ) {
+    const budget =
+      Number(category.budget) || 0;
 
-    container.innerHTML = `
 
-      <div class="empty-history">
-        Nenhuma entrada extra neste mês.
+    const remaining =
+      budget - spent;
+
+
+    const pct =
+      budget > 0
+        ? Math.min(
+            100,
+            Math.max(
+              0,
+              (
+                spent /
+                budget
+              ) *
+              100
+            )
+          )
+        : 0;
+
+
+    const el =
+      document.createElement("div");
+
+
+    el.className =
+      "category";
+
+
+    el.innerHTML = `
+
+      <div class="cat-icon">
+        ${escapeHtml(category.icon)}
+      </div>
+
+      <div class="cat-main">
+
+        <div class="cat-name">
+          ${escapeHtml(category.name)}
+        </div>
+
+        <div class="cat-sub">
+          ${money(
+            Math.max(
+              0,
+              remaining
+            )
+          )}
+          disponíveis
+        </div>
+
+        <div class="progress">
+
+          <div
+            style="width:${pct}%"
+          ></div>
+
+        </div>
+
+      </div>
+
+      <div class="cat-value">
+
+        <strong>
+          ${money(spent)}
+        </strong>
+
+        <small>
+          de
+          ${money(budget)}
+        </small>
+
+      </div>
+
+      <div class="cat-actions">
+
+        <button
+          class="cat-edit"
+          type="button"
+          title="Editar categoria"
+        >
+          ✎
+        </button>
+
       </div>
 
     `;
 
-    return;
 
-  }
+    el.addEventListener(
+      "click",
+      event => {
+
+        if (
+          event.target.closest(".cat-edit")
+        ) {
+
+          return;
+
+        }
+
+        openExpense(category.id);
+
+      }
+    );
 
 
-  const items =
-    [...month.extras]
-      .sort(
-        (a, b) =>
-          new Date(b.date) -
-          new Date(a.date)
+    el
+      .querySelector(".cat-edit")
+      .addEventListener(
+        "click",
+        event => {
+
+          event.stopPropagation();
+
+          openEditCategory(
+            category.id
+          );
+
+        }
       );
 
 
-  container.innerHTML =
-    items
-      .map(
-        extra => `
+    wrap.appendChild(el);
 
-          <div class="extra-item">
-
-            <div class="extra-icon">
-              💰
-            </div>
-
-            <div class="extra-main">
-
-              <div class="extra-name">
-                ${escapeHtml(
-                  extra.name
-                )}
-              </div>
-
-              <div class="extra-date">
-                ${formatDate(
-                  extra.date
-                )}
-              </div>
-
-            </div>
-
-            <div class="extra-value">
-              + ${money(
-                extra.amount
-              )}
-            </div>
-
-            <button
-              class="extra-delete"
-              type="button"
-              data-id="${extra.id}"
-              title="Excluir"
-            >
-              ✕
-            </button>
-
-          </div>
-
-        `
-      )
-      .join("");
-
-
-  container
-    .querySelectorAll(
-      ".extra-delete"
-    )
-    .forEach(
-      button => {
-
-        button.addEventListener(
-          "click",
-          () => {
-
-            deleteExtra(
-              button.dataset.id
-            );
-
-          }
-        );
-
-      }
-    );
+  });
 
 }
-
-
-function openExtra() {
-
-  const today =
-    new Date()
-      .toISOString()
-      .slice(0, 10);
-
-
-  openModal(
-
-    "Adicionar entrada extra",
-
-    `
-
-      <form
-        class="form"
-        id="extraForm"
-      >
-
-        <label>
-          Descrição
-        </label>
-
-        <input
-          id="extraName"
-          placeholder="Ex.: venda de algo pessoal"
-          required
-        >
-
-
-        <label>
-          Valor
-        </label>
-
-        <input
-          id="extraAmount"
-          inputmode="decimal"
-          placeholder="R$ 0,00"
-          required
-        >
-
-
-        <label>
-          Data
-        </label>
-
-        <input
-          id="extraDate"
-          type="date"
-          value="${today}"
-          required
-        >
-
-
-        <button>
-          Salvar entrada
-        </button>
-
-      </form>
-
-    `
-  );
-
-
-  document
-    .getElementById("extraForm")
-    .onsubmit =
-    event => {
-
-      event.preventDefault();
-
-
-      const name =
-        document
-          .getElementById("extraName")
-          .value
-          .trim();
-
-
-      const amount =
-        num("extraAmount");
-
-
-      const date =
-        document
-          .getElementById("extraDate")
-          .value;
-
-
-      if (
-        !name ||
-        !(amount > 0)
-      ) {
-
-        alert(
-          "Informe uma descrição e um valor válido."
-        );
-
-        return;
-
-      }
-
-
-      const month =
-        getMonth();
-
-
-      month.extras.push({
-
-        id:
-          createId(),
-
-        name,
-
-        amount,
-
-        date:
-          date ||
-          today
-
-      });
-
-
-      save();
-
-      closeModal();
-
-      render();
-
-    };
-
-}
-
-
-function deleteExtra(id) {
-
-  const month =
-    getMonth();
-
-
-  const extra =
-    month.extras.find(
-      item =>
-        item.id === id
-    );
-
-
-  if (!extra) {
-
-    return;
-
-  }
-
-
-  if (
-    !confirm(
-      `Excluir a entrada "${extra.name}" de ${money(extra.amount)}?`
-    )
-  ) {
-
-    return;
-
-  }
-
-
-  month.extras =
-    month.extras.filter(
-      item =>
-        item.id !== id
-    );
-
-
-  save();
-
-  render();
-
-}
-
-
-
-/* =====================================================
-   SEGURANÇA HTML
-===================================================== */
-
-function escapeHtml(s) {
-
-  return String(s)
-    .replace(
-      /[&<>"']/g,
-      x =>
-        ({
-          "&": "&amp;",
-          "<": "&lt;",
-          ">": "&gt;",
-          '"': "&quot;",
-          "'": "&#039;"
-        }[x])
-    );
-
-}
-
-
-function createId() {
-
-  if (
-    typeof crypto !== "undefined" &&
-    typeof crypto.randomUUID === "function"
-  ) {
-
-    return crypto.randomUUID();
-
-  }
-
-  return String(
-    Date.now() +
-    Math.random()
-  );
-
-}
-
-
-
-/* =====================================================
-   MODAL
-===================================================== */
-
-function openModal(
-  title,
-  html
-) {
-
-  document
-    .getElementById("modalTitle")
-    .textContent =
-    title;
-
-
-  document
-    .getElementById("modalBody")
-    .innerHTML =
-    html;
-
-
-  document
-    .getElementById("modal")
-    .classList.remove(
-      "hidden"
-    );
-
-}
-
-
-function closeModal() {
-
-  document
-    .getElementById("modal")
-    .classList.add(
-      "hidden"
-    );
-
-}
-
-
-
-/* =====================================================
-   ADICIONAR GASTO
-===================================================== */
-
-function openExpense(
-  categoryId =
-    state.categories.find(
-      c =>
-        c.type === "expense"
-    )?.id
-) {
-
-  const options =
-    state.categories
-
-      .filter(
-        c =>
-          c.type === "expense"
-      )
-
-      .map(
-        c =>
-          `
-          <option
-            value="${escapeHtml(c.id)}"
-            ${
-              c.id === categoryId
-                ? "selected"
-                : ""
-            }
-          >
-            ${escapeHtml(c.icon)}
-            ${escapeHtml(c.name)}
-          </option>
-          `
-      )
-
-      .join("");
-
-
-  const today =
-    new Date()
-      .toISOString()
-      .slice(
-        0,
-        10
-      );
-
-
-  openModal(
-
-    "Adicionar gasto",
-
-    `
-
-    <form
-      class="form"
-      id="expenseForm"
-    >
-
-      <label>
-        Valor
-      </label>
-
-      <input
-        id="expenseAmount"
-        inputmode="decimal"
-        placeholder="R$ 0,00"
-        required
-      >
-
-
-      <label>
-        Categoria
-      </label>
-
-      <select
-        id="expenseCategory"
-      >
-        ${options}
-      </select>
-
-
-      <label>
-        Data
-      </label>
-
-      <input
-        id="expenseDate"
-        type="date"
-        value="${today}"
-      >
-
-
-      <label>
-        Onde / com o que gastei?
-      </label>
-
-      <input
-        id="expenseNote"
-        placeholder="Ex.: mercado, farmácia, gasolina..."
-      >
-
-
-      <button>
-        Salvar gasto
-      </button>
-
-    </form>
-
-    `
-  );
-
-
-  document
-    .getElementById("expenseForm")
-    .onsubmit =
-    event => {
-
-      event.preventDefault();
-
-
-      const amount =
-        num("expenseAmount");
-
-
-      if (
-        !(amount > 0)
-      ) {
-
-        alert(
-          "Digite um valor válido."
-        );
-
-        return;
-
-      }
-
-
-      const month =
-        getMonth();
-
-
-      month.expenses.push({
-
-        id:
-          createId(),
-
-        categoryId:
-          document
-            .getElementById(
-              "expenseCategory"
-            )
-            .value,
-
-        amount,
-
-        date:
-          document
-            .getElementById(
-              "expenseDate"
-            )
-            .value,
-
-        note:
-          document
-            .getElementById(
-              "expenseNote"
-            )
-            .value
-            .trim()
-
-      });
-
-
-      save();
-
-      closeModal();
-
-      render();
-
-    };
-
-}
-
 
 
 /* =====================================================
@@ -2158,7 +1450,7 @@ function openCategory() {
       >
 
 
-      <button>
+      <button type="submit">
         Criar categoria
       </button>
 
@@ -2176,15 +1468,15 @@ function openCategory() {
       event.preventDefault();
 
 
-      const amount =
-        num("catBudget");
-
-
       const name =
         document
           .getElementById("catName")
           .value
           .trim();
+
+
+      const amount =
+        num("catBudget");
 
 
       if (
@@ -2201,15 +1493,10 @@ function openCategory() {
       }
 
 
-      /* =================================================
-         CRIA A NOVA CATEGORIA
-      ================================================= */
-
-      const newCategory = {
+      state.categories.push({
 
         id:
-          "cat_" +
-          createId(),
+          "cat_" + createId(),
 
         name,
 
@@ -2226,12 +1513,7 @@ function openCategory() {
         type:
           "expense"
 
-      };
-
-
-      state.categories.push(
-        newCategory
-      );
+      });
 
 
       save();
@@ -2243,7 +1525,6 @@ function openCategory() {
     };
 
 }
-
 
 
 /* =====================================================
@@ -2323,7 +1604,7 @@ function openEditCategory(id) {
       }
 
 
-      <button>
+      <button type="submit">
         Salvar alterações
       </button>
 
@@ -2338,6 +1619,7 @@ function openEditCategory(id) {
           <button
             class="danger"
             id="deleteCategoryBtn"
+            type="button"
             style="
               width:100%;
               padding:13px;
@@ -2363,16 +1645,14 @@ function openEditCategory(id) {
       event.preventDefault();
 
 
-      const newName =
+      const name =
         document
-          .getElementById(
-            "editCatName"
-          )
+          .getElementById("editCatName")
           .value
           .trim();
 
 
-      if (!newName) {
+      if (!name) {
 
         alert(
           "Digite um nome."
@@ -2384,14 +1664,12 @@ function openEditCategory(id) {
 
 
       category.name =
-        newName;
+        name;
 
 
       category.icon =
         document
-          .getElementById(
-            "editCatIcon"
-          )
+          .getElementById("editCatIcon")
           .value
           .trim() ||
         "💰";
@@ -2400,9 +1678,7 @@ function openEditCategory(id) {
       if (!isReserve) {
 
         category.budget =
-          num(
-            "editCatBudget"
-          );
+          num("editCatBudget");
 
       }
 
@@ -2458,6 +1734,462 @@ function openEditCategory(id) {
 }
 
 
+/* =====================================================
+   GASTO
+===================================================== */
+
+function openExpense(
+  categoryId =
+    state.categories.find(
+      c =>
+        c.type === "expense"
+    )?.id
+) {
+
+  const options =
+    state.categories
+      .filter(
+        c =>
+          c.type === "expense"
+      )
+      .map(
+        c =>
+          `
+          <option
+            value="${escapeHtml(c.id)}"
+            ${
+              c.id === categoryId
+                ? "selected"
+                : ""
+            }
+          >
+            ${escapeHtml(c.icon)}
+            ${escapeHtml(c.name)}
+          </option>
+          `
+      )
+      .join("");
+
+
+  const today =
+    todayKey();
+
+
+  openModal(
+
+    "Adicionar gasto",
+
+    `
+
+    <form
+      class="form"
+      id="expenseForm"
+    >
+
+      <label>
+        Valor
+      </label>
+
+      <input
+        id="expenseAmount"
+        inputmode="decimal"
+        placeholder="R$ 0,00"
+        required
+      >
+
+
+      <label>
+        Categoria
+      </label>
+
+      <select
+        id="expenseCategory"
+      >
+        ${options}
+      </select>
+
+
+      <label>
+        Data
+      </label>
+
+      <input
+        id="expenseDate"
+        type="date"
+        value="${today}"
+      >
+
+
+      <label>
+        Onde / com o que gastei?
+      </label>
+
+      <input
+        id="expenseNote"
+        placeholder="Ex.: mercado, farmácia, gasolina..."
+      >
+
+
+      <button type="submit">
+        Salvar gasto
+      </button>
+
+    </form>
+
+    `
+  );
+
+
+  document
+    .getElementById("expenseForm")
+    .onsubmit =
+    event => {
+
+      event.preventDefault();
+
+
+      const amount =
+        num("expenseAmount");
+
+
+      if (!(amount > 0)) {
+
+        alert(
+          "Digite um valor válido."
+        );
+
+        return;
+
+      }
+
+
+      const month =
+        getMonth();
+
+
+      month.expenses.push({
+
+        id:
+          createId(),
+
+        categoryId:
+          document
+            .getElementById("expenseCategory")
+            .value,
+
+        amount,
+
+        date:
+          document
+            .getElementById("expenseDate")
+            .value,
+
+        note:
+          document
+            .getElementById("expenseNote")
+            .value
+            .trim()
+
+      });
+
+
+      save();
+
+      closeModal();
+
+      render();
+
+    };
+
+}
+
+
+/* =====================================================
+   EXTRAS
+===================================================== */
+
+function renderExtras() {
+
+  const month =
+    getMonth();
+
+  const container =
+    document.getElementById(
+      "extrasList"
+    );
+
+
+  if (!container) {
+
+    return;
+
+  }
+
+
+  if (
+    month.extras.length === 0
+  ) {
+
+    container.innerHTML = `
+
+      <div class="empty-history">
+        Nenhuma entrada extra neste mês.
+      </div>
+
+    `;
+
+    return;
+
+  }
+
+
+  const items =
+    [...month.extras]
+      .sort(
+        (a, b) =>
+          new Date(b.date) -
+          new Date(a.date)
+      );
+
+
+  container.innerHTML =
+    items
+      .map(
+        extra => `
+
+          <div class="extra-item">
+
+            <div class="extra-icon">
+              💰
+            </div>
+
+            <div class="extra-main">
+
+              <div class="extra-name">
+                ${escapeHtml(extra.name)}
+              </div>
+
+              <div class="extra-date">
+                ${formatDate(extra.date)}
+              </div>
+
+            </div>
+
+            <div class="extra-value">
+              + ${money(extra.amount)}
+            </div>
+
+            <button
+              class="extra-delete"
+              type="button"
+              data-id="${escapeHtml(extra.id)}"
+              title="Excluir"
+            >
+              ✕
+            </button>
+
+          </div>
+
+        `
+      )
+      .join("");
+
+
+  container
+    .querySelectorAll(".extra-delete")
+    .forEach(button => {
+
+      button.addEventListener(
+        "click",
+        () => {
+
+          deleteExtra(
+            button.dataset.id
+          );
+
+        }
+      );
+
+    });
+
+}
+
+
+function openExtra() {
+
+  const today =
+    todayKey();
+
+
+  openModal(
+
+    "Adicionar entrada extra",
+
+    `
+
+      <form
+        class="form"
+        id="extraForm"
+      >
+
+        <label>
+          Descrição
+        </label>
+
+        <input
+          id="extraName"
+          placeholder="Ex.: venda de algo pessoal"
+          required
+        >
+
+
+        <label>
+          Valor
+        </label>
+
+        <input
+          id="extraAmount"
+          inputmode="decimal"
+          placeholder="R$ 0,00"
+          required
+        >
+
+
+        <label>
+          Data
+        </label>
+
+        <input
+          id="extraDate"
+          type="date"
+          value="${today}"
+          required
+        >
+
+
+        <button type="submit">
+          Salvar entrada
+        </button>
+
+      </form>
+
+    `
+  );
+
+
+  document
+    .getElementById("extraForm")
+    .onsubmit =
+    event => {
+
+      event.preventDefault();
+
+
+      const name =
+        document
+          .getElementById("extraName")
+          .value
+          .trim();
+
+
+      const amount =
+        num("extraAmount");
+
+
+      const date =
+        document
+          .getElementById("extraDate")
+          .value;
+
+
+      if (
+        !name ||
+        !(amount > 0)
+      ) {
+
+        alert(
+          "Informe uma descrição e um valor válido."
+        );
+
+        return;
+
+      }
+
+
+      const month =
+        getMonth();
+
+
+      month.extras.push({
+
+        id:
+          createId(),
+
+        name,
+
+        amount,
+
+        date:
+          date || today
+
+      });
+
+
+      save();
+
+      closeModal();
+
+      render();
+
+    };
+
+}
+
+
+function deleteExtra(id) {
+
+  const month =
+    getMonth();
+
+
+  const extra =
+    month.extras.find(
+      item =>
+        item.id === id
+    );
+
+
+  if (!extra) {
+
+    return;
+
+  }
+
+
+  if (
+    !confirm(
+      `Excluir a entrada "${extra.name}" de ${money(extra.amount)}?`
+    )
+  ) {
+
+    return;
+
+  }
+
+
+  month.extras =
+    month.extras.filter(
+      item =>
+        item.id !== id
+    );
+
+
+  save();
+
+  render();
+
+}
+
 
 /* =====================================================
    RESERVA
@@ -2471,15 +2203,13 @@ function openReserve() {
 
   const contribution =
     Number(
-      month.reserveContribution ||
-      0
+      month.reserveContribution || 0
     );
 
 
   const withdrawal =
     Number(
-      month.reserveWithdrawal ||
-      0
+      month.reserveWithdrawal || 0
     );
 
 
@@ -2497,9 +2227,7 @@ function openReserve() {
 
       <br>
 
-      ${money(
-        state.reserveBalance
-      )}
+      ${money(state.reserveBalance)}
 
       <br><br>
 
@@ -2509,9 +2237,7 @@ function openReserve() {
 
       <br>
 
-      ${money(
-        contribution
-      )}
+      ${money(contribution)}
 
       <br><br>
 
@@ -2521,9 +2247,7 @@ function openReserve() {
 
       <br>
 
-      ${money(
-        withdrawal
-      )}
+      ${money(withdrawal)}
 
     </div>
 
@@ -2553,7 +2277,7 @@ function openReserve() {
         placeholder="Ex.: consegui guardar este mês"
       >
 
-      <button>
+      <button type="submit">
         Registrar aporte
       </button>
 
@@ -2585,7 +2309,10 @@ function openReserve() {
         placeholder="Ex.: emergência"
       >
 
-      <button class="danger">
+      <button
+        class="danger"
+        type="submit"
+      >
         Registrar retirada
       </button>
 
@@ -2595,6 +2322,7 @@ function openReserve() {
     <button
       class="secondary"
       id="closeReserveBtn"
+      type="button"
       style="
         width:100%;
         padding:13px;
@@ -2621,9 +2349,7 @@ function openReserve() {
         num("reserveAmount");
 
 
-      if (
-        !(amount > 0)
-      ) {
+      if (!(amount > 0)) {
 
         alert(
           "Digite um valor válido."
@@ -2689,8 +2415,7 @@ function openReserve() {
 
       if (
         !(amount > 0) ||
-        amount >
-          state.reserveBalance
+        amount > state.reserveBalance
       ) {
 
         alert(
@@ -2751,7 +2476,6 @@ function openReserve() {
 }
 
 
-
 /* =====================================================
    HISTÓRICO
 ===================================================== */
@@ -2767,23 +2491,18 @@ function getHistory(month) {
       const category =
         state.categories.find(
           c =>
-            c.id ===
-            expense.categoryId
+            c.id === expense.categoryId
         );
 
 
       items.push({
 
-        type:
-          "expense",
+        type: "expense",
 
-        date:
-          expense.date,
+        date: expense.date,
 
         amount:
-          Number(
-            expense.amount
-          ),
+          Number(expense.amount || 0),
 
         name:
           category
@@ -2796,8 +2515,7 @@ function getHistory(month) {
             : "💰",
 
         note:
-          expense.note ||
-          "",
+          expense.note || "",
 
         id:
           expense.id
@@ -2813,16 +2531,12 @@ function getHistory(month) {
 
       items.push({
 
-        type:
-          "extra-in",
+        type: "extra-in",
 
-        date:
-          extra.date,
+        date: extra.date,
 
         amount:
-          Number(
-            extra.amount
-          ),
+          Number(extra.amount || 0),
 
         name:
           extra.name,
@@ -2848,46 +2562,42 @@ function getHistory(month) {
     )
   ) {
 
-    month.reserveTransactions
-      .forEach(
-        transaction => {
+    month.reserveTransactions.forEach(
+      transaction => {
 
-          items.push({
+        items.push({
 
-            type:
-              transaction.type === "in"
-                ? "reserve-in"
-                : "reserve-out",
+          type:
+            transaction.type === "in"
+              ? "reserve-in"
+              : "reserve-out",
 
-            date:
-              transaction.date,
+          date:
+            transaction.date,
 
-            amount:
-              Number(
-                transaction.amount
-              ),
+          amount:
+            Number(transaction.amount || 0),
 
-            name:
-              transaction.type === "in"
-                ? "Aporte para reserva"
-                : "Retirada da reserva",
+          name:
+            transaction.type === "in"
+              ? "Aporte para reserva"
+              : "Retirada da reserva",
 
-            icon:
-              transaction.type === "in"
-                ? "🏦"
-                : "💸",
+          icon:
+            transaction.type === "in"
+              ? "🏦"
+              : "💸",
 
-            note:
-              transaction.note ||
-              "",
+          note:
+            transaction.note || "",
 
-            id:
-              transaction.id
+          id:
+            transaction.id
 
-          });
+        });
 
-        }
-      );
+      }
+    );
 
   }
 
@@ -2903,66 +2613,6 @@ function getHistory(month) {
 
 }
 
-
-
-/* =====================================================
-   DATA
-===================================================== */
-
-function todayKey() {
-
-  const now =
-    new Date();
-
-  return monthDateKey(
-    now
-  );
-
-}
-
-
-function monthDateKey(date) {
-
-  return `${date.getFullYear()}-${String(
-    date.getMonth() + 1
-  ).padStart(2, "0")}-${String(
-    date.getDate()
-  ).padStart(2, "0")}`;
-
-}
-
-
-function formatDate(date) {
-
-  if (!date) {
-
-    return "";
-
-  }
-
-
-  const parts =
-    String(date).split("-");
-
-
-  if (
-    parts.length !== 3
-  ) {
-
-    return date;
-
-  }
-
-
-  return `${parts[2]}/${parts[1]}/${parts[0]}`;
-
-}
-
-
-
-/* =====================================================
-   HISTÓRICO RESUMIDO
-===================================================== */
 
 function renderHistoryPreview() {
 
@@ -3015,11 +2665,6 @@ function renderHistoryPreview() {
 
 }
 
-
-
-/* =====================================================
-   HTML HISTÓRICO
-===================================================== */
 
 function historyItemHtml(item) {
 
@@ -3109,11 +2754,6 @@ function historyItemHtml(item) {
 }
 
 
-
-/* =====================================================
-   HISTÓRICO COMPLETO
-===================================================== */
-
 function openHistory() {
 
   const month =
@@ -3144,8 +2784,7 @@ function openHistory() {
     );
 
 
-  let content =
-    "";
+  let content = "";
 
 
   if (
@@ -3189,9 +2828,7 @@ function openHistory() {
       </span>
 
       <strong>
-        ${money(
-          month.salaryReceived
-        )}
+        ${money(month.salaryReceived)}
       </strong>
 
     </div>
@@ -3204,9 +2841,7 @@ function openHistory() {
       </span>
 
       <strong>
-        ${money(
-          extrasTotal
-        )}
+        ${money(extrasTotal)}
       </strong>
 
     </div>
@@ -3219,9 +2854,7 @@ function openHistory() {
       </span>
 
       <strong>
-        ${money(
-          expensesTotal
-        )}
+        ${money(expensesTotal)}
       </strong>
 
     </div>
@@ -3234,9 +2867,7 @@ function openHistory() {
       </span>
 
       <strong>
-        ${money(
-          contribution
-        )}
+        ${money(contribution)}
       </strong>
 
     </div>
@@ -3249,9 +2880,7 @@ function openHistory() {
       </span>
 
       <strong>
-        ${money(
-          withdrawal
-        )}
+        ${money(withdrawal)}
       </strong>
 
     </div>
@@ -3268,7 +2897,6 @@ function openHistory() {
   );
 
 }
-
 
 
 /* =====================================================
@@ -3312,9 +2940,7 @@ function openSettings() {
         type="number"
         min="0"
         max="100"
-        value="${
-          state.settings.advancePercent
-        }"
+        value="${state.settings.advancePercent}"
       >
 
 
@@ -3327,9 +2953,7 @@ function openSettings() {
         type="number"
         min="1"
         max="31"
-        value="${
-          state.settings.advanceDay
-        }"
+        value="${state.settings.advanceDay}"
       >
 
 
@@ -3352,9 +2976,7 @@ function openSettings() {
       <input
         id="sGoal"
         inputmode="decimal"
-        value="${
-          state.settings.reserveGoal
-        }"
+        value="${state.settings.reserveGoal}"
       >
 
 
@@ -3384,7 +3006,7 @@ function openSettings() {
       </div>
 
 
-      <button>
+      <button type="submit">
         Salvar
       </button>
 
@@ -3413,6 +3035,7 @@ function openSettings() {
         border-radius:12px
       "
       id="exportBtn"
+      type="button"
     >
       Exportar backup JSON
     </button>
@@ -3427,6 +3050,7 @@ function openSettings() {
         border-radius:12px
       "
       id="resetBtn"
+      type="button"
     >
       Apagar todos os dados
     </button>
@@ -3570,7 +3194,6 @@ function openSettings() {
 }
 
 
-
 /* =====================================================
    PAGAMENTOS
 ===================================================== */
@@ -3641,7 +3264,6 @@ function openPayments() {
 }
 
 
-
 /* =====================================================
    BACKUP
 ===================================================== */
@@ -3693,6 +3315,131 @@ function exportData() {
 
 }
 
+
+/* =====================================================
+   UTILIDADES
+===================================================== */
+
+function escapeHtml(s) {
+
+  return String(s)
+    .replace(
+      /[&<>"']/g,
+      x =>
+        ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&#039;"
+        }[x])
+    );
+
+}
+
+
+function createId() {
+
+  if (
+    typeof crypto !== "undefined" &&
+    typeof crypto.randomUUID === "function"
+  ) {
+
+    return crypto.randomUUID();
+
+  }
+
+
+  return String(
+    Date.now() +
+    Math.random()
+  );
+
+}
+
+
+function todayKey() {
+
+  const now =
+    new Date();
+
+  return monthDateKey(now);
+
+}
+
+
+function monthDateKey(date) {
+
+  return `${date.getFullYear()}-${String(
+    date.getMonth() + 1
+  ).padStart(2, "0")}-${String(
+    date.getDate()
+  ).padStart(2, "0")}`;
+
+}
+
+
+function formatDate(date) {
+
+  if (!date) {
+
+    return "";
+
+  }
+
+
+  const parts =
+    String(date).split("-");
+
+
+  if (
+    parts.length !== 3
+  ) {
+
+    return date;
+
+  }
+
+
+  return `${parts[2]}/${parts[1]}/${parts[0]}`;
+
+}
+
+
+/* =====================================================
+   MODAL
+===================================================== */
+
+function openModal(title, html) {
+
+  document
+    .getElementById("modalTitle")
+    .textContent =
+    title;
+
+
+  document
+    .getElementById("modalBody")
+    .innerHTML =
+    html;
+
+
+  document
+    .getElementById("modal")
+    .classList
+    .remove("hidden");
+
+}
+
+
+function closeModal() {
+
+  document
+    .getElementById("modal")
+    .classList
+    .add("hidden");
+
+}
 
 
 /* =====================================================
@@ -3847,8 +3594,7 @@ document
     event => {
 
       if (
-        event.target.id ===
-        "modal"
+        event.target.id === "modal"
       ) {
 
         closeModal();
@@ -3857,7 +3603,6 @@ document
 
     }
   );
-
 
 
 /* =====================================================
@@ -3875,6 +3620,13 @@ function initFinance() {
       ) === "true"
     );
 
+
+  /*
+    Garante que as categorias existam
+    antes do primeiro render.
+  */
+
+  normalizeState(state);
 
   getMonth();
 
@@ -3901,4 +3653,4 @@ if (isLogged()) {
     .classList
     .add("hidden");
 
-     }
+}
