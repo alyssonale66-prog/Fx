@@ -207,12 +207,16 @@ function openSettings() {
       <label>Dia do adiantamento</label><input id="sDay" type="number" min="1" max="31" value="${state.settings.advanceDay}">
       <label>Texto do pagamento principal</label><input id="sMain" value="${escapeHtml(state.settings.mainPaymentLabel)}">
       <label>Meta da reserva (0 para desativar)</label><input id="sGoal" inputmode="decimal" value="${state.settings.reserveGoal}">
+      <label><input type="checkbox" id="darkModeToggle"> 🌙 Modo escuro</label>
       <button>Salvar configurações</button>
     </form>
     <div class="notice" style="margin-top:12px">Os dados ficam somente neste aparelho. Use a opção de exportação antes de limpar o navegador.</div>
     <button class="secondary" style="width:100%;margin-top:10px;padding:13px;border-radius:12px" id="exportBtn">Exportar backup JSON</button>
     <button class="danger" style="width:100%;margin-top:10px;padding:13px;border-radius:12px" id="resetBtn">Apagar todos os dados</button>
   `);
+    document.getElementById("darkModeToggle").checked =
+    localStorage.getItem("fxDarkMode") === "true";
+  
   document.getElementById("settingsForm").onsubmit = e => {
     e.preventDefault();
     state.settings.plannedSalary = num("sSalary");
@@ -220,7 +224,12 @@ function openSettings() {
     state.settings.advanceDay = Number(document.getElementById("sDay").value)||20;
     state.settings.mainPaymentLabel = document.getElementById("sMain").value || "5º dia útil";
     state.settings.reserveGoal = num("sGoal");
-    save(); closeModal(); render();
+
+const dark = document.getElementById("darkModeToggle").checked;
+document.body.classList.toggle("dark", dark);
+localStorage.setItem("fxDarkMode", dark);
+
+save(); closeModal(); render();
   };
   document.getElementById("exportBtn").onclick = exportData;
   document.getElementById("resetBtn").onclick = () => {
@@ -280,6 +289,8 @@ document.getElementById("paymentsSettingsBtn").onclick = openPayments;
 document.getElementById("reserveBtn").onclick = openReserve;
 document.getElementById("closeModal").onclick = closeModal;
 document.getElementById("modal").addEventListener("click", e => { if (e.target.id === "modal") closeModal(); });
+
+document.body.classList.toggle("dark", localStorage.getItem("fxDarkMode") === "true");
 
 getMonth();
 syncReserve();
