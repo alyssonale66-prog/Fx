@@ -1,104 +1,331 @@
 <!doctype html>
 <html lang="pt-BR">
+
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+
   <meta name="theme-color" content="#111827">
+
   <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="style.css">
-  <title>FX — Seu dinheiro. Seu controle.</title>
+
+  <title>Alisson Finance — Seu dinheiro. Suas regras.</title>
 </head>
+
 <body>
+
   <header class="topbar">
     <div>
-      <div class="brand">FX</div>
-      <div class="tagline">Seu dinheiro. Seu controle.</div>
+      <div class="brand">Alisson Finance</div>
+      <div class="tagline">Seu dinheiro. Suas regras.</div>
     </div>
-    <button class="icon-btn" id="settingsBtn" aria-label="Configurações">⚙️</button>
+
+    <button
+      class="icon-btn"
+      id="settingsBtn"
+      aria-label="Configurações">
+      ⚙️
+    </button>
   </header>
 
+
   <main>
+
+    <!-- NAVEGAÇÃO DO MÊS -->
+
     <section class="month-nav">
-      <button class="icon-btn" id="prevMonth">‹</button>
-      <div class="month-title" id="monthTitle"></div>
-      <button class="icon-btn" id="nextMonth">›</button>
+
+      <button
+        class="icon-btn"
+        id="prevMonth">
+        ‹
+      </button>
+
+      <div
+        class="month-title"
+        id="monthTitle">
+      </div>
+
+      <button
+        class="icon-btn"
+        id="nextMonth">
+        ›
+      </button>
+
     </section>
+
+
+    <!-- VALOR DISPONÍVEL -->
 
     <section class="hero card">
-      <div class="eyebrow">QUANTO POSSO GASTAR?</div>
-      <div class="hero-value" id="availableValue">R$ 0,00</div>
-      <div class="muted" id="availableHint">Depois de separar a reserva e considerar os gastos.</div>
+
+      <div class="eyebrow">
+        QUANTO POSSO GASTAR?
+      </div>
+
+      <div
+        class="hero-value"
+        id="availableValue">
+        R$ 0,00
+      </div>
+
+      <div
+        class="muted"
+        id="availableHint">
+        Depois de separar a reserva e considerar os gastos.
+      </div>
+
     </section>
+
+
+    <!-- ESTATÍSTICAS -->
 
     <section class="stats">
+
       <div class="stat card">
-        <span>Salário recebido</span>
-        <strong id="salaryValue">R$ 0,00</strong>
+
+        <span>
+          Salário recebido
+        </span>
+
+        <strong id="salaryValue">
+          R$ 0,00
+        </strong>
+
       </div>
+
+
       <div class="stat card">
-        <span>Gastos do mês</span>
-        <strong id="spentValue">R$ 0,00</strong>
+
+        <span>
+          Gastos do mês
+        </span>
+
+        <strong id="spentValue">
+          R$ 0,00
+        </strong>
+
       </div>
+
+
       <div class="stat card">
-        <span>Reserva acumulada</span>
-        <strong id="reserveValue">R$ 0,00</strong>
+
+        <span>
+          Reserva acumulada
+        </span>
+
+        <strong id="reserveValue">
+          R$ 0,00
+        </strong>
+
       </div>
+
     </section>
+
+
+    <!-- CATEGORIAS -->
 
     <section class="section-head">
-      <h2>Categorias</h2>
-      <button class="text-btn" id="addCategoryBtn">+ Nova</button>
+
+      <h2>
+        Categorias
+      </h2>
+
+      <button
+        class="text-btn"
+        id="addCategoryBtn">
+        + Nova
+      </button>
+
     </section>
-    <section id="categories" class="categories"></section>
+
+    <section
+      id="categories"
+      class="categories">
+    </section>
+
+
+    <!-- HISTÓRICO -->
+
+    <section class="section-head">
+
+      <h2>
+        Histórico
+      </h2>
+
+      <span
+        class="muted"
+        id="historyCount">
+        0 gastos
+      </span>
+
+    </section>
+
+    <section
+      id="history"
+      class="history">
+    </section>
+
+
+    <!-- PAGAMENTOS -->
 
     <section class="payment card">
+
       <div class="section-head compact">
-        <h2>Pagamentos</h2>
-        <button class="text-btn" id="paymentsSettingsBtn">Ajustar</button>
+
+        <h2>
+          Pagamentos
+        </h2>
+
+        <button
+          class="text-btn"
+          id="paymentsSettingsBtn">
+          Ajustar
+        </button>
+
       </div>
+
+
       <div class="payment-grid">
+
         <div>
-          <span>Adiantamento</span>
-          <strong id="advanceValue">R$ 0,00</strong>
-          <small id="advanceDate">Dia 20</small>
+
+          <span>
+            Adiantamento
+          </span>
+
+          <strong id="advanceValue">
+            R$ 0,00
+          </strong>
+
+          <small id="advanceDate">
+            Dia 20
+          </small>
+
         </div>
+
+
         <div>
-          <span>Pagamento principal</span>
-          <strong id="mainPayValue">R$ 0,00</strong>
-          <small id="mainPayDate">5º dia útil</small>
+
+          <span>
+            Pagamento principal
+          </span>
+
+          <strong id="mainPayValue">
+            R$ 0,00
+          </strong>
+
+          <small id="mainPayDate">
+            5º dia útil
+          </small>
+
         </div>
+
       </div>
+
     </section>
+
+
+    <!-- RESERVA -->
 
     <section class="reserve card">
+
       <div class="section-head compact">
-        <h2>Reserva</h2>
-        <button class="text-btn" id="reserveBtn">Ver</button>
+
+        <h2>
+          Reserva
+        </h2>
+
+        <button
+          class="text-btn"
+          id="reserveBtn">
+          Ver
+        </button>
+
       </div>
+
+
       <div class="reserve-row">
+
         <div>
-          <span>Acumulada</span>
-          <strong id="reserveBig">R$ 0,00</strong>
+
+          <span>
+            Acumulada
+          </span>
+
+          <strong id="reserveBig">
+            R$ 0,00
+          </strong>
+
         </div>
-        <div class="goal" id="goalBox"></div>
+
+
+        <div
+          class="goal"
+          id="goalBox">
+        </div>
+
       </div>
+
     </section>
+
+
+    <!-- AÇÃO PRINCIPAL -->
 
     <section class="actions">
-      <button class="primary" id="addExpenseBtn">+ Adicionar gasto</button>
+
+      <button
+        class="primary"
+        id="addExpenseBtn">
+        + Adicionar gasto
+      </button>
+
     </section>
+
   </main>
 
-  <div class="modal hidden" id="modal">
+
+  <!-- MODAL -->
+
+  <div
+    class="modal hidden"
+    id="modal">
+
     <div class="modal-sheet">
+
       <div class="modal-head">
-        <h3 id="modalTitle">Adicionar gasto</h3>
-        <button class="icon-btn" id="closeModal">✕</button>
+
+        <h3 id="modalTitle">
+          Adicionar gasto
+        </h3>
+
+        <button
+          class="icon-btn"
+          id="closeModal"
+          aria-label="Fechar">
+          ✕
+        </button>
+
       </div>
+
       <div id="modalBody"></div>
+
     </div>
+
   </div>
 
-  <script src="app.js"></script><script>if ("serviceWorker" in navigator) navigator.serviceWorker.register("service-worker.js");</script>
+
+  <!-- JAVASCRIPT -->
+
+  <script src="app.js"></script>
+
+  <script>
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("service-worker.js");
+    }
+  </script>
+
 </body>
+
 </html>
