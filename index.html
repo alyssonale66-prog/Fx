@@ -92,6 +92,7 @@
       <button
         class="login-link"
         id="showCreateBtn"
+        type="button"
       >
         Criar conta
       </button>
@@ -149,6 +150,7 @@
       <button
         class="primary login-button"
         id="createBtn"
+        type="button"
       >
         Criar conta
       </button>
@@ -157,6 +159,7 @@
       <button
         class="login-link"
         id="backLoginBtn"
+        type="button"
       >
         Já tenho uma conta
       </button>
@@ -185,8 +188,6 @@
 >
 
 
-  <!-- TOPO -->
-
   <header class="topbar">
 
     <div>
@@ -208,6 +209,7 @@
         class="icon-btn"
         id="historyBtn"
         aria-label="Histórico"
+        type="button"
       >
         📜
       </button>
@@ -216,6 +218,7 @@
         class="icon-btn"
         id="settingsBtn"
         aria-label="Configurações"
+        type="button"
       >
         ⚙️
       </button>
@@ -224,6 +227,7 @@
         class="icon-btn"
         id="logoutBtn"
         aria-label="Sair"
+        type="button"
       >
         ↪
       </button>
@@ -237,13 +241,12 @@
   <main>
 
 
-    <!-- MÊS -->
-
     <section class="month-nav">
 
       <button
         class="icon-btn"
         id="prevMonth"
+        type="button"
       >
         ‹
       </button>
@@ -258,6 +261,7 @@
       <button
         class="icon-btn"
         id="nextMonth"
+        type="button"
       >
         ›
       </button>
@@ -265,8 +269,6 @@
     </section>
 
 
-
-    <!-- QUANTO POSSO GASTAR -->
 
     <section class="hero card">
 
@@ -293,8 +295,6 @@
     </section>
 
 
-
-    <!-- ESTATÍSTICAS -->
 
     <section class="stats">
 
@@ -341,7 +341,6 @@
     </section>
 
 
-    <!-- CATEGORIAS -->
 
     <section class="section-head">
 
@@ -352,6 +351,7 @@
       <button
         class="text-btn"
         id="addCategoryBtn"
+        type="button"
       >
         + Nova
       </button>
@@ -366,8 +366,6 @@
 
 
 
-    <!-- PAGAMENTOS -->
-
     <section class="payment card">
 
       <div class="section-head compact">
@@ -379,6 +377,7 @@
         <button
           class="text-btn"
           id="paymentsSettingsBtn"
+          type="button"
         >
           Ajustar
         </button>
@@ -429,8 +428,6 @@
 
 
 
-    <!-- RESERVA -->
-
     <section class="reserve card">
 
 
@@ -443,6 +440,7 @@
         <button
           class="text-btn"
           id="reserveBtn"
+          type="button"
         >
           Gerenciar
         </button>
@@ -479,8 +477,6 @@
 
 
 
-    <!-- EXTRAS -->
-
     <section class="extras card">
 
       <div class="section-head compact">
@@ -500,6 +496,7 @@
         <button
           class="text-btn"
           id="addExtraBtn"
+          type="button"
         >
           + Adicionar
         </button>
@@ -522,8 +519,6 @@
 
 
 
-    <!-- HISTÓRICO -->
-
     <section class="history-preview card">
 
       <div class="section-head compact">
@@ -535,6 +530,7 @@
         <button
           class="text-btn"
           id="historyBtn2"
+          type="button"
         >
           Ver tudo
         </button>
@@ -557,13 +553,12 @@
 
 
 
-    <!-- ADICIONAR GASTO -->
-
     <section class="actions">
 
       <button
         class="primary"
         id="addExpenseBtn"
+        type="button"
       >
         + Adicionar gasto
       </button>
@@ -574,10 +569,6 @@
   </main>
 
 
-
-  <!-- ===================================================
-       MODAL
-  ==================================================== -->
 
   <div
     class="modal hidden"
@@ -597,6 +588,7 @@
         <button
           class="icon-btn"
           id="closeModal"
+          type="button"
         >
           ✕
         </button>
@@ -616,7 +608,11 @@
 
 
 
-<script src="app.js"></script>
+<!-- =====================================================
+     APP JS
+===================================================== -->
+
+<script src="app.js?v=20260816-3"></script>
 
 
 <script>
@@ -624,7 +620,7 @@
 if ("serviceWorker" in navigator) {
 
   navigator.serviceWorker.register(
-    "service-worker.js"
+    "service-worker.js?v=20260816-3"
   );
 
 }
