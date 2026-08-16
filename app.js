@@ -47,9 +47,7 @@ function isLogged() {
 
 function login(username, password) {
 
-  const account =
-    getAccount();
-
+  const account = getAccount();
 
   if (!account) {
 
@@ -60,7 +58,6 @@ function login(username, password) {
     return;
 
   }
-
 
   if (
     username !== account.username ||
@@ -75,12 +72,10 @@ function login(username, password) {
 
   }
 
-
   localStorage.setItem(
     SESSION_KEY,
     "true"
   );
-
 
   showApp();
 
@@ -95,18 +90,15 @@ function createAccount() {
       .value
       .trim();
 
-
   const password =
     document
       .getElementById("createPassword")
       .value;
 
-
   const confirmation =
     document
       .getElementById("createPasswordConfirm")
       .value;
-
 
   if (
     username.length < 2 ||
@@ -121,10 +113,7 @@ function createAccount() {
 
   }
 
-
-  if (
-    password.length !== 8
-  ) {
+  if (password.length !== 8) {
 
     showLoginMessage(
       "A senha precisa ter exatamente 8 caracteres."
@@ -134,10 +123,7 @@ function createAccount() {
 
   }
 
-
-  if (
-    password !== confirmation
-  ) {
+  if (password !== confirmation) {
 
     showLoginMessage(
       "As senhas não são iguais."
@@ -146,7 +132,6 @@ function createAccount() {
     return;
 
   }
-
 
   if (getAccount()) {
 
@@ -158,18 +143,15 @@ function createAccount() {
 
   }
 
-
   saveAccount({
     username,
     password
   });
 
-
   localStorage.setItem(
     SESSION_KEY,
     "true"
   );
-
 
   showApp();
 
@@ -182,26 +164,21 @@ function logout() {
     SESSION_KEY
   );
 
-
   document
     .getElementById("appScreen")
     .classList.add("hidden");
-
 
   document
     .getElementById("loginScreen")
     .classList.remove("hidden");
 
-
   document
     .getElementById("loginUsername")
     .value = "";
 
-
   document
     .getElementById("loginPassword")
     .value = "";
-
 
   showLoginMessage("");
 
@@ -223,11 +200,9 @@ function showCreateAccount() {
     .getElementById("loginForm")
     .classList.add("hidden");
 
-
   document
     .getElementById("createForm")
     .classList.remove("hidden");
-
 
   showLoginMessage("");
 
@@ -240,11 +215,9 @@ function showLoginForm() {
     .getElementById("createForm")
     .classList.add("hidden");
 
-
   document
     .getElementById("loginForm")
     .classList.remove("hidden");
-
 
   showLoginMessage("");
 
@@ -257,11 +230,9 @@ function showApp() {
     .getElementById("loginScreen")
     .classList.add("hidden");
 
-
   document
     .getElementById("appScreen")
     .classList.remove("hidden");
-
 
   initFinance();
 
@@ -270,14 +241,14 @@ function showApp() {
 
 
 /* =====================================================
-   CATEGORIAS
+   CATEGORIAS PADRÃO
 ===================================================== */
 
 const defaultCategories = [
 
   {
     id: "fixed",
-    name: "Fixo",
+    name: "Gasto fixo",
     icon: "🏠",
     type: "expense",
     budget: 600
@@ -323,30 +294,30 @@ const defaultCategories = [
    ESTADO
 ===================================================== */
 
-const defaultSettings = {
-
-  plannedSalary: 0,
-
-  advancePercent: 40,
-
-  advanceDay: 20,
-
-  mainPaymentLabel:
-    "5º dia útil",
-
-  reserveGoal: 0
-
-};
-
-
 const state =
   load() || {
 
-    settings:
-      { ...defaultSettings },
+    settings: {
+
+      plannedSalary: 0,
+
+      advancePercent: 40,
+
+      advanceDay: 20,
+
+      mainPaymentLabel:
+        "5º dia útil",
+
+      reserveGoal: 0
+
+    },
 
     categories:
-      defaultCategories,
+      defaultCategories.map(
+        category => ({
+          ...category
+        })
+      ),
 
     months: {},
 
@@ -362,102 +333,153 @@ const state =
 
 
 /* =====================================================
-   CARREGAMENTO
+   NORMALIZAÇÃO
 ===================================================== */
 
-function load() {
+function normalizeState(data) {
 
-  try {
+  if (!data || typeof data !== "object") {
 
-    const data =
-      JSON.parse(
-        localStorage.getItem(KEY)
+    return null;
+
+  }
+
+
+  if (
+    !data.settings ||
+    typeof data.settings !== "object"
+  ) {
+
+    data.settings = {};
+
+  }
+
+
+  if (
+    typeof data.settings.plannedSalary !==
+    "number"
+  ) {
+
+    data.settings.plannedSalary = 0;
+
+  }
+
+
+  if (
+    typeof data.settings.advancePercent !==
+    "number"
+  ) {
+
+    data.settings.advancePercent = 40;
+
+  }
+
+
+  if (
+    typeof data.settings.advanceDay !==
+    "number"
+  ) {
+
+    data.settings.advanceDay = 20;
+
+  }
+
+
+  if (
+    typeof data.settings.mainPaymentLabel !==
+    "string"
+  ) {
+
+    data.settings.mainPaymentLabel =
+      "5º dia útil";
+
+  }
+
+
+  if (
+    typeof data.settings.reserveGoal !==
+    "number"
+  ) {
+
+    data.settings.reserveGoal = 0;
+
+  }
+
+
+  if (
+    !Array.isArray(data.categories)
+  ) {
+
+    data.categories =
+      defaultCategories.map(
+        category => ({
+          ...category
+        })
       );
 
-
-    if (!data) {
-      return null;
-    }
+  }
 
 
-    data.settings = {
-      ...defaultSettings,
-      ...(data.settings || {})
-    };
+  data.categories =
+    data.categories.map(
+      category => ({
+
+        id:
+          category.id ||
+          "cat_" +
+          Date.now() +
+          Math.random(),
+
+        name:
+          category.name ||
+          "Categoria",
+
+        icon:
+          category.icon ||
+          "💰",
+
+        type:
+          category.type === "reserve"
+            ? "reserve"
+            : "expense",
+
+        budget:
+          Number(category.budget) || 0
+
+      })
+    );
 
 
-    if (
-      !Array.isArray(
-        data.categories
-      )
-    ) {
+  if (
+    !data.categories.some(
+      category =>
+        category.id === "reserve"
+    )
+  ) {
 
-      data.categories =
-        [...defaultCategories];
+    data.categories.push({
+      id: "reserve",
+      name: "Reserva",
+      icon: "🏦",
+      type: "reserve",
+      budget: 0
+    });
 
-    }
-
-
-    const reserveExists =
-      data.categories.some(
-        c =>
-          c.id === "reserve"
-      );
-
-
-    if (!reserveExists) {
-
-      data.categories.push({
-        id: "reserve",
-        name: "Reserva",
-        icon: "🏦",
-        type: "reserve",
-        budget: 0
-      });
-
-    }
+  }
 
 
-    if (
-      typeof data.reserveBalance !==
-      "number"
-    ) {
+  if (
+    !data.months ||
+    typeof data.months !== "object"
+  ) {
 
-      data.reserveBalance = 0;
+    data.months = {};
 
-    }
-
-
-    if (
-      !data.months ||
-      typeof data.months !== "object"
-    ) {
-
-      data.months = {};
-
-    }
+  }
 
 
-    /*
-      MIGRAÇÃO DOS MESES ANTIGOS
-    */
-
-    Object.values(
-      data.months
-    ).forEach(month => {
-
-      if (
-        typeof month.salaryReceived !==
-        "number"
-      ) {
-
-        month.salaryReceived =
-          Number(
-            data.settings.plannedSalary
-          ) || 0;
-
-      }
-
+  Object.values(data.months)
+    .forEach(month => {
 
       if (
         !Array.isArray(
@@ -482,28 +504,104 @@ function load() {
 
 
       if (
-        typeof month.reserveContribution !==
-        "number"
+        !Array.isArray(
+          month.reserveTransactions
+        )
       ) {
 
-        month.reserveContribution = 0;
+        month.reserveTransactions = [];
 
       }
 
 
+      month.salaryReceived =
+        Number(
+          month.salaryReceived
+        ) || 0;
+
+
+      month.reserveContribution =
+        Number(
+          month.reserveContribution
+        ) || 0;
+
+
+      month.reserveWithdrawal =
+        Number(
+          month.reserveWithdrawal
+        ) || 0;
+
+
+      /*
+        Compatibilidade com versões antigas.
+      */
+
       if (
-        typeof month.reserveWithdrawal !==
-        "number"
+        Object.prototype.hasOwnProperty.call(
+          month,
+          "_autoReserve"
+        )
       ) {
 
-        month.reserveWithdrawal = 0;
+        month.reserveContribution = 0;
+
+        delete month._autoReserve;
 
       }
 
     });
 
 
-    return data;
+  if (
+    typeof data.reserveBalance !==
+    "number"
+  ) {
+
+    data.reserveBalance = 0;
+
+  }
+
+
+  if (
+    typeof data.currentMonth !==
+    "string"
+  ) {
+
+    data.currentMonth =
+      monthKey(
+        new Date()
+      );
+
+  }
+
+
+  return data;
+
+}
+
+
+
+/* =====================================================
+   CARREGAMENTO
+===================================================== */
+
+function load() {
+
+  try {
+
+    const raw =
+      localStorage.getItem(KEY);
+
+    if (!raw) {
+
+      return null;
+
+    }
+
+    const data =
+      JSON.parse(raw);
+
+    return normalizeState(data);
 
   } catch {
 
@@ -550,8 +648,7 @@ function getMonth(
 
       salaryReceived:
         Number(
-          state.settings
-            .plannedSalary
+          state.settings.plannedSalary
         ) || 0,
 
       expenses: [],
@@ -566,7 +663,6 @@ function getMonth(
 
     };
 
-
     save();
 
   }
@@ -577,9 +673,16 @@ function getMonth(
 
 
   if (
-    !Array.isArray(
-      month.extras
-    )
+    !Array.isArray(month.expenses)
+  ) {
+
+    month.expenses = [];
+
+  }
+
+
+  if (
+    !Array.isArray(month.extras)
   ) {
 
     month.extras = [];
@@ -589,11 +692,11 @@ function getMonth(
 
   if (
     !Array.isArray(
-      month.expenses
+      month.reserveTransactions
     )
   ) {
 
-    month.expenses = [];
+    month.reserveTransactions = [];
 
   }
 
@@ -612,7 +715,6 @@ function monthLabel(key) {
     key
       .split("-")
       .map(Number);
-
 
   return new Intl.DateTimeFormat(
     "pt-BR",
@@ -643,7 +745,6 @@ function monthShift(
     key
       .split("-")
       .map(Number);
-
 
   return monthKey(
     new Date(
@@ -688,11 +789,59 @@ function parseMoney(value) {
   }
 
 
-  return Number(
+  let text =
     String(value)
-      .replace(/\./g, "")
-      .replace(",", ".")
-  ) || 0;
+      .trim();
+
+
+  if (!text) {
+
+    return 0;
+
+  }
+
+
+  /*
+    Aceita:
+
+    1770
+    1770,50
+    1.770,50
+    R$ 1.770,50
+  */
+
+  text =
+    text
+      .replace(/R\$/gi, "")
+      .replace(/\s/g, "");
+
+
+  if (
+    text.includes(",")
+  ) {
+
+    text =
+      text
+        .replace(/\./g, "")
+        .replace(",", ".");
+
+  } else {
+
+    /*
+      Quando não existe vírgula,
+      tratamos ponto como decimal.
+    */
+
+    text =
+      text.replace(
+        /[^0-9.-]/g,
+        ""
+      );
+
+  }
+
+
+  return Number(text) || 0;
 
 }
 
@@ -702,11 +851,11 @@ function num(id) {
   const element =
     document.getElementById(id);
 
-
   if (!element) {
-    return 0;
-  }
 
+    return 0;
+
+  }
 
   return parseMoney(
     element.value
@@ -726,20 +875,18 @@ function categorySpent(
 ) {
 
   return month.expenses
-
     .filter(
-      e =>
-        e.categoryId === id
+      expense =>
+        expense.categoryId === id
     )
-
     .reduce(
       (
         sum,
-        e
+        expense
       ) =>
         sum +
         Number(
-          e.amount
+          expense.amount
         ),
       0
     );
@@ -747,20 +894,17 @@ function categorySpent(
 }
 
 
-function totalSpent(
-  month
-) {
+function totalSpent(month) {
 
   return month.expenses
-
     .reduce(
       (
         sum,
-        e
+        expense
       ) =>
         sum +
         Number(
-          e.amount
+          expense.amount
         ),
       0
     );
@@ -773,14 +917,9 @@ function totalSpent(
    EXTRAS
 ===================================================== */
 
-function totalExtras(
-  month
-) {
+function totalExtras(month) {
 
-  return (
-    month.extras || []
-  )
-
+  return month.extras
     .reduce(
       (
         sum,
@@ -805,7 +944,6 @@ function getReserveBalance() {
 
   let balance = 0;
 
-
   Object.values(
     state.months
   ).forEach(
@@ -813,22 +951,18 @@ function getReserveBalance() {
 
       balance +=
         Number(
-          month
-            .reserveContribution ||
+          month.reserveContribution ||
           0
         );
 
-
       balance -=
         Number(
-          month
-            .reserveWithdrawal ||
+          month.reserveWithdrawal ||
           0
         );
 
     }
   );
-
 
   return Math.max(
     0,
@@ -853,39 +987,35 @@ function syncReserve() {
    DISPONÍVEL
 ===================================================== */
 
-function available(
-  month
-) {
+function available(month) {
 
   const salary =
     Number(
       month.salaryReceived
     ) || 0;
 
-
   const extras =
-    totalExtras(
-      month
-    );
+    totalExtras(month);
 
-
-  const reserve =
+  const reserveIn =
     Number(
-      month.reserveContribution ||
-      0
-    );
+      month.reserveContribution
+    ) || 0;
 
+  const reserveOut =
+    Number(
+      month.reserveWithdrawal
+    ) || 0;
 
   const expenses =
-    totalSpent(
-      month
-    );
+    totalSpent(month);
 
 
   return (
     salary +
-    extras -
-    reserve -
+    extras +
+    reserveOut -
+    reserveIn -
     expenses
   );
 
@@ -914,26 +1044,16 @@ function render() {
     );
 
 
-  /*
-    DISPONÍVEL
-  */
-
   document
     .getElementById("availableValue")
     .textContent =
     money(
       Math.max(
         0,
-        available(
-          month
-        )
+        available(month)
       )
     );
 
-
-  /*
-    SALÁRIO
-  */
 
   document
     .getElementById("salaryValue")
@@ -943,37 +1063,21 @@ function render() {
     );
 
 
-  /*
-    EXTRAS
-  */
-
   document
     .getElementById("extraValue")
     .textContent =
     money(
-      totalExtras(
-        month
-      )
+      totalExtras(month)
     );
 
-
-  /*
-    GASTOS
-  */
 
   document
     .getElementById("spentValue")
     .textContent =
     money(
-      totalSpent(
-        month
-      )
+      totalSpent(month)
     );
 
-
-  /*
-    RESERVA
-  */
 
   document
     .getElementById("reserveValue")
@@ -991,19 +1095,12 @@ function render() {
     );
 
 
-  /*
-    PAGAMENTOS
-  */
-
   const adv =
     Number(
-      month.salaryReceived ||
-      0
+      month.salaryReceived || 0
     ) *
     Number(
-      state.settings
-        .advancePercent ||
-      0
+      state.settings.advancePercent || 0
     ) /
     100;
 
@@ -1011,9 +1108,7 @@ function render() {
   document
     .getElementById("advanceValue")
     .textContent =
-    money(
-      adv
-    );
+    money(adv);
 
 
   document
@@ -1027,8 +1122,7 @@ function render() {
     .textContent =
     money(
       Number(
-        month.salaryReceived ||
-        0
+        month.salaryReceived || 0
       ) -
       adv
     );
@@ -1037,20 +1131,12 @@ function render() {
   document
     .getElementById("mainPayDate")
     .textContent =
-    state.settings
-      .mainPaymentLabel;
+    state.settings.mainPaymentLabel;
 
-
-
-  /*
-    META
-  */
 
   const goal =
     Number(
-      state.settings
-        .reserveGoal ||
-      0
+      state.settings.reserveGoal || 0
     );
 
 
@@ -1096,16 +1182,29 @@ function render() {
   }
 
 
+  renderCategories();
 
-  /*
-    CATEGORIAS
-  */
+  renderExtras();
+
+  renderHistoryPreview();
+
+}
+
+
+
+/* =====================================================
+   CATEGORIAS
+===================================================== */
+
+function renderCategories() {
+
+  const month =
+    getMonth();
 
   const wrap =
     document.getElementById(
       "categories"
     );
-
 
   wrap.innerHTML = "";
 
@@ -1121,10 +1220,9 @@ function render() {
         c.type === "reserve"
       ) {
 
-        const spent =
+        const contribution =
           Number(
-            month
-              .reserveContribution ||
+            month.reserveContribution ||
             0
           );
 
@@ -1142,15 +1240,13 @@ function render() {
         el.innerHTML = `
 
           <div class="cat-icon">
-            ${c.icon}
+            ${escapeHtml(c.icon)}
           </div>
 
           <div class="cat-main">
 
             <div class="cat-name">
-              ${escapeHtml(
-                c.name
-              )}
+              ${escapeHtml(c.name)}
             </div>
 
             <div class="cat-sub">
@@ -1160,7 +1256,7 @@ function render() {
             <div class="progress">
 
               <div
-                style="width:${spent > 0 ? 100 : 0}%"
+                style="width:${contribution > 0 ? 100 : 0}%"
               ></div>
 
             </div>
@@ -1170,7 +1266,7 @@ function render() {
           <div class="cat-value">
 
             <strong>
-              ${money(spent)}
+              ${money(contribution)}
             </strong>
 
             <small>
@@ -1179,24 +1275,60 @@ function render() {
 
           </div>
 
+          <div class="cat-actions">
+
+            <button
+              class="cat-edit"
+              type="button"
+              title="Editar categoria"
+            >
+              ✎
+            </button>
+
+          </div>
+
         `;
 
 
         el.addEventListener(
           "click",
-          openReserve
+          event => {
+
+            if (
+              event.target.closest(
+                ".cat-edit"
+              )
+            ) {
+
+              return;
+
+            }
+
+            openReserve();
+
+          }
         );
 
 
-        wrap.appendChild(
-          el
-        );
+        el
+          .querySelector(".cat-edit")
+          .addEventListener(
+            "click",
+            event => {
 
+              event.stopPropagation();
+
+              openEditCategory(c.id);
+
+            }
+          );
+
+
+        wrap.appendChild(el);
 
         return;
 
       }
-
 
 
       const spent =
@@ -1206,31 +1338,29 @@ function render() {
         );
 
 
+      const budget =
+        Number(c.budget) || 0;
+
+
       const remaining =
-        Number(
-          c.budget || 0
-        ) -
+        budget -
         spent;
 
 
       const pct =
-        Math.min(
-          100,
-          Math.max(
-            0,
-            (
-              spent /
+        budget > 0
+          ? Math.min(
+              100,
               Math.max(
-                1,
-                Number(
-                  c.budget ||
-                  0
-                )
+                0,
+                (
+                  spent /
+                  budget
+                ) *
+                100
               )
-            ) *
-            100
-          )
-        );
+            )
+          : 0;
 
 
       const el =
@@ -1246,15 +1376,13 @@ function render() {
       el.innerHTML = `
 
         <div class="cat-icon">
-          ${c.icon}
+          ${escapeHtml(c.icon)}
         </div>
 
         <div class="cat-main">
 
           <div class="cat-name">
-            ${escapeHtml(
-              c.name
-            )}
+            ${escapeHtml(c.name)}
           </div>
 
           <div class="cat-sub">
@@ -1285,8 +1413,20 @@ function render() {
 
           <small>
             de
-            ${money(c.budget)}
+            ${money(budget)}
           </small>
+
+        </div>
+
+        <div class="cat-actions">
+
+          <button
+            class="cat-edit"
+            type="button"
+            title="Editar categoria"
+          >
+            ✎
+          </button>
 
         </div>
 
@@ -1295,22 +1435,338 @@ function render() {
 
       el.addEventListener(
         "click",
-        () =>
-          openExpense(
-            c.id
-          )
+        event => {
+
+          if (
+            event.target.closest(
+              ".cat-edit"
+            )
+          ) {
+
+            return;
+
+          }
+
+          openExpense(c.id);
+
+        }
       );
 
 
-      wrap.appendChild(
-        el
-      );
+      el
+        .querySelector(".cat-edit")
+        .addEventListener(
+          "click",
+          event => {
+
+            event.stopPropagation();
+
+            openEditCategory(c.id);
+
+          }
+        );
+
+
+      wrap.appendChild(el);
 
     }
   );
 
+}
 
-  renderHistoryPreview();
+
+
+/* =====================================================
+   EXTRAS
+===================================================== */
+
+function renderExtras() {
+
+  const month =
+    getMonth();
+
+  const container =
+    document.getElementById(
+      "extrasList"
+    );
+
+
+  if (
+    month.extras.length === 0
+  ) {
+
+    container.innerHTML = `
+
+      <div class="empty-history">
+
+        Nenhuma entrada extra neste mês.
+
+      </div>
+
+    `;
+
+    return;
+
+  }
+
+
+  const items =
+    [...month.extras]
+      .sort(
+        (a, b) =>
+          new Date(b.date) -
+          new Date(a.date)
+      );
+
+
+  container.innerHTML =
+    items
+      .map(
+        extra => `
+
+          <div class="extra-item">
+
+            <div class="extra-icon">
+              💰
+            </div>
+
+            <div class="extra-main">
+
+              <div class="extra-name">
+                ${escapeHtml(
+                  extra.name
+                )}
+              </div>
+
+              <div class="extra-date">
+                ${formatDate(
+                  extra.date
+                )}
+              </div>
+
+            </div>
+
+            <div class="extra-value">
+              + ${money(
+                extra.amount
+              )}
+            </div>
+
+            <button
+              class="extra-delete"
+              type="button"
+              data-id="${extra.id}"
+              title="Excluir"
+            >
+              ✕
+            </button>
+
+          </div>
+
+        `
+      )
+      .join("");
+
+
+  container
+    .querySelectorAll(
+      ".extra-delete"
+    )
+    .forEach(
+      button => {
+
+        button.addEventListener(
+          "click",
+          () => {
+
+            deleteExtra(
+              button.dataset.id
+            );
+
+          }
+        );
+
+      }
+    );
+
+}
+
+
+function openExtra() {
+
+  const today =
+    new Date()
+      .toISOString()
+      .slice(0, 10);
+
+
+  openModal(
+
+    "Adicionar entrada extra",
+
+    `
+
+      <form
+        class="form"
+        id="extraForm"
+      >
+
+        <label>
+          Descrição
+        </label>
+
+        <input
+          id="extraName"
+          placeholder="Ex.: venda de algo pessoal"
+          required
+        >
+
+
+        <label>
+          Valor
+        </label>
+
+        <input
+          id="extraAmount"
+          inputmode="decimal"
+          placeholder="R$ 0,00"
+          required
+        >
+
+
+        <label>
+          Data
+        </label>
+
+        <input
+          id="extraDate"
+          type="date"
+          value="${today}"
+          required
+        >
+
+
+        <button>
+          Salvar entrada
+        </button>
+
+      </form>
+
+    `
+  );
+
+
+  document
+    .getElementById("extraForm")
+    .onsubmit =
+    event => {
+
+      event.preventDefault();
+
+
+      const name =
+        document
+          .getElementById("extraName")
+          .value
+          .trim();
+
+
+      const amount =
+        num("extraAmount");
+
+
+      const date =
+        document
+          .getElementById("extraDate")
+          .value;
+
+
+      if (
+        !name ||
+        !(amount > 0)
+      ) {
+
+        alert(
+          "Informe uma descrição e um valor válido."
+        );
+
+        return;
+
+      }
+
+
+      const month =
+        getMonth();
+
+
+      month.extras.push({
+
+        id:
+          createId(),
+
+        name,
+
+        amount,
+
+        date:
+          date ||
+          today
+
+      });
+
+
+      save();
+
+      closeModal();
+
+      render();
+
+    };
+
+}
+
+
+function deleteExtra(id) {
+
+  const month =
+    getMonth();
+
+
+  const extra =
+    month.extras.find(
+      item =>
+        item.id === id
+    );
+
+
+  if (!extra) {
+
+    return;
+
+  }
+
+
+  if (
+    !confirm(
+      `Excluir a entrada "${extra.name}" de ${money(extra.amount)}?`
+    )
+  ) {
+
+    return;
+
+  }
+
+
+  month.extras =
+    month.extras.filter(
+      item =>
+        item.id !== id
+    );
+
+
+  save();
+
+  render();
 
 }
 
@@ -1334,6 +1790,25 @@ function escapeHtml(s) {
           "'": "&#039;"
         }[x])
     );
+
+}
+
+
+function createId() {
+
+  if (
+    typeof crypto !== "undefined" &&
+    typeof crypto.randomUUID === "function"
+  ) {
+
+    return crypto.randomUUID();
+
+  }
+
+  return String(
+    Date.now() +
+    Math.random()
+  );
 
 }
 
@@ -1389,8 +1864,7 @@ function openExpense(
   categoryId =
     state.categories.find(
       c =>
-        c.type ===
-        "expense"
+        c.type === "expense"
     )?.id
 ) {
 
@@ -1399,26 +1873,22 @@ function openExpense(
 
       .filter(
         c =>
-          c.type ===
-          "expense"
+          c.type === "expense"
       )
 
       .map(
         c =>
           `
           <option
-            value="${c.id}"
+            value="${escapeHtml(c.id)}"
             ${
-              c.id ===
-              categoryId
+              c.id === categoryId
                 ? "selected"
                 : ""
             }
           >
-            ${c.icon}
-            ${escapeHtml(
-              c.name
-            )}
+            ${escapeHtml(c.icon)}
+            ${escapeHtml(c.name)}
           </option>
           `
       )
@@ -1503,19 +1973,13 @@ function openExpense(
   document
     .getElementById("expenseForm")
     .onsubmit =
-    e => {
+    event => {
 
-      e.preventDefault();
+      event.preventDefault();
 
 
       const amount =
-        parseMoney(
-          document
-            .getElementById(
-              "expenseAmount"
-            )
-            .value
-        );
+        num("expenseAmount");
 
 
       if (
@@ -1531,18 +1995,14 @@ function openExpense(
       }
 
 
-      const m =
+      const month =
         getMonth();
 
 
-      m.expenses.push({
+      month.expenses.push({
 
         id:
-          crypto.randomUUID
-            ? crypto.randomUUID()
-            : String(
-                Date.now()
-              ),
+          createId(),
 
         categoryId:
           document
@@ -1564,164 +2024,6 @@ function openExpense(
           document
             .getElementById(
               "expenseNote"
-            )
-            .value
-            .trim()
-
-      });
-
-
-      save();
-
-      closeModal();
-
-      render();
-
-    };
-
-}
-
-
-
-/* =====================================================
-   DINHEIRO EXTRA
-===================================================== */
-
-function openExtra() {
-
-  const today =
-    new Date()
-      .toISOString()
-      .slice(
-        0,
-        10
-      );
-
-
-  openModal(
-
-    "Adicionar dinheiro extra",
-
-    `
-
-    <form
-      class="form"
-      id="extraForm"
-    >
-
-      <label>
-        Valor
-      </label>
-
-      <input
-        id="extraAmount"
-        inputmode="decimal"
-        placeholder="R$ 0,00"
-        required
-      >
-
-
-      <label>
-        De onde veio?
-      </label>
-
-      <input
-        id="extraNote"
-        placeholder="Ex.: venda de algo, bico, Pix..."
-      >
-
-
-      <label>
-        Data
-      </label>
-
-      <input
-        id="extraDate"
-        type="date"
-        value="${today}"
-      >
-
-
-      <button>
-        Registrar extra
-      </button>
-
-    </form>
-
-    `
-  );
-
-
-  document
-    .getElementById(
-      "extraForm"
-    )
-    .onsubmit =
-    e => {
-
-      e.preventDefault();
-
-
-      const amount =
-        parseMoney(
-          document
-            .getElementById(
-              "extraAmount"
-            )
-            .value
-        );
-
-
-      if (
-        !(amount > 0)
-      ) {
-
-        alert(
-          "Digite um valor válido."
-        );
-
-        return;
-
-      }
-
-
-      const m =
-        getMonth();
-
-
-      if (
-        !Array.isArray(
-          m.extras
-        )
-      ) {
-
-        m.extras = [];
-
-      }
-
-
-      m.extras.push({
-
-        id:
-          crypto.randomUUID
-            ? crypto.randomUUID()
-            : String(
-                Date.now()
-              ),
-
-        amount,
-
-        date:
-          document
-            .getElementById(
-              "extraDate"
-            )
-            .value,
-
-        note:
-          document
-            .getElementById(
-              "extraNote"
             )
             .value
             .trim()
@@ -1792,29 +2094,6 @@ function openCategory() {
       >
 
 
-      <label>
-        Tipo
-      </label>
-
-      <select
-        id="catType"
-      >
-
-        <option
-          value="expense"
-        >
-          Gasto
-        </option>
-
-        <option
-          value="reserve"
-        >
-          Reserva
-        </option>
-
-      </select>
-
-
       <button>
         Criar categoria
       </button>
@@ -1826,30 +2105,20 @@ function openCategory() {
 
 
   document
-    .getElementById(
-      "categoryForm"
-    )
+    .getElementById("categoryForm")
     .onsubmit =
-    e => {
+    event => {
 
-      e.preventDefault();
+      event.preventDefault();
 
 
       const amount =
-        parseMoney(
-          document
-            .getElementById(
-              "catBudget"
-            )
-            .value
-        );
+        num("catBudget");
 
 
       const name =
         document
-          .getElementById(
-            "catName"
-          )
+          .getElementById("catName")
           .value
           .trim();
 
@@ -1868,27 +2137,22 @@ function openCategory() {
 
         id:
           "cat_" +
-          Date.now(),
+          createId(),
 
         name,
 
         icon:
           document
-            .getElementById(
-              "catIcon"
-            )
-            .value ||
+            .getElementById("catIcon")
+            .value
+            .trim() ||
           "💰",
 
         budget:
           amount,
 
         type:
-          document
-            .getElementById(
-              "catType"
-            )
-            .value
+          "expense"
 
       });
 
@@ -1906,25 +2170,234 @@ function openCategory() {
 
 
 /* =====================================================
-   RESERVA MANUAL
+   EDITAR CATEGORIA
+===================================================== */
+
+function openEditCategory(id) {
+
+  const category =
+    state.categories.find(
+      c =>
+        c.id === id
+    );
+
+
+  if (!category) {
+
+    return;
+
+  }
+
+
+  const isReserve =
+    category.type === "reserve";
+
+
+  openModal(
+
+    "Editar categoria",
+
+    `
+
+    <form
+      class="form"
+      id="editCategoryForm"
+    >
+
+      <label>
+        Nome
+      </label>
+
+      <input
+        id="editCatName"
+        value="${escapeHtml(category.name)}"
+        required
+      >
+
+
+      <label>
+        Ícone
+      </label>
+
+      <input
+        id="editCatIcon"
+        value="${escapeHtml(category.icon)}"
+        maxlength="2"
+      >
+
+
+      ${
+        isReserve
+          ? ""
+          : `
+
+            <label>
+              Valor mensal
+            </label>
+
+            <input
+              id="editCatBudget"
+              inputmode="decimal"
+              value="${category.budget}"
+              required
+            >
+
+          `
+      }
+
+
+      <button>
+        Salvar alterações
+      </button>
+
+    </form>
+
+
+    ${
+      isReserve
+        ? ""
+        : `
+
+          <button
+            class="danger"
+            id="deleteCategoryBtn"
+            style="
+              width:100%;
+              padding:13px;
+              border-radius:12px;
+              margin-top:10px
+            "
+          >
+            Excluir categoria
+          </button>
+
+        `
+    }
+
+    `
+  );
+
+
+  document
+    .getElementById("editCategoryForm")
+    .onsubmit =
+    event => {
+
+      event.preventDefault();
+
+
+      category.name =
+        document
+          .getElementById(
+            "editCatName"
+          )
+          .value
+          .trim();
+
+
+      category.icon =
+        document
+          .getElementById(
+            "editCatIcon"
+          )
+          .value
+          .trim() ||
+        "💰";
+
+
+      if (!isReserve) {
+
+        category.budget =
+          num(
+            "editCatBudget"
+          );
+
+      }
+
+
+      if (!category.name) {
+
+        alert(
+          "Digite um nome."
+        );
+
+        return;
+
+      }
+
+
+      save();
+
+      closeModal();
+
+      render();
+
+    };
+
+
+  const deleteBtn =
+    document.getElementById(
+      "deleteCategoryBtn"
+    );
+
+
+  if (deleteBtn) {
+
+    deleteBtn.onclick =
+      () => {
+
+        if (
+          !confirm(
+            `Excluir a categoria "${category.name}"? Os gastos antigos serão mantidos no extrato.`
+          )
+        ) {
+
+          return;
+
+        }
+
+
+        state.categories =
+          state.categories.filter(
+            c =>
+              c.id !== id
+          );
+
+
+        save();
+
+        closeModal();
+
+        render();
+
+      };
+
+  }
+
+}
+
+
+
+/* =====================================================
+   RESERVA
 ===================================================== */
 
 function openReserve() {
 
-  const m =
+  const month =
     getMonth();
 
 
   const contribution =
     Number(
-      m.reserveContribution ||
+      month.reserveContribution ||
       0
     );
 
 
   const withdrawal =
     Number(
-      m.reserveWithdrawal ||
+      month.reserveWithdrawal ||
       0
     );
 
@@ -1974,6 +2447,7 @@ function openReserve() {
     </div>
 
 
+
     <form
       class="form"
       id="reserveForm"
@@ -2004,6 +2478,7 @@ function openReserve() {
       </button>
 
     </form>
+
 
 
     <form
@@ -2038,6 +2513,7 @@ function openReserve() {
     </form>
 
 
+
     <button
       class="secondary"
       id="closeReserveBtn"
@@ -2055,21 +2531,16 @@ function openReserve() {
   );
 
 
-
   document
-    .getElementById(
-      "reserveForm"
-    )
+    .getElementById("reserveForm")
     .onsubmit =
-    e => {
+    event => {
 
-      e.preventDefault();
+      event.preventDefault();
 
 
       const amount =
-        num(
-          "reserveAmount"
-        );
+        num("reserveAmount");
 
 
       if (
@@ -2087,40 +2558,22 @@ function openReserve() {
 
       const note =
         document
-          .getElementById(
-            "reserveNote"
-          )
+          .getElementById("reserveNote")
           .value
           .trim();
 
 
-      m.reserveContribution =
+      month.reserveContribution =
         Number(
-          m.reserveContribution ||
-          0
+          month.reserveContribution || 0
         ) +
         amount;
 
 
-      if (
-        !Array.isArray(
-          m.reserveTransactions
-        )
-      ) {
-
-        m.reserveTransactions = [];
-
-      }
-
-
-      m.reserveTransactions.push({
+      month.reserveTransactions.push({
 
         id:
-          crypto.randomUUID
-            ? crypto.randomUUID()
-            : String(
-                Date.now()
-              ),
+          createId(),
 
         type:
           "in",
@@ -2128,12 +2581,7 @@ function openReserve() {
         amount,
 
         date:
-          new Date()
-            .toISOString()
-            .slice(
-              0,
-              10
-            ),
+          todayKey(),
 
         note
 
@@ -2149,21 +2597,16 @@ function openReserve() {
     };
 
 
-
   document
-    .getElementById(
-      "withdrawForm"
-    )
+    .getElementById("withdrawForm")
     .onsubmit =
-    e => {
+    event => {
 
-      e.preventDefault();
+      event.preventDefault();
 
 
       const amount =
-        num(
-          "withdrawAmount"
-        );
+        num("withdrawAmount");
 
 
       if (
@@ -2183,40 +2626,22 @@ function openReserve() {
 
       const note =
         document
-          .getElementById(
-            "withdrawNote"
-          )
+          .getElementById("withdrawNote")
           .value
           .trim();
 
 
-      m.reserveWithdrawal =
+      month.reserveWithdrawal =
         Number(
-          m.reserveWithdrawal ||
-          0
+          month.reserveWithdrawal || 0
         ) +
         amount;
 
 
-      if (
-        !Array.isArray(
-          m.reserveTransactions
-        )
-      ) {
-
-        m.reserveTransactions = [];
-
-      }
-
-
-      m.reserveTransactions.push({
+      month.reserveTransactions.push({
 
         id:
-          crypto.randomUUID
-            ? crypto.randomUUID()
-            : String(
-                Date.now()
-              ),
+          createId(),
 
         type:
           "out",
@@ -2224,12 +2649,7 @@ function openReserve() {
         amount,
 
         date:
-          new Date()
-            .toISOString()
-            .slice(
-              0,
-              10
-            ),
+          todayKey(),
 
         note
 
@@ -2246,9 +2666,7 @@ function openReserve() {
 
 
   document
-    .getElementById(
-      "closeReserveBtn"
-    )
+    .getElementById("closeReserveBtn")
     .onclick =
     closeModal;
 
@@ -2260,16 +2678,10 @@ function openReserve() {
    HISTÓRICO
 ===================================================== */
 
-function getHistory(
-  month
-) {
+function getHistory(month) {
 
   const items = [];
 
-
-  /*
-    GASTOS
-  */
 
   month.expenses.forEach(
     expense => {
@@ -2318,14 +2730,7 @@ function getHistory(
   );
 
 
-
-  /*
-    EXTRAS
-  */
-
-  (
-    month.extras || []
-  ).forEach(
+  month.extras.forEach(
     extra => {
 
       items.push({
@@ -2342,14 +2747,13 @@ function getHistory(
           ),
 
         name:
-          "Dinheiro extra",
+          extra.name,
 
         icon:
           "💰",
 
         note:
-          extra.note ||
-          "",
+          "Entrada extra",
 
         id:
           extra.id
@@ -2360,27 +2764,20 @@ function getHistory(
   );
 
 
-
-  /*
-    RESERVA
-  */
-
   if (
     Array.isArray(
       month.reserveTransactions
     )
   ) {
 
-    month
-      .reserveTransactions
+    month.reserveTransactions
       .forEach(
         transaction => {
 
           items.push({
 
             type:
-              transaction.type ===
-              "in"
+              transaction.type === "in"
                 ? "reserve-in"
                 : "reserve-out",
 
@@ -2393,14 +2790,12 @@ function getHistory(
               ),
 
             name:
-              transaction.type ===
-              "in"
+              transaction.type === "in"
                 ? "Aporte para reserva"
                 : "Retirada da reserva",
 
             icon:
-              transaction.type ===
-              "in"
+              transaction.type === "in"
                 ? "🏦"
                 : "💸",
 
@@ -2421,12 +2816,8 @@ function getHistory(
 
   items.sort(
     (a, b) =>
-      new Date(
-        b.date
-      ) -
-      new Date(
-        a.date
-      )
+      new Date(b.date) -
+      new Date(a.date)
   );
 
 
@@ -2437,22 +2828,43 @@ function getHistory(
 
 
 /* =====================================================
-   DATA FORMATADA
+   DATA
 ===================================================== */
 
-function formatDate(
-  date
-) {
+function todayKey() {
+
+  const now =
+    new Date();
+
+  return monthDateKey(
+    now
+  );
+
+}
+
+
+function monthDateKey(date) {
+
+  return `${date.getFullYear()}-${String(
+    date.getMonth() + 1
+  ).padStart(2, "0")}-${String(
+    date.getDate()
+  ).padStart(2, "0")}`;
+
+}
+
+
+function formatDate(date) {
 
   if (!date) {
+
     return "";
+
   }
 
 
   const parts =
-    String(
-      date
-    ).split("-");
+    String(date).split("-");
 
 
   if (
@@ -2483,7 +2895,9 @@ function renderHistoryPreview() {
 
 
   if (!container) {
+
     return;
+
   }
 
 
@@ -2492,9 +2906,7 @@ function renderHistoryPreview() {
 
 
   const items =
-    getHistory(
-      month
-    );
+    getHistory(month);
 
 
   if (
@@ -2516,15 +2928,10 @@ function renderHistoryPreview() {
 
   container.innerHTML =
     items
-      .slice(
-        0,
-        4
-      )
+      .slice(0, 4)
       .map(
         item =>
-          historyItemHtml(
-            item
-          )
+          historyItemHtml(item)
       )
       .join("");
 
@@ -2533,28 +2940,27 @@ function renderHistoryPreview() {
 
 
 /* =====================================================
-   HTML DO HISTÓRICO
+   HTML HISTÓRICO
 ===================================================== */
 
-function historyItemHtml(
-  item
-) {
+function historyItemHtml(item) {
 
   let valueClass =
     "expense";
-
 
   let prefix =
     "- ";
 
 
   if (
-    item.type ===
-    "reserve-in"
+    item.type === "extra-in" ||
+    item.type === "reserve-in"
   ) {
 
     valueClass =
-      "reserve-in";
+      item.type === "extra-in"
+        ? "extra-in"
+        : "reserve-in";
 
     prefix =
       "+ ";
@@ -2563,8 +2969,7 @@ function historyItemHtml(
 
 
   if (
-    item.type ===
-    "reserve-out"
+    item.type === "reserve-out"
   ) {
 
     valueClass =
@@ -2576,37 +2981,19 @@ function historyItemHtml(
   }
 
 
-  if (
-    item.type ===
-    "extra-in"
-  ) {
-
-    valueClass =
-      "extra-in";
-
-    prefix =
-      "+ ";
-
-  }
-
-
   return `
 
     <div class="history-item">
 
       <div class="history-icon">
-        ${item.icon}
+        ${escapeHtml(item.icon)}
       </div>
 
 
       <div class="history-main">
 
         <div class="history-name">
-
-          ${escapeHtml(
-            item.name
-          )}
-
+          ${escapeHtml(item.name)}
         </div>
 
 
@@ -2614,9 +3001,7 @@ function historyItemHtml(
           item.note
             ? `
               <div class="history-note">
-                ${escapeHtml(
-                  item.note
-                )}
+                ${escapeHtml(item.note)}
               </div>
             `
             : ""
@@ -2624,11 +3009,7 @@ function historyItemHtml(
 
 
         <div class="history-date">
-
-          ${formatDate(
-            item.date
-          )}
-
+          ${formatDate(item.date)}
         </div>
 
       </div>
@@ -2639,9 +3020,7 @@ function historyItemHtml(
       >
 
         ${prefix}
-        ${money(
-          item.amount
-        )}
+        ${money(item.amount)}
 
       </div>
 
@@ -2654,7 +3033,7 @@ function historyItemHtml(
 
 
 /* =====================================================
-   ABRIR HISTÓRICO COMPLETO
+   HISTÓRICO COMPLETO
 ===================================================== */
 
 function openHistory() {
@@ -2664,36 +3043,26 @@ function openHistory() {
 
 
   const items =
-    getHistory(
-      month
-    );
+    getHistory(month);
 
 
   const expensesTotal =
-    totalSpent(
-      month
-    );
+    totalSpent(month);
 
 
   const extrasTotal =
-    totalExtras(
-      month
-    );
+    totalExtras(month);
 
 
   const contribution =
     Number(
-      month
-        .reserveContribution ||
-      0
+      month.reserveContribution || 0
     );
 
 
   const withdrawal =
     Number(
-      month
-        .reserveWithdrawal ||
-      0
+      month.reserveWithdrawal || 0
     );
 
 
@@ -2719,9 +3088,7 @@ function openHistory() {
       items
         .map(
           item =>
-            historyItemHtml(
-              item
-            )
+            historyItemHtml(item)
         )
         .join("");
 
@@ -2755,7 +3122,7 @@ function openHistory() {
     <div class="history-total">
 
       <span>
-        Dinheiro extra
+        Entradas extras
       </span>
 
       <strong>
@@ -2832,6 +3199,10 @@ function openHistory() {
 
 function openSettings() {
 
+  const month =
+    getMonth();
+
+
   openModal(
 
     "Configurações",
@@ -2844,16 +3215,13 @@ function openSettings() {
     >
 
       <label>
-        Salário mensal
+        Salário deste mês
       </label>
 
       <input
         id="sSalary"
         inputmode="decimal"
-        value="${
-          state.settings
-            .plannedSalary
-        }"
+        value="${month.salaryReceived}"
       >
 
 
@@ -2867,8 +3235,7 @@ function openSettings() {
         min="0"
         max="100"
         value="${
-          state.settings
-            .advancePercent
+          state.settings.advancePercent
         }"
       >
 
@@ -2883,8 +3250,7 @@ function openSettings() {
         min="1"
         max="31"
         value="${
-          state.settings
-            .advanceDay
+          state.settings.advanceDay
         }"
       >
 
@@ -2896,8 +3262,7 @@ function openSettings() {
       <input
         id="sMain"
         value="${escapeHtml(
-          state.settings
-            .mainPaymentLabel
+          state.settings.mainPaymentLabel
         )}"
       >
 
@@ -2910,8 +3275,7 @@ function openSettings() {
         id="sGoal"
         inputmode="decimal"
         value="${
-          state.settings
-            .reserveGoal
+          state.settings.reserveGoal
         }"
       >
 
@@ -2933,9 +3297,7 @@ function openSettings() {
 
           <span class="theme-slider">
 
-            <span
-              class="theme-dot"
-            ></span>
+            <span class="theme-dot"></span>
 
           </span>
 
@@ -2944,9 +3306,7 @@ function openSettings() {
       </div>
 
 
-      <button
-        class="save-settings-btn"
-      >
+      <button>
         Salvar
       </button>
 
@@ -2958,11 +3318,10 @@ function openSettings() {
       style="margin-top:12px"
     >
 
-      Os dados ficam somente
-      neste aparelho.
+      Os dados ficam somente neste aparelho.
 
-      Use a opção de exportação
-      antes de limpar o navegador.
+      Use a opção de exportação antes de
+      limpar os dados do navegador.
 
     </div>
 
@@ -3010,86 +3369,74 @@ function openSettings() {
     ) === "true";
 
 
-
   document
-    .getElementById(
-      "settingsForm"
-    )
+    .getElementById("settingsForm")
     .onsubmit =
-    e => {
+    event => {
 
-      e.preventDefault();
+      event.preventDefault();
 
 
       const newSalary =
-        num(
-          "sSalary"
-        );
+        num("sSalary");
 
 
       /*
-        SALÁRIO CONFIGURÁVEL
+        CORREÇÃO PRINCIPAL:
 
-        Atualiza a configuração
-        e também o mês que está
-        aberto agora.
+        O salário do mês atual é
+        atualizado diretamente.
 
-        Isso corrige o problema
-        do R$ 1350 continuar
-        aparecendo na tela.
+        Antes ele ficava preso ao
+        valor que foi salvo quando
+        o mês foi criado.
       */
 
-      state.settings
-        .plannedSalary =
+      month.salaryReceived =
         newSalary;
 
 
-      const currentMonth =
-        getMonth();
+      /*
+        Também guardamos o valor como
+        padrão para meses novos.
+      */
 
-
-      currentMonth
-        .salaryReceived =
+      state.settings.plannedSalary =
         newSalary;
 
 
-      state.settings
-        .advancePercent =
+      state.settings.advancePercent =
         Number(
           document
-            .getElementById(
-              "sPercent"
-            )
+            .getElementById("sPercent")
             .value
         ) || 0;
 
 
-      state.settings
-        .advanceDay =
-        Number(
-          document
-            .getElementById(
-              "sDay"
-            )
-            .value
-        ) || 20;
-
-
-      state.settings
-        .mainPaymentLabel =
-        document
-          .getElementById(
-            "sMain"
+      state.settings.advanceDay =
+        Math.min(
+          31,
+          Math.max(
+            1,
+            Number(
+              document
+                .getElementById("sDay")
+                .value
+            ) || 20
           )
-          .value ||
+        );
+
+
+      state.settings.mainPaymentLabel =
+        document
+          .getElementById("sMain")
+          .value
+          .trim() ||
         "5º dia útil";
 
 
-      state.settings
-        .reserveGoal =
-        num(
-          "sGoal"
-        );
+      state.settings.reserveGoal =
+        num("sGoal");
 
 
       const dark =
@@ -3119,20 +3466,14 @@ function openSettings() {
     };
 
 
-
   document
-    .getElementById(
-      "exportBtn"
-    )
+    .getElementById("exportBtn")
     .onclick =
     exportData;
 
 
-
   document
-    .getElementById(
-      "resetBtn"
-    )
+    .getElementById("resetBtn")
     .onclick =
     () => {
 
@@ -3142,8 +3483,14 @@ function openSettings() {
         )
       ) {
 
+        localStorage.removeItem(KEY);
+
         localStorage.removeItem(
-          KEY
+          ACCOUNT_KEY
+        );
+
+        localStorage.removeItem(
+          SESSION_KEY
         );
 
         location.reload();
@@ -3162,24 +3509,23 @@ function openSettings() {
 
 function openPayments() {
 
-  const m =
+  const month =
     getMonth();
 
 
   const advance =
     Number(
-      m.salaryReceived ||
-      0
+      month.salaryReceived || 0
     ) *
-    state.settings
-      .advancePercent /
+    Number(
+      state.settings.advancePercent || 0
+    ) /
     100;
 
 
   const main =
     Number(
-      m.salaryReceived ||
-      0
+      month.salaryReceived || 0
     ) -
     advance;
 
@@ -3198,17 +3544,12 @@ function openPayments() {
 
       <br>
 
-      ${money(
-        advance
-      )}
+      ${money(advance)}
 
       — dia
-      ${state.settings
-        .advanceDay}
-
+      ${state.settings.advanceDay}
 
       <br><br>
-
 
       <strong>
         Pagamento principal
@@ -3216,14 +3557,11 @@ function openPayments() {
 
       <br>
 
-      ${money(
-        main
-      )}
+      ${money(main)}
 
       —
       ${escapeHtml(
-        state.settings
-          .mainPaymentLabel
+        state.settings.mainPaymentLabel
       )}
 
     </div>
@@ -3244,7 +3582,6 @@ function exportData() {
 
   const blob =
     new Blob(
-
       [
         JSON.stringify(
           state,
@@ -3252,36 +3589,38 @@ function exportData() {
           2
         )
       ],
-
       {
         type:
           "application/json"
       }
-
     );
+
+
+  const url =
+    URL.createObjectURL(blob);
 
 
   const a =
-    document.createElement(
-      "a"
-    );
+    document.createElement("a");
 
 
-  a.href =
-    URL.createObjectURL(
-      blob
-    );
-
+  a.href = url;
 
   a.download =
     `fx-backup-${state.currentMonth}.json`;
 
 
+  document.body.appendChild(a);
+
   a.click();
 
+  a.remove();
 
-  URL.revokeObjectURL(
-    a.href
+
+  setTimeout(
+    () =>
+      URL.revokeObjectURL(url),
+    1000
   );
 
 }
@@ -3293,26 +3632,20 @@ function exportData() {
 ===================================================== */
 
 document
-  .getElementById(
-    "loginBtn"
-  )
+  .getElementById("loginBtn")
   .onclick =
   () => {
 
     const username =
       document
-        .getElementById(
-          "loginUsername"
-        )
+        .getElementById("loginUsername")
         .value
         .trim();
 
 
     const password =
       document
-        .getElementById(
-          "loginPassword"
-        )
+        .getElementById("loginPassword")
         .value;
 
 
@@ -3325,46 +3658,31 @@ document
 
 
 document
-  .getElementById(
-    "createBtn"
-  )
+  .getElementById("createBtn")
   .onclick =
   createAccount;
 
 
 document
-  .getElementById(
-    "showCreateBtn"
-  )
+  .getElementById("showCreateBtn")
   .onclick =
   showCreateAccount;
 
 
 document
-  .getElementById(
-    "backLoginBtn"
-  )
+  .getElementById("backLoginBtn")
   .onclick =
   showLoginForm;
 
 
 document
-  .getElementById(
-    "logoutBtn"
-  )
+  .getElementById("logoutBtn")
   .onclick =
   logout;
 
 
-
-/* =====================================================
-   MÊS
-===================================================== */
-
 document
-  .getElementById(
-    "prevMonth"
-  )
+  .getElementById("prevMonth")
   .onclick =
   () => {
 
@@ -3382,9 +3700,7 @@ document
 
 
 document
-  .getElementById(
-    "nextMonth"
-  )
+  .getElementById("nextMonth")
   .onclick =
   () => {
 
@@ -3401,129 +3717,69 @@ document
   };
 
 
-
-/* =====================================================
-   GASTO
-===================================================== */
-
 document
-  .getElementById(
-    "addExpenseBtn"
-  )
+  .getElementById("addExpenseBtn")
   .onclick =
   () =>
     openExpense();
 
 
-
-/* =====================================================
-   EXTRA
-===================================================== */
-
 document
-  .getElementById(
-    "addExtraBtn"
-  )
-  .onclick =
-  openExtra;
-
-
-
-/* =====================================================
-   CATEGORIA
-===================================================== */
-
-document
-  .getElementById(
-    "addCategoryBtn"
-  )
+  .getElementById("addCategoryBtn")
   .onclick =
   openCategory;
 
 
+document
+  .getElementById("addExtraBtn")
+  .onclick =
+  openExtra;
 
-/* =====================================================
-   CONFIGURAÇÕES
-===================================================== */
 
 document
-  .getElementById(
-    "settingsBtn"
-  )
+  .getElementById("settingsBtn")
   .onclick =
   openSettings;
 
 
-
-/* =====================================================
-   PAGAMENTOS
-===================================================== */
-
 document
-  .getElementById(
-    "paymentsSettingsBtn"
-  )
+  .getElementById("paymentsSettingsBtn")
   .onclick =
   openPayments;
 
 
-
-/* =====================================================
-   RESERVA
-===================================================== */
-
 document
-  .getElementById(
-    "reserveBtn"
-  )
+  .getElementById("reserveBtn")
   .onclick =
   openReserve;
 
 
-
-/* =====================================================
-   HISTÓRICO
-===================================================== */
-
 document
-  .getElementById(
-    "historyBtn"
-  )
+  .getElementById("historyBtn")
   .onclick =
   openHistory;
 
 
 document
-  .getElementById(
-    "historyBtn2"
-  )
+  .getElementById("historyBtn2")
   .onclick =
   openHistory;
 
 
-
-/* =====================================================
-   MODAL
-===================================================== */
-
 document
-  .getElementById(
-    "closeModal"
-  )
+  .getElementById("closeModal")
   .onclick =
   closeModal;
 
 
 document
-  .getElementById(
-    "modal"
-  )
+  .getElementById("modal")
   .addEventListener(
     "click",
-    e => {
+    event => {
 
       if (
-        e.target.id ===
+        event.target.id ===
         "modal"
       ) {
 
@@ -3554,45 +3810,27 @@ function initFinance() {
 
   getMonth();
 
-
   syncReserve();
-
 
   render();
 
 }
 
 
-
-/* =====================================================
-   INÍCIO
-===================================================== */
-
-if (
-  isLogged()
-) {
+if (isLogged()) {
 
   showApp();
 
 } else {
 
   document
-    .getElementById(
-      "loginScreen"
-    )
+    .getElementById("loginScreen")
     .classList
-    .remove(
-      "hidden"
-    );
-
+    .remove("hidden");
 
   document
-    .getElementById(
-      "appScreen"
-    )
+    .getElementById("appScreen")
     .classList
-    .add(
-      "hidden"
-    );
+    .add("hidden");
 
-     }
+                  }
