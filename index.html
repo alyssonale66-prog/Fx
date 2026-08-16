@@ -185,6 +185,8 @@
 >
 
 
+  <!-- TOPO -->
+
   <header class="topbar">
 
     <div>
@@ -234,6 +236,8 @@
 
   <main>
 
+
+    <!-- MÊS -->
 
     <section class="month-nav">
 
@@ -298,7 +302,7 @@
       <div class="stat card">
 
         <span>
-          Salário recebido
+          Salário
         </span>
 
         <strong id="salaryValue">
@@ -324,7 +328,7 @@
       <div class="stat card">
 
         <span>
-          Gastos do mês
+          Gastos
         </span>
 
         <strong id="spentValue">
@@ -334,21 +338,7 @@
       </div>
 
 
-      <div class="stat card">
-
-        <span>
-          Reserva acumulada
-        </span>
-
-        <strong id="reserveValue">
-          R$ 0,00
-        </strong>
-
-      </div>
-
-
     </section>
-
 
 
     <!-- CATEGORIAS -->
@@ -489,6 +479,49 @@
 
 
 
+    <!-- EXTRAS -->
+
+    <section class="extras card">
+
+      <div class="section-head compact">
+
+        <div>
+
+          <h2>
+            Entradas extras
+          </h2>
+
+          <div class="section-description">
+            Dinheiro que entrou além do salário
+          </div>
+
+        </div>
+
+        <button
+          class="text-btn"
+          id="addExtraBtn"
+        >
+          + Adicionar
+        </button>
+
+      </div>
+
+
+      <div
+        id="extrasList"
+        class="extras-list"
+      >
+
+        <div class="empty-history">
+          Nenhuma entrada extra neste mês.
+        </div>
+
+      </div>
+
+    </section>
+
+
+
     <!-- HISTÓRICO -->
 
     <section class="history-preview card">
@@ -524,7 +557,7 @@
 
 
 
-    <!-- AÇÕES -->
+    <!-- ADICIONAR GASTO -->
 
     <section class="actions">
 
@@ -535,13 +568,6 @@
         + Adicionar gasto
       </button>
 
-      <button
-        class="secondary action-secondary"
-        id="addExtraBtn"
-      >
-        + Adicionar dinheiro extra
-      </button>
-
     </section>
 
 
@@ -549,7 +575,9 @@
 
 
 
-  <!-- MODAL -->
+  <!-- ===================================================
+       MODAL
+  ==================================================== -->
 
   <div
     class="modal hidden"
