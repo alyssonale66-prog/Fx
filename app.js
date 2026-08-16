@@ -37,9 +37,7 @@ function saveAccount(account) {
 function isLogged() {
 
   return (
-    localStorage.getItem(
-      SESSION_KEY
-    ) === "true"
+    localStorage.getItem(SESSION_KEY) === "true"
   );
 
 }
@@ -345,6 +343,10 @@ function normalizeState(data) {
   }
 
 
+  /* =====================================================
+     CONFIGURAÇÕES
+  ===================================================== */
+
   if (
     !data.settings ||
     typeof data.settings !== "object"
@@ -356,8 +358,7 @@ function normalizeState(data) {
 
 
   if (
-    typeof data.settings.plannedSalary !==
-    "number"
+    typeof data.settings.plannedSalary !== "number"
   ) {
 
     data.settings.plannedSalary = 0;
@@ -366,8 +367,7 @@ function normalizeState(data) {
 
 
   if (
-    typeof data.settings.advancePercent !==
-    "number"
+    typeof data.settings.advancePercent !== "number"
   ) {
 
     data.settings.advancePercent = 40;
@@ -376,8 +376,7 @@ function normalizeState(data) {
 
 
   if (
-    typeof data.settings.advanceDay !==
-    "number"
+    typeof data.settings.advanceDay !== "number"
   ) {
 
     data.settings.advanceDay = 20;
@@ -386,8 +385,7 @@ function normalizeState(data) {
 
 
   if (
-    typeof data.settings.mainPaymentLabel !==
-    "string"
+    typeof data.settings.mainPaymentLabel !== "string"
   ) {
 
     data.settings.mainPaymentLabel =
@@ -397,8 +395,7 @@ function normalizeState(data) {
 
 
   if (
-    typeof data.settings.reserveGoal !==
-    "number"
+    typeof data.settings.reserveGoal !== "number"
   ) {
 
     data.settings.reserveGoal = 0;
@@ -406,49 +403,89 @@ function normalizeState(data) {
   }
 
 
-  if (
-    !Array.isArray(data.categories)
-  ) {
+  /* =====================================================
+     CATEGORIAS
+     
+     NÃO APAGA CATEGORIAS EXISTENTES.
+     APENAS RECUPERA AS PADRÃO QUE ESTIVEREM FALTANDO.
+  ===================================================== */
 
-    data.categories =
-      defaultCategories.map(
-        category => ({
-          ...category
-        })
-      );
+  if (!Array.isArray(data.categories)) {
+
+    data.categories = [];
 
   }
 
 
   data.categories =
-    data.categories.map(
-      category => ({
+    data.categories
+      .filter(
+        category =>
+          category &&
+          typeof category === "object"
+      )
+      .map(
+        category => ({
 
-        id:
-          category.id ||
-          "cat_" +
-          Date.now() +
-          Math.random(),
+          id:
+            category.id ||
+            "cat_" + createId(),
 
-        name:
-          category.name ||
-          "Categoria",
+          name:
+            String(
+              category.name ||
+              "Categoria"
+            ),
 
-        icon:
-          category.icon ||
-          "💰",
+          icon:
+            String(
+              category.icon ||
+              "💰"
+            ),
 
-        type:
-          category.type === "reserve"
-            ? "reserve"
-            : "expense",
+          type:
+            category.type === "reserve"
+              ? "reserve"
+              : "expense",
 
-        budget:
-          Number(category.budget) || 0
+          budget:
+            Number(
+              category.budget
+            ) || 0
 
-      })
-    );
+        })
+      );
 
+
+  /* =====================================================
+     RECUPERA AS 5 CATEGORIAS PADRÃO
+  ===================================================== */
+
+  defaultCategories.forEach(
+    defaultCategory => {
+
+      const exists =
+        data.categories.some(
+          category =>
+            category.id ===
+            defaultCategory.id
+        );
+
+      if (!exists) {
+
+        data.categories.push({
+          ...defaultCategory
+        });
+
+      }
+
+    }
+  );
+
+
+  /* =====================================================
+     GARANTE RESERVA
+  ===================================================== */
 
   if (
     !data.categories.some(
@@ -458,15 +495,25 @@ function normalizeState(data) {
   ) {
 
     data.categories.push({
+
       id: "reserve",
+
       name: "Reserva",
+
       icon: "🏦",
+
       type: "reserve",
+
       budget: 0
+
     });
 
   }
 
+
+  /* =====================================================
+     MESES
+  ===================================================== */
 
   if (
     !data.months ||
@@ -478,8 +525,20 @@ function normalizeState(data) {
   }
 
 
-  Object.values(data.months)
-    .forEach(month => {
+  Object.values(
+    data.months
+  ).forEach(
+    month => {
+
+      if (
+        !month ||
+        typeof month !== "object"
+      ) {
+
+        return;
+
+      }
+
 
       if (
         !Array.isArray(
@@ -532,9 +591,7 @@ function normalizeState(data) {
         ) || 0;
 
 
-      /*
-        Compatibilidade com versões antigas.
-      */
+      /* Compatibilidade com versões antigas */
 
       if (
         Object.prototype.hasOwnProperty.call(
@@ -549,12 +606,16 @@ function normalizeState(data) {
 
       }
 
-    });
+    }
+  );
 
+
+  /* =====================================================
+     RESERVA
+  ===================================================== */
 
   if (
-    typeof data.reserveBalance !==
-    "number"
+    typeof data.reserveBalance !== "number"
   ) {
 
     data.reserveBalance = 0;
@@ -562,9 +623,12 @@ function normalizeState(data) {
   }
 
 
+  /* =====================================================
+     MÊS ATUAL
+  ===================================================== */
+
   if (
-    typeof data.currentMonth !==
-    "string"
+    typeof data.currentMonth !== "string"
   ) {
 
     data.currentMonth =
@@ -673,7 +737,9 @@ function getMonth(
 
 
   if (
-    !Array.isArray(month.expenses)
+    !Array.isArray(
+      month.expenses
+    )
   ) {
 
     month.expenses = [];
@@ -682,7 +748,9 @@ function getMonth(
 
 
   if (
-    !Array.isArray(month.extras)
+    !Array.isArray(
+      month.extras
+    )
   ) {
 
     month.extras = [];
@@ -801,15 +869,6 @@ function parseMoney(value) {
   }
 
 
-  /*
-    Aceita:
-
-    1770
-    1770,50
-    1.770,50
-    R$ 1.770,50
-  */
-
   text =
     text
       .replace(/R\$/gi, "")
@@ -826,11 +885,6 @@ function parseMoney(value) {
         .replace(",", ".");
 
   } else {
-
-    /*
-      Quando não existe vírgula,
-      tratamos ponto como decimal.
-    */
 
     text =
       text.replace(
@@ -1206,6 +1260,12 @@ function renderCategories() {
       "categories"
     );
 
+  if (!wrap) {
+
+    return;
+
+  }
+
   wrap.innerHTML = "";
 
 
@@ -1490,6 +1550,12 @@ function renderExtras() {
       "extrasList"
     );
 
+  if (!container) {
+
+    return;
+
+  }
+
 
   if (
     month.extras.length === 0
@@ -1498,9 +1564,7 @@ function renderExtras() {
     container.innerHTML = `
 
       <div class="empty-history">
-
         Nenhuma entrada extra neste mês.
-
       </div>
 
     `;
@@ -2128,12 +2192,20 @@ function openCategory() {
         !(amount >= 0)
       ) {
 
+        alert(
+          "Digite um nome e um valor válido."
+        );
+
         return;
 
       }
 
 
-      state.categories.push({
+      /* =================================================
+         CRIA A NOVA CATEGORIA
+      ================================================= */
+
+      const newCategory = {
 
         id:
           "cat_" +
@@ -2154,7 +2226,12 @@ function openCategory() {
         type:
           "expense"
 
-      });
+      };
+
+
+      state.categories.push(
+        newCategory
+      );
 
 
       save();
@@ -2286,13 +2363,28 @@ function openEditCategory(id) {
       event.preventDefault();
 
 
-      category.name =
+      const newName =
         document
           .getElementById(
             "editCatName"
           )
           .value
           .trim();
+
+
+      if (!newName) {
+
+        alert(
+          "Digite um nome."
+        );
+
+        return;
+
+      }
+
+
+      category.name =
+        newName;
 
 
       category.icon =
@@ -2311,17 +2403,6 @@ function openEditCategory(id) {
           num(
             "editCatBudget"
           );
-
-      }
-
-
-      if (!category.name) {
-
-        alert(
-          "Digite um nome."
-        );
-
-        return;
 
       }
 
@@ -2447,7 +2528,6 @@ function openReserve() {
     </div>
 
 
-
     <form
       class="form"
       id="reserveForm"
@@ -2480,7 +2560,6 @@ function openReserve() {
     </form>
 
 
-
     <form
       class="form"
       id="withdrawForm"
@@ -2511,7 +2590,6 @@ function openReserve() {
       </button>
 
     </form>
-
 
 
     <button
@@ -3381,36 +3459,26 @@ function openSettings() {
         num("sSalary");
 
 
-      /*
-        CORREÇÃO PRINCIPAL:
-
-        O salário do mês atual é
-        atualizado diretamente.
-
-        Antes ele ficava preso ao
-        valor que foi salvo quando
-        o mês foi criado.
-      */
-
       month.salaryReceived =
         newSalary;
 
-
-      /*
-        Também guardamos o valor como
-        padrão para meses novos.
-      */
 
       state.settings.plannedSalary =
         newSalary;
 
 
       state.settings.advancePercent =
-        Number(
-          document
-            .getElementById("sPercent")
-            .value
-        ) || 0;
+        Math.min(
+          100,
+          Math.max(
+            0,
+            Number(
+              document
+                .getElementById("sPercent")
+                .value
+            ) || 0
+          )
+        );
 
 
       state.settings.advanceDay =
@@ -3833,4 +3901,4 @@ if (isLogged()) {
     .classList
     .add("hidden");
 
-                  }
+     }
