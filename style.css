@@ -1,137 +1,214 @@
 :root {
+
   --bg: #f5f6f8;
   --card: #ffffff;
+
   --text: #111827;
   --muted: #6b7280;
+
   --line: #e5e7eb;
+
   --accent: #111827;
+
   --success: #16803c;
+
   --danger: #c0392b;
+
   --radius: 18px;
+
 }
+
 
 body.dark {
+
   --bg: #121212;
   --card: #1e1e1e;
+
   --text: #f5f5f5;
   --muted: #aaaaaa;
+
   --line: #333333;
+
   --accent: #ffffff;
+
   --success: #2ecc71;
+
   --danger: #ff5c5c;
+
 }
 
+
 * {
+
   box-sizing: border-box;
+
 }
+
 
 html,
 body {
+
   margin: 0;
   padding: 0;
+
   min-height: 100%;
+
   background: var(--bg);
+
   color: var(--text);
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+  font-family:
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+
 }
 
+
 body {
+
   min-height: 100vh;
+
 }
+
 
 button,
 input,
 select {
+
   font: inherit;
+
 }
+
 
 button {
+
   border: 0;
+
   cursor: pointer;
+
 }
+
 
 .hidden {
+
   display: none !important;
+
 }
 
 
-/* =========================
+
+/* =====================================================
    LOGIN
-========================= */
+===================================================== */
 
 .login-screen {
+
   min-height: 100vh;
+
   min-height: 100dvh;
 
   display: flex;
+
   align-items: center;
+
   justify-content: center;
 
   padding: 24px;
 
   background: var(--bg);
+
 }
 
+
 .login-card {
+
   width: 100%;
+
   max-width: 380px;
 
   background: var(--card);
 
   border: 1px solid var(--line);
+
   border-radius: 24px;
 
   padding: 30px 24px;
 
-  box-shadow: 0 10px 40px rgba(0, 0, 0, .08);
+  box-shadow:
+    0 10px 40px rgba(0,0,0,.08);
 
   text-align: center;
+
 }
+
 
 .login-brand {
+
   font-size: 48px;
+
   font-weight: 950;
+
   letter-spacing: -3px;
+
 }
 
+
 .login-title {
+
   margin-top: 2px;
 
   font-size: 22px;
+
   font-weight: 900;
+
 }
 
+
 .login-subtitle {
+
   margin-top: 4px;
+
   margin-bottom: 28px;
 
   color: var(--muted);
 
   font-size: 13px;
+
 }
 
-.login-card form {
-  text-align: left;
-}
 
 .login-card label {
+
   display: block;
 
   text-align: left;
 
   margin-top: 12px;
+
   margin-bottom: 6px;
+
 }
+
 
 .login-card input {
+
   text-align: left;
+
 }
+
 
 .login-button {
+
   margin-top: 16px;
+
 }
 
+
 .login-link {
+
   width: 100%;
 
   margin-top: 12px;
@@ -143,13 +220,19 @@ button {
   color: var(--text);
 
   font-weight: 800;
+
 }
+
 
 .login-link:active {
+
   opacity: .6;
+
 }
 
+
 .login-message {
+
   min-height: 20px;
 
   margin-top: 14px;
@@ -157,17 +240,23 @@ button {
   color: var(--danger);
 
   font-size: 12px;
+
   font-weight: 700;
+
 }
 
 
-/* =========================
+
+/* =====================================================
    TOPO
-========================= */
+===================================================== */
 
 .topbar {
+
   display: flex;
+
   align-items: center;
+
   justify-content: space-between;
 
   padding: 22px 18px 8px;
@@ -175,53 +264,85 @@ button {
   max-width: 720px;
 
   margin: auto;
+
 }
+
 
 .top-actions {
+
   display: flex;
+
   align-items: center;
-  gap: 4px;
+
+  gap: 2px;
+
 }
+
 
 .brand {
+
   font-size: 30px;
+
   font-weight: 900;
+
   letter-spacing: -1.5px;
+
 }
+
 
 .tagline {
+
   font-size: 12px;
+
   color: var(--muted);
+
   margin-top: -3px;
+
 }
 
 
-/* =========================
+
+/* =====================================================
    PRINCIPAL
-========================= */
+===================================================== */
 
 main {
+
   max-width: 720px;
+
   margin: auto;
 
   padding: 8px 16px 36px;
+
 }
 
+
 .month-nav {
+
   display: flex;
+
   justify-content: space-between;
+
   align-items: center;
 
   margin: 8px 0 14px;
+
 }
+
 
 .month-title {
+
   font-weight: 800;
+
   text-transform: capitalize;
+
 }
 
+
 .icon-btn {
+
   width: 40px;
+
   height: 40px;
 
   border-radius: 12px;
@@ -230,35 +351,48 @@ main {
 
   color: var(--text);
 
-  font-size: 22px;
+  font-size: 21px;
+
 }
+
 
 .icon-btn:active {
+
   background: var(--line);
+
 }
 
 
-/* =========================
+
+/* =====================================================
    CARDS
-========================= */
+===================================================== */
 
 .card {
+
   background: var(--card);
 
   border: 1px solid var(--line);
 
   border-radius: var(--radius);
 
-  box-shadow: 0 2px 10px rgba(0, 0, 0, .03);
+  box-shadow:
+    0 2px 10px rgba(0,0,0,.03);
+
 }
 
+
 .hero {
+
   padding: 24px 20px;
 
   text-align: center;
+
 }
 
+
 .eyebrow {
+
   font-size: 12px;
 
   letter-spacing: 1.2px;
@@ -266,9 +400,12 @@ main {
   font-weight: 800;
 
   color: var(--muted);
+
 }
 
+
 .hero-value {
+
   font-size: 40px;
 
   font-weight: 900;
@@ -276,38 +413,50 @@ main {
   letter-spacing: -1.5px;
 
   margin: 5px 0;
+
 }
+
 
 .muted,
 small {
+
   color: var(--muted);
+
   font-size: 12px;
+
 }
 
 
-/* =========================
+
+/* =====================================================
    ESTATÍSTICAS
-========================= */
+===================================================== */
 
 .stats {
+
   display: grid;
 
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns:
+    repeat(3, 1fr);
 
   gap: 8px;
 
   margin: 10px 0 20px;
+
 }
 
+
 .stat {
+
   padding: 14px 12px;
 
   min-width: 0;
+
 }
 
-.stat span,
-.payment span,
-.reserve span {
+
+.stat span {
+
   display: block;
 
   color: var(--muted);
@@ -315,20 +464,26 @@ small {
   font-size: 11px;
 
   margin-bottom: 5px;
+
 }
 
+
 .stat strong {
+
   font-size: 14px;
 
   white-space: nowrap;
+
 }
 
 
-/* =========================
+
+/* =====================================================
    SEÇÕES
-========================= */
+===================================================== */
 
 .section-head {
+
   display: flex;
 
   align-items: center;
@@ -336,19 +491,28 @@ small {
   justify-content: space-between;
 
   margin: 18px 2px 10px;
+
 }
 
+
 .section-head h2 {
+
   font-size: 17px;
 
   margin: 0;
+
 }
+
 
 .section-head.compact {
+
   margin: 0 0 12px;
+
 }
 
+
 .text-btn {
+
   background: transparent;
 
   color: var(--text);
@@ -356,20 +520,26 @@ small {
   font-weight: 800;
 
   padding: 7px 2px;
+
 }
 
 
-/* =========================
+
+/* =====================================================
    CATEGORIAS
-========================= */
+===================================================== */
 
 .categories {
+
   display: grid;
 
   gap: 8px;
+
 }
 
+
 .category {
+
   display: flex;
 
   align-items: center;
@@ -383,10 +553,14 @@ small {
   border-radius: 16px;
 
   padding: 14px;
+
 }
 
+
 .cat-icon {
+
   width: 40px;
+
   height: 40px;
 
   display: grid;
@@ -398,42 +572,60 @@ small {
   border-radius: 12px;
 
   font-size: 20px;
+
 }
 
+
 .cat-main {
+
   flex: 1;
 
   min-width: 0;
+
 }
+
 
 .cat-name {
+
   font-weight: 800;
+
 }
 
+
 .cat-sub {
+
   color: var(--muted);
 
   font-size: 11px;
 
   margin-top: 2px;
+
 }
+
 
 .cat-value {
+
   text-align: right;
+
 }
 
+
 .cat-value strong {
+
   display: block;
 
   font-size: 14px;
+
 }
 
 
-/* =========================
+
+/* =====================================================
    BARRA
-========================= */
+===================================================== */
 
 .progress {
+
   height: 5px;
 
   background: var(--line);
@@ -443,62 +635,99 @@ small {
   overflow: hidden;
 
   margin-top: 7px;
+
 }
 
+
 .progress > div {
+
   height: 100%;
 
   background: var(--accent);
 
   border-radius: 9px;
+
 }
 
-.category.reserve-cat .progress > div {
+
+.category.reserve-cat
+.progress > div {
+
   background: var(--success);
+
 }
 
 
-/* =========================
+
+/* =====================================================
    PAGAMENTOS
-========================= */
+===================================================== */
 
 .payment,
 .reserve {
+
   padding: 16px;
 
   margin-top: 12px;
+
 }
+
 
 .payment-grid {
+
   display: grid;
 
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns:
+    1fr 1fr;
 
   gap: 12px;
+
 }
 
+
 .payment-grid > div {
+
   padding: 12px;
 
   border: 1px solid var(--line);
 
   border-radius: 14px;
+
 }
 
+
+.payment span,
+.reserve span {
+
+  display: block;
+
+  color: var(--muted);
+
+  font-size: 11px;
+
+  margin-bottom: 5px;
+
+}
+
+
 .payment strong {
+
   display: block;
 
   font-size: 19px;
 
   margin-bottom: 2px;
+
 }
 
 
-/* =========================
+
+/* =====================================================
    RESERVA
-========================= */
+===================================================== */
 
 .reserve-row {
+
   display: flex;
 
   align-items: center;
@@ -506,13 +735,19 @@ small {
   justify-content: space-between;
 
   gap: 12px;
+
 }
+
 
 .reserve strong {
+
   font-size: 25px;
+
 }
 
+
 .goal {
+
   text-align: right;
 
   font-size: 11px;
@@ -520,18 +755,176 @@ small {
   color: var(--muted);
 
   max-width: 150px;
+
 }
 
 
-/* =========================
+
+/* =====================================================
+   HISTÓRICO
+===================================================== */
+
+.history-preview {
+
+  padding: 16px;
+
+  margin-top: 12px;
+
+}
+
+
+.history-preview-list {
+
+  display: grid;
+
+  gap: 7px;
+
+}
+
+
+.empty-history {
+
+  padding: 14px;
+
+  border-radius: 12px;
+
+  background: var(--line);
+
+  color: var(--muted);
+
+  text-align: center;
+
+  font-size: 12px;
+
+}
+
+
+.history-item {
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 10px;
+
+  padding: 11px;
+
+  border: 1px solid var(--line);
+
+  border-radius: 13px;
+
+}
+
+
+.history-icon {
+
+  width: 36px;
+
+  height: 36px;
+
+  display: grid;
+
+  place-items: center;
+
+  background: var(--line);
+
+  border-radius: 10px;
+
+  font-size: 18px;
+
+}
+
+
+.history-main {
+
+  flex: 1;
+
+  min-width: 0;
+
+}
+
+
+.history-name {
+
+  font-weight: 800;
+
+  font-size: 13px;
+
+}
+
+
+.history-date {
+
+  color: var(--muted);
+
+  font-size: 10px;
+
+  margin-top: 2px;
+
+}
+
+
+.history-value {
+
+  font-weight: 900;
+
+  white-space: nowrap;
+
+  font-size: 13px;
+
+}
+
+
+.history-value.expense {
+
+  color: var(--danger);
+
+}
+
+
+.history-value.reserve-in {
+
+  color: var(--success);
+
+}
+
+
+.history-value.reserve-out {
+
+  color: var(--danger);
+
+}
+
+
+.history-note {
+
+  color: var(--muted);
+
+  font-size: 10px;
+
+  overflow: hidden;
+
+  text-overflow: ellipsis;
+
+  white-space: nowrap;
+
+}
+
+
+
+/* =====================================================
    BOTÃO PRINCIPAL
-========================= */
+===================================================== */
 
 .actions {
+
   margin-top: 16px;
+
 }
 
+
 .primary {
+
   width: 100%;
 
   padding: 15px;
@@ -545,19 +938,23 @@ small {
   font-weight: 900;
 
   font-size: 15px;
+
 }
 
 
-/* =========================
+
+/* =====================================================
    MODAL
-========================= */
+===================================================== */
 
 .modal {
+
   position: fixed;
 
   inset: 0;
 
-  background: rgba(0, 0, 0, .42);
+  background:
+    rgba(0,0,0,.42);
 
   display: flex;
 
@@ -566,61 +963,84 @@ small {
   justify-content: center;
 
   z-index: 10;
+
 }
+
 
 .modal.hidden {
+
   display: none;
+
 }
 
+
 .modal-sheet {
+
   background: var(--card);
 
   width: 100%;
 
   max-width: 720px;
 
-  border-radius: 22px 22px 0 0;
+  border-radius:
+    22px 22px 0 0;
 
-  padding: 18px 16px 28px;
+  padding:
+    18px 16px 28px;
 
   max-height: 90vh;
 
   overflow: auto;
+
 }
 
+
 .modal-head {
+
   display: flex;
 
   justify-content: space-between;
 
   align-items: center;
+
 }
+
 
 .modal-head h3 {
+
   margin: 0 0 12px;
+
 }
 
 
-/* =========================
+
+/* =====================================================
    FORMULÁRIOS
-========================= */
+===================================================== */
 
 .form {
+
   display: grid;
 
   gap: 11px;
+
 }
 
+
 label {
+
   font-size: 12px;
 
   font-weight: 800;
 
   color: var(--muted);
+
 }
+
 
 input,
 select {
+
   width: 100%;
 
   padding: 13px;
@@ -634,14 +1054,21 @@ select {
   color: var(--text);
 
   outline: none;
+
 }
+
 
 input:focus,
 select:focus {
-  border-color: var(--accent);
+
+  border-color:
+    var(--accent);
+
 }
 
+
 .form button {
+
   padding: 13px;
 
   border-radius: 12px;
@@ -651,14 +1078,88 @@ select:focus {
   color: var(--bg);
 
   font-weight: 800;
+
 }
 
 
-/* =========================
+
+/* =====================================================
+   HISTÓRICO COMPLETO
+===================================================== */
+
+.full-history {
+
+  display: grid;
+
+  gap: 8px;
+
+}
+
+
+.full-history-item {
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 10px;
+
+  padding: 12px;
+
+  border: 1px solid var(--line);
+
+  border-radius: 14px;
+
+}
+
+
+.full-history-item .history-icon {
+
+  flex-shrink: 0;
+
+}
+
+
+.history-filter {
+
+  margin-bottom: 12px;
+
+}
+
+
+.history-total {
+
+  padding: 13px;
+
+  border-radius: 13px;
+
+  background: var(--line);
+
+  margin-bottom: 12px;
+
+  font-size: 12px;
+
+}
+
+
+.history-total strong {
+
+  display: block;
+
+  font-size: 18px;
+
+  margin-top: 3px;
+
+}
+
+
+
+/* =====================================================
    MODO ESCURO
-========================= */
+===================================================== */
 
 .dark-mode-row {
+
   display: flex;
 
   align-items: center;
@@ -666,31 +1167,42 @@ select:focus {
   justify-content: space-between;
 
   padding: 4px 0;
+
 }
 
+
 .theme-switch {
+
   position: relative;
 
   display: block;
 
   width: 52px;
+
   height: 30px;
 
   margin: 0;
 
   cursor: pointer;
+
 }
 
+
 .theme-switch input {
+
   position: absolute;
 
   opacity: 0;
 
   width: 0;
+
   height: 0;
+
 }
 
+
 .theme-slider {
+
   position: absolute;
 
   inset: 0;
@@ -700,15 +1212,20 @@ select:focus {
   border-radius: 30px;
 
   transition: .2s;
+
 }
 
+
 .theme-dot {
+
   position: absolute;
 
   width: 22px;
+
   height: 22px;
 
   left: 4px;
+
   top: 4px;
 
   border-radius: 50%;
@@ -716,78 +1233,141 @@ select:focus {
   background: var(--muted);
 
   transition: .2s;
-}
 
-.theme-switch input:checked + .theme-slider {
-  background: var(--accent);
-}
-
-.theme-switch input:checked + .theme-slider .theme-dot {
-  transform: translateX(22px);
-
-  background: var(--bg);
 }
 
 
-/* =========================
+.theme-switch input:checked
++ .theme-slider {
+
+  background:
+    var(--accent);
+
+}
+
+
+.theme-switch input:checked
++ .theme-slider
+.theme-dot {
+
+  transform:
+    translateX(22px);
+
+  background:
+    var(--bg);
+
+}
+
+
+
+/* =====================================================
    OUTROS BOTÕES
-========================= */
+===================================================== */
 
 .secondary {
-  background: var(--line) !important;
 
-  color: var(--text) !important;
+  background:
+    var(--line) !important;
+
+  color:
+    var(--text) !important;
+
 }
+
 
 .danger {
-  background: #fbe9e7 !important;
 
-  color: var(--danger) !important;
+  background:
+    #fbe9e7 !important;
+
+  color:
+    var(--danger) !important;
+
 }
 
+
 .notice {
+
   padding: 12px;
 
   border-radius: 12px;
 
-  background: var(--line);
+  background:
+    var(--line);
 
-  color: var(--text);
+  color:
+    var(--text);
 
   font-size: 12px;
 
-  line-height: 1.4;
+  line-height: 1.5;
+
 }
+
 
 body.dark .danger {
-  background: #3a2220 !important;
+
+  background:
+    #3a2220 !important;
+
 }
+
 
 body.dark .modal {
-  background: rgba(0, 0, 0, .65);
+
+  background:
+    rgba(0,0,0,.65);
+
 }
 
 
-/* =========================
+
+/* =====================================================
    CELULAR
-========================= */
+===================================================== */
 
 @media (max-width: 430px) {
 
   .hero-value {
+
     font-size: 35px;
+
   }
+
 
   .stats {
+
     gap: 6px;
+
   }
+
 
   .stat {
-    padding: 12px 9px;
+
+    padding:
+      12px 9px;
+
   }
 
+
   .stat strong {
+
     font-size: 12px;
+
+  }
+
+
+  .top-actions {
+
+    gap: 0;
+
+  }
+
+
+  .top-actions .icon-btn {
+
+    width: 37px;
+
   }
 
 }
