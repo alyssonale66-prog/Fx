@@ -39,7 +39,9 @@ body.dark {
 
 
 * {
+
   box-sizing: border-box;
+
 }
 
 
@@ -66,25 +68,34 @@ body {
 
 
 body {
+
   min-height: 100vh;
+
 }
 
 
 button,
 input,
 select {
+
   font: inherit;
+
 }
 
 
 button {
+
   border: 0;
+
   cursor: pointer;
+
 }
 
 
 .hidden {
+
   display: none !important;
+
 }
 
 
@@ -101,6 +112,7 @@ button {
   display: flex;
 
   align-items: center;
+
   justify-content: center;
 
   padding: 24px;
@@ -113,6 +125,7 @@ button {
 .login-card {
 
   width: 100%;
+
   max-width: 380px;
 
   background: var(--card);
@@ -134,7 +147,9 @@ button {
 .login-brand {
 
   font-size: 48px;
+
   font-weight: 950;
+
   letter-spacing: -3px;
 
 }
@@ -145,6 +160,7 @@ button {
   margin-top: 2px;
 
   font-size: 22px;
+
   font-weight: 900;
 
 }
@@ -153,6 +169,7 @@ button {
 .login-subtitle {
 
   margin-top: 4px;
+
   margin-bottom: 28px;
 
   color: var(--muted);
@@ -169,18 +186,23 @@ button {
   text-align: left;
 
   margin-top: 12px;
+
   margin-bottom: 6px;
 
 }
 
 
 .login-card input {
+
   text-align: left;
+
 }
 
 
 .login-button {
+
   margin-top: 16px;
+
 }
 
 
@@ -202,7 +224,9 @@ button {
 
 
 .login-link:active {
+
   opacity: .6;
+
 }
 
 
@@ -317,6 +341,7 @@ main {
 .icon-btn {
 
   width: 40px;
+
   height: 40px;
 
   border-radius: 12px;
@@ -331,7 +356,9 @@ main {
 
 
 .icon-btn:active {
+
   background: var(--line);
+
 }
 
 
@@ -409,7 +436,7 @@ small {
   display: grid;
 
   grid-template-columns:
-    repeat(4, 1fr);
+    repeat(3, 1fr);
 
   gap: 8px;
 
@@ -420,7 +447,7 @@ small {
 
 .stat {
 
-  padding: 14px 10px;
+  padding: 14px 12px;
 
   min-width: 0;
 
@@ -462,6 +489,8 @@ small {
 
   justify-content: space-between;
 
+  gap: 10px;
+
   margin: 18px 2px 10px;
 
 }
@@ -477,7 +506,20 @@ small {
 
 
 .section-head.compact {
+
   margin: 0 0 12px;
+
+}
+
+
+.section-description {
+
+  color: var(--muted);
+
+  font-size: 10px;
+
+  margin-top: 3px;
+
 }
 
 
@@ -490,6 +532,8 @@ small {
   font-weight: 800;
 
   padding: 7px 2px;
+
+  white-space: nowrap;
 
 }
 
@@ -530,7 +574,10 @@ small {
 .cat-icon {
 
   width: 40px;
+
   height: 40px;
+
+  flex-shrink: 0;
 
   display: grid;
 
@@ -555,7 +602,9 @@ small {
 
 
 .cat-name {
+
   font-weight: 800;
+
 }
 
 
@@ -571,7 +620,9 @@ small {
 
 
 .cat-value {
+
   text-align: right;
+
 }
 
 
@@ -580,6 +631,30 @@ small {
   display: block;
 
   font-size: 14px;
+
+}
+
+
+.cat-actions {
+
+  display: flex;
+
+  gap: 3px;
+
+}
+
+
+.cat-edit {
+
+  width: 32px;
+
+  height: 32px;
+
+  border-radius: 10px;
+
+  background: var(--line);
+
+  color: var(--text);
 
 }
 
@@ -629,7 +704,8 @@ small {
 ===================================================== */
 
 .payment,
-.reserve {
+.reserve,
+.extras {
 
   padding: 16px;
 
@@ -705,7 +781,9 @@ small {
 
 
 .reserve strong {
+
   font-size: 25px;
+
 }
 
 
@@ -718,6 +796,113 @@ small {
   color: var(--muted);
 
   max-width: 150px;
+
+}
+
+
+
+/* =====================================================
+   EXTRAS
+===================================================== */
+
+.extras-list {
+
+  display: grid;
+
+  gap: 7px;
+
+}
+
+
+.extra-item {
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 10px;
+
+  padding: 11px;
+
+  border: 1px solid var(--line);
+
+  border-radius: 13px;
+
+}
+
+
+.extra-icon {
+
+  width: 36px;
+
+  height: 36px;
+
+  display: grid;
+
+  place-items: center;
+
+  background: var(--line);
+
+  border-radius: 10px;
+
+  font-size: 18px;
+
+}
+
+
+.extra-main {
+
+  flex: 1;
+
+  min-width: 0;
+
+}
+
+
+.extra-name {
+
+  font-weight: 800;
+
+  font-size: 13px;
+
+}
+
+
+.extra-date {
+
+  color: var(--muted);
+
+  font-size: 10px;
+
+  margin-top: 2px;
+
+}
+
+
+.extra-value {
+
+  color: var(--success);
+
+  font-weight: 900;
+
+  white-space: nowrap;
+
+  font-size: 13px;
+
+}
+
+
+.extra-delete {
+
+  width: 32px;
+
+  height: 32px;
+
+  border-radius: 10px;
+
+  background: var(--line);
+
+  color: var(--danger);
 
 }
 
@@ -782,7 +967,10 @@ small {
 .history-icon {
 
   width: 36px;
+
   height: 36px;
+
+  flex-shrink: 0;
 
   display: grid;
 
@@ -838,22 +1026,24 @@ small {
 
 
 .history-value.expense {
+
   color: var(--danger);
+
 }
 
 
+.history-value.extra-in,
 .history-value.reserve-in {
+
   color: var(--success);
+
 }
 
 
 .history-value.reserve-out {
+
   color: var(--danger);
-}
 
-
-.history-value.extra-in {
-  color: var(--success);
 }
 
 
@@ -874,11 +1064,13 @@ small {
 
 
 /* =====================================================
-   BOTÕES
+   BOTÃO PRINCIPAL
 ===================================================== */
 
 .actions {
+
   margin-top: 16px;
+
 }
 
 
@@ -897,21 +1089,6 @@ small {
   font-weight: 900;
 
   font-size: 15px;
-
-}
-
-
-.action-secondary {
-
-  width: 100%;
-
-  margin-top: 9px;
-
-  padding: 13px;
-
-  border-radius: 15px;
-
-  font-weight: 800;
 
 }
 
@@ -942,7 +1119,9 @@ small {
 
 
 .modal.hidden {
+
   display: none;
+
 }
 
 
@@ -979,7 +1158,9 @@ small {
 
 
 .modal-head h3 {
+
   margin: 0 0 12px;
+
 }
 
 
@@ -1066,30 +1247,10 @@ select:focus {
 }
 
 
-.full-history-item {
-
-  display: flex;
-
-  align-items: center;
-
-  gap: 10px;
-
-  padding: 12px;
-
-  border: 1px solid var(--line);
-
-  border-radius: 14px;
-
-}
-
-
-.full-history-item .history-icon {
-  flex-shrink: 0;
-}
-
-
 .history-filter {
+
   margin-bottom: 12px;
+
 }
 
 
@@ -1187,9 +1348,11 @@ select:focus {
   position: absolute;
 
   width: 22px;
+
   height: 22px;
 
   left: 4px;
+
   top: 4px;
 
   border-radius: 50%;
@@ -1290,48 +1453,62 @@ body.dark .modal {
    CELULAR
 ===================================================== */
 
-@media (max-width: 600px) {
-
-  .stats {
-
-    grid-template-columns:
-      repeat(2, 1fr);
-
-  }
-
-}
-
-
 @media (max-width: 430px) {
 
   .hero-value {
+
     font-size: 35px;
+
   }
 
 
   .stats {
+
     gap: 6px;
+
   }
 
 
   .stat {
+
     padding:
       12px 9px;
+
   }
 
 
   .stat strong {
+
     font-size: 12px;
+
   }
 
 
   .top-actions {
+
     gap: 0;
+
   }
 
 
   .top-actions .icon-btn {
+
     width: 37px;
+
+  }
+
+
+  .cat-value strong {
+
+    font-size: 12px;
+
+  }
+
+
+  .cat-actions {
+
+    flex-shrink: 0;
+
   }
 
 }
