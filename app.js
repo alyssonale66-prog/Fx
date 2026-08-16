@@ -91,26 +91,20 @@ function createAccount() {
 
   const username =
     document
-      .getElementById(
-        "createUsername"
-      )
+      .getElementById("createUsername")
       .value
       .trim();
 
 
   const password =
     document
-      .getElementById(
-        "createPassword"
-      )
+      .getElementById("createPassword")
       .value;
 
 
   const confirmation =
     document
-      .getElementById(
-        "createPasswordConfirm"
-      )
+      .getElementById("createPasswordConfirm")
       .value;
 
 
@@ -166,11 +160,8 @@ function createAccount() {
 
 
   saveAccount({
-
     username,
-
     password
-
   });
 
 
@@ -193,34 +184,22 @@ function logout() {
 
 
   document
-    .getElementById(
-      "appScreen"
-    )
-    .classList.add(
-      "hidden"
-    );
+    .getElementById("appScreen")
+    .classList.add("hidden");
 
 
   document
-    .getElementById(
-      "loginScreen"
-    )
-    .classList.remove(
-      "hidden"
-    );
+    .getElementById("loginScreen")
+    .classList.remove("hidden");
 
 
   document
-    .getElementById(
-      "loginUsername"
-    )
+    .getElementById("loginUsername")
     .value = "";
 
 
   document
-    .getElementById(
-      "loginPassword"
-    )
+    .getElementById("loginPassword")
     .value = "";
 
 
@@ -229,16 +208,11 @@ function logout() {
 }
 
 
-function showLoginMessage(
-  message
-) {
+function showLoginMessage(message) {
 
   document
-    .getElementById(
-      "loginMessage"
-    )
-    .textContent =
-    message;
+    .getElementById("loginMessage")
+    .textContent = message;
 
 }
 
@@ -246,21 +220,13 @@ function showLoginMessage(
 function showCreateAccount() {
 
   document
-    .getElementById(
-      "loginForm"
-    )
-    .classList.add(
-      "hidden"
-    );
+    .getElementById("loginForm")
+    .classList.add("hidden");
 
 
   document
-    .getElementById(
-      "createForm"
-    )
-    .classList.remove(
-      "hidden"
-    );
+    .getElementById("createForm")
+    .classList.remove("hidden");
 
 
   showLoginMessage("");
@@ -271,21 +237,13 @@ function showCreateAccount() {
 function showLoginForm() {
 
   document
-    .getElementById(
-      "createForm"
-    )
-    .classList.add(
-      "hidden"
-    );
+    .getElementById("createForm")
+    .classList.add("hidden");
 
 
   document
-    .getElementById(
-      "loginForm"
-    )
-    .classList.remove(
-      "hidden"
-    );
+    .getElementById("loginForm")
+    .classList.remove("hidden");
 
 
   showLoginMessage("");
@@ -296,21 +254,13 @@ function showLoginForm() {
 function showApp() {
 
   document
-    .getElementById(
-      "loginScreen"
-    )
-    .classList.add(
-      "hidden"
-    );
+    .getElementById("loginScreen")
+    .classList.add("hidden");
 
 
   document
-    .getElementById(
-      "appScreen"
-    )
-    .classList.remove(
-      "hidden"
-    );
+    .getElementById("appScreen")
+    .classList.remove("hidden");
 
 
   initFinance();
@@ -373,34 +323,34 @@ const defaultCategories = [
    ESTADO
 ===================================================== */
 
+const defaultSettings = {
+
+  plannedSalary: 0,
+
+  advancePercent: 40,
+
+  advanceDay: 20,
+
+  mainPaymentLabel:
+    "5º dia útil",
+
+  reserveGoal: 0
+
+};
+
+
 const state =
   load() || {
 
-    settings: {
-
-      plannedSalary: 1350,
-
-      advancePercent: 40,
-
-      advanceDay: 20,
-
-      mainPaymentLabel:
-        "5º dia útil",
-
-      reserveGoal: 0
-
-    },
-
+    settings:
+      { ...defaultSettings },
 
     categories:
       defaultCategories,
 
-
     months: {},
 
-
     reserveBalance: 0,
-
 
     currentMonth:
       monthKey(
@@ -426,54 +376,15 @@ function load() {
 
 
     if (!data) {
-
       return null;
-
     }
 
 
-    /*
-      MIGRAÇÃO DO SISTEMA ANTIGO
+    data.settings = {
+      ...defaultSettings,
+      ...(data.settings || {})
+    };
 
-      O sistema anterior criava
-      automaticamente R$315 ou
-      outros valores.
-
-      Agora a reserva é manual.
-
-      Se encontrarmos _autoReserve,
-      significa que aquele valor veio
-      do sistema antigo.
-    */
-
-    if (data.months) {
-
-      Object.values(
-        data.months
-      ).forEach(month => {
-
-        if (
-          Object.prototype.hasOwnProperty.call(
-            month,
-            "_autoReserve"
-          )
-        ) {
-
-          month.reserveContribution = 0;
-
-          delete month._autoReserve;
-
-        }
-
-      });
-
-    }
-
-
-    /*
-      Garante que categorias antigas
-      continuem funcionando.
-    */
 
     if (
       !Array.isArray(
@@ -482,7 +393,7 @@ function load() {
     ) {
 
       data.categories =
-        defaultCategories;
+        [...defaultCategories];
 
     }
 
@@ -517,6 +428,81 @@ function load() {
     }
 
 
+    if (
+      !data.months ||
+      typeof data.months !== "object"
+    ) {
+
+      data.months = {};
+
+    }
+
+
+    /*
+      MIGRAÇÃO DOS MESES ANTIGOS
+    */
+
+    Object.values(
+      data.months
+    ).forEach(month => {
+
+      if (
+        typeof month.salaryReceived !==
+        "number"
+      ) {
+
+        month.salaryReceived =
+          Number(
+            data.settings.plannedSalary
+          ) || 0;
+
+      }
+
+
+      if (
+        !Array.isArray(
+          month.expenses
+        )
+      ) {
+
+        month.expenses = [];
+
+      }
+
+
+      if (
+        !Array.isArray(
+          month.extras
+        )
+      ) {
+
+        month.extras = [];
+
+      }
+
+
+      if (
+        typeof month.reserveContribution !==
+        "number"
+      ) {
+
+        month.reserveContribution = 0;
+
+      }
+
+
+      if (
+        typeof month.reserveWithdrawal !==
+        "number"
+      ) {
+
+        month.reserveWithdrawal = 0;
+
+      }
+
+    });
+
+
     return data;
 
   } catch {
@@ -526,7 +512,6 @@ function load() {
   }
 
 }
-
 
 
 function save() {
@@ -564,19 +549,20 @@ function getMonth(
     state.months[key] = {
 
       salaryReceived:
-        state.settings
-          .plannedSalary,
+        Number(
+          state.settings
+            .plannedSalary
+        ) || 0,
 
       expenses: [],
 
-      /*
-        Reserva agora começa
-        SEMPRE em zero.
-      */
+      extras: [],
 
       reserveContribution: 0,
 
-      reserveWithdrawal: 0
+      reserveWithdrawal: 0,
+
+      reserveTransactions: []
 
     };
 
@@ -586,7 +572,33 @@ function getMonth(
   }
 
 
-  return state.months[key];
+  const month =
+    state.months[key];
+
+
+  if (
+    !Array.isArray(
+      month.extras
+    )
+  ) {
+
+    month.extras = [];
+
+  }
+
+
+  if (
+    !Array.isArray(
+      month.expenses
+    )
+  ) {
+
+    month.expenses = [];
+
+  }
+
+
+  return month;
 
 }
 
@@ -692,9 +704,7 @@ function num(id) {
 
 
   if (!element) {
-
     return 0;
-
   }
 
 
@@ -760,6 +770,34 @@ function totalSpent(
 
 
 /* =====================================================
+   EXTRAS
+===================================================== */
+
+function totalExtras(
+  month
+) {
+
+  return (
+    month.extras || []
+  )
+
+    .reduce(
+      (
+        sum,
+        extra
+      ) =>
+        sum +
+        Number(
+          extra.amount
+        ),
+      0
+    );
+
+}
+
+
+
+/* =====================================================
    RESERVA
 ===================================================== */
 
@@ -802,16 +840,8 @@ function getReserveBalance() {
 
 function syncReserve() {
 
-  /*
-    Não existe mais cálculo automático.
-
-    O saldo é simplesmente a soma
-    dos aportes reais registrados.
-  */
-
   state.reserveBalance =
     getReserveBalance();
-
 
   save();
 
@@ -827,24 +857,36 @@ function available(
   month
 ) {
 
+  const salary =
+    Number(
+      month.salaryReceived
+    ) || 0;
+
+
+  const extras =
+    totalExtras(
+      month
+    );
+
+
   const reserve =
     Number(
-      month
-        .reserveContribution ||
+      month.reserveContribution ||
       0
     );
 
 
-  return (
-    Number(
-      month
-        .salaryReceived ||
-      0
-    ) -
-    reserve -
+  const expenses =
     totalSpent(
       month
-    )
+    );
+
+
+  return (
+    salary +
+    extras -
+    reserve -
+    expenses
   );
 
 }
@@ -864,14 +906,8 @@ function render() {
   syncReserve();
 
 
-  /*
-    MÊS
-  */
-
   document
-    .getElementById(
-      "monthTitle"
-    )
+    .getElementById("monthTitle")
     .textContent =
     monthLabel(
       state.currentMonth
@@ -883,9 +919,7 @@ function render() {
   */
 
   document
-    .getElementById(
-      "availableValue"
-    )
+    .getElementById("availableValue")
     .textContent =
     money(
       Math.max(
@@ -902,12 +936,24 @@ function render() {
   */
 
   document
-    .getElementById(
-      "salaryValue"
-    )
+    .getElementById("salaryValue")
     .textContent =
     money(
       month.salaryReceived
+    );
+
+
+  /*
+    EXTRAS
+  */
+
+  document
+    .getElementById("extraValue")
+    .textContent =
+    money(
+      totalExtras(
+        month
+      )
     );
 
 
@@ -916,9 +962,7 @@ function render() {
   */
 
   document
-    .getElementById(
-      "spentValue"
-    )
+    .getElementById("spentValue")
     .textContent =
     money(
       totalSpent(
@@ -932,9 +976,7 @@ function render() {
   */
 
   document
-    .getElementById(
-      "reserveValue"
-    )
+    .getElementById("reserveValue")
     .textContent =
     money(
       state.reserveBalance
@@ -942,9 +984,7 @@ function render() {
 
 
   document
-    .getElementById(
-      "reserveBig"
-    )
+    .getElementById("reserveBig")
     .textContent =
     money(
       state.reserveBalance
@@ -969,9 +1009,7 @@ function render() {
 
 
   document
-    .getElementById(
-      "advanceValue"
-    )
+    .getElementById("advanceValue")
     .textContent =
     money(
       adv
@@ -979,17 +1017,13 @@ function render() {
 
 
   document
-    .getElementById(
-      "advanceDate"
-    )
+    .getElementById("advanceDate")
     .textContent =
     `Dia ${state.settings.advanceDay}`;
 
 
   document
-    .getElementById(
-      "mainPayValue"
-    )
+    .getElementById("mainPayValue")
     .textContent =
     money(
       Number(
@@ -1001,9 +1035,7 @@ function render() {
 
 
   document
-    .getElementById(
-      "mainPayDate"
-    )
+    .getElementById("mainPayDate")
     .textContent =
     state.settings
       .mainPaymentLabel;
@@ -1084,10 +1116,6 @@ function render() {
       const c =
         category;
 
-
-      /*
-        RESERVA
-      */
 
       if (
         c.type === "reserve"
@@ -1170,10 +1198,6 @@ function render() {
       }
 
 
-
-      /*
-        GASTO NORMAL
-      */
 
       const spent =
         categorySpent(
@@ -1325,25 +1349,19 @@ function openModal(
 ) {
 
   document
-    .getElementById(
-      "modalTitle"
-    )
+    .getElementById("modalTitle")
     .textContent =
     title;
 
 
   document
-    .getElementById(
-      "modalBody"
-    )
+    .getElementById("modalBody")
     .innerHTML =
     html;
 
 
   document
-    .getElementById(
-      "modal"
-    )
+    .getElementById("modal")
     .classList.remove(
       "hidden"
     );
@@ -1354,9 +1372,7 @@ function openModal(
 function closeModal() {
 
   document
-    .getElementById(
-      "modal"
-    )
+    .getElementById("modal")
     .classList.add(
       "hidden"
     );
@@ -1377,7 +1393,6 @@ function openExpense(
         "expense"
     )?.id
 ) {
-
 
   const options =
     state.categories
@@ -1486,9 +1501,7 @@ function openExpense(
 
 
   document
-    .getElementById(
-      "expenseForm"
-    )
+    .getElementById("expenseForm")
     .onsubmit =
     e => {
 
@@ -1560,9 +1573,165 @@ function openExpense(
 
       save();
 
-
       closeModal();
 
+      render();
+
+    };
+
+}
+
+
+
+/* =====================================================
+   DINHEIRO EXTRA
+===================================================== */
+
+function openExtra() {
+
+  const today =
+    new Date()
+      .toISOString()
+      .slice(
+        0,
+        10
+      );
+
+
+  openModal(
+
+    "Adicionar dinheiro extra",
+
+    `
+
+    <form
+      class="form"
+      id="extraForm"
+    >
+
+      <label>
+        Valor
+      </label>
+
+      <input
+        id="extraAmount"
+        inputmode="decimal"
+        placeholder="R$ 0,00"
+        required
+      >
+
+
+      <label>
+        De onde veio?
+      </label>
+
+      <input
+        id="extraNote"
+        placeholder="Ex.: venda de algo, bico, Pix..."
+      >
+
+
+      <label>
+        Data
+      </label>
+
+      <input
+        id="extraDate"
+        type="date"
+        value="${today}"
+      >
+
+
+      <button>
+        Registrar extra
+      </button>
+
+    </form>
+
+    `
+  );
+
+
+  document
+    .getElementById(
+      "extraForm"
+    )
+    .onsubmit =
+    e => {
+
+      e.preventDefault();
+
+
+      const amount =
+        parseMoney(
+          document
+            .getElementById(
+              "extraAmount"
+            )
+            .value
+        );
+
+
+      if (
+        !(amount > 0)
+      ) {
+
+        alert(
+          "Digite um valor válido."
+        );
+
+        return;
+
+      }
+
+
+      const m =
+        getMonth();
+
+
+      if (
+        !Array.isArray(
+          m.extras
+        )
+      ) {
+
+        m.extras = [];
+
+      }
+
+
+      m.extras.push({
+
+        id:
+          crypto.randomUUID
+            ? crypto.randomUUID()
+            : String(
+                Date.now()
+              ),
+
+        amount,
+
+        date:
+          document
+            .getElementById(
+              "extraDate"
+            )
+            .value,
+
+        note:
+          document
+            .getElementById(
+              "extraNote"
+            )
+            .value
+            .trim()
+
+      });
+
+
+      save();
+
+      closeModal();
 
       render();
 
@@ -1695,12 +1864,6 @@ function openCategory() {
       }
 
 
-      /*
-        Se criar uma nova categoria
-        do tipo reserva, ela também
-        será manual.
-      */
-
       state.categories.push({
 
         id:
@@ -1732,9 +1895,7 @@ function openCategory() {
 
       save();
 
-
       closeModal();
-
 
       render();
 
@@ -1813,9 +1974,6 @@ function openReserve() {
     </div>
 
 
-
-    <!-- APORTE -->
-
     <form
       class="form"
       id="reserveForm"
@@ -1847,9 +2005,6 @@ function openReserve() {
 
     </form>
 
-
-
-    <!-- RETIRADA -->
 
     <form
       class="form"
@@ -1883,7 +2038,6 @@ function openReserve() {
     </form>
 
 
-
     <button
       class="secondary"
       id="closeReserveBtn"
@@ -1901,10 +2055,6 @@ function openReserve() {
   );
 
 
-
-  /*
-    APORTE
-  */
 
   document
     .getElementById(
@@ -1952,23 +2102,13 @@ function openReserve() {
         amount;
 
 
-      /*
-        Guardamos também um
-        lançamento individual.
-
-        Isso permite o extrato
-        saber exatamente quando
-        você guardou dinheiro.
-      */
-
       if (
         !Array.isArray(
           m.reserveTransactions
         )
       ) {
 
-        m.reserveTransactions =
-          [];
+        m.reserveTransactions = [];
 
       }
 
@@ -2002,19 +2142,13 @@ function openReserve() {
 
       save();
 
-
       closeModal();
-
 
       render();
 
     };
 
 
-
-  /*
-    RETIRADA
-  */
 
   document
     .getElementById(
@@ -2070,8 +2204,7 @@ function openReserve() {
         )
       ) {
 
-        m.reserveTransactions =
-          [];
+        m.reserveTransactions = [];
 
       }
 
@@ -2105,14 +2238,11 @@ function openReserve() {
 
       save();
 
-
       closeModal();
-
 
       render();
 
     };
-
 
 
   document
@@ -2190,6 +2320,48 @@ function getHistory(
 
 
   /*
+    EXTRAS
+  */
+
+  (
+    month.extras || []
+  ).forEach(
+    extra => {
+
+      items.push({
+
+        type:
+          "extra-in",
+
+        date:
+          extra.date,
+
+        amount:
+          Number(
+            extra.amount
+          ),
+
+        name:
+          "Dinheiro extra",
+
+        icon:
+          "💰",
+
+        note:
+          extra.note ||
+          "",
+
+        id:
+          extra.id
+
+      });
+
+    }
+  );
+
+
+
+  /*
     RESERVA
   */
 
@@ -2247,12 +2419,6 @@ function getHistory(
   }
 
 
-
-  /*
-    Ordenação:
-    mais recente primeiro.
-  */
-
   items.sort(
     (a, b) =>
       new Date(
@@ -2279,9 +2445,7 @@ function formatDate(
 ) {
 
   if (!date) {
-
     return "";
-
   }
 
 
@@ -2319,9 +2483,7 @@ function renderHistoryPreview() {
 
 
   if (!container) {
-
     return;
-
   }
 
 
@@ -2342,9 +2504,7 @@ function renderHistoryPreview() {
     container.innerHTML = `
 
       <div class="empty-history">
-
         Nenhum lançamento neste mês.
-
       </div>
 
     `;
@@ -2416,16 +2576,26 @@ function historyItemHtml(
   }
 
 
+  if (
+    item.type ===
+    "extra-in"
+  ) {
+
+    valueClass =
+      "extra-in";
+
+    prefix =
+      "+ ";
+
+  }
+
+
   return `
 
-    <div
-      class="history-item"
-    >
+    <div class="history-item">
 
       <div class="history-icon">
-
         ${item.icon}
-
       </div>
 
 
@@ -2505,6 +2675,12 @@ function openHistory() {
     );
 
 
+  const extrasTotal =
+    totalExtras(
+      month
+    );
+
+
   const contribution =
     Number(
       month
@@ -2532,9 +2708,7 @@ function openHistory() {
     content = `
 
       <div class="empty-history">
-
         Nenhum lançamento neste mês.
-
       </div>
 
     `;
@@ -2562,6 +2736,36 @@ function openHistory() {
     ),
 
     `
+
+    <div class="history-total">
+
+      <span>
+        Salário
+      </span>
+
+      <strong>
+        ${money(
+          month.salaryReceived
+        )}
+      </strong>
+
+    </div>
+
+
+    <div class="history-total">
+
+      <span>
+        Dinheiro extra
+      </span>
+
+      <strong>
+        ${money(
+          extrasTotal
+        )}
+      </strong>
+
+    </div>
+
 
     <div class="history-total">
 
@@ -2640,7 +2844,7 @@ function openSettings() {
     >
 
       <label>
-        Salário planejado
+        Salário mensal
       </label>
 
       <input
@@ -2773,9 +2977,7 @@ function openSettings() {
       "
       id="exportBtn"
     >
-
       Exportar backup JSON
-
     </button>
 
 
@@ -2789,9 +2991,7 @@ function openSettings() {
       "
       id="resetBtn"
     >
-
       Apagar todos os dados
-
     </button>
 
     `
@@ -2821,11 +3021,36 @@ function openSettings() {
       e.preventDefault();
 
 
-      state.settings
-        .plannedSalary =
+      const newSalary =
         num(
           "sSalary"
         );
+
+
+      /*
+        SALÁRIO CONFIGURÁVEL
+
+        Atualiza a configuração
+        e também o mês que está
+        aberto agora.
+
+        Isso corrige o problema
+        do R$ 1350 continuar
+        aparecendo na tela.
+      */
+
+      state.settings
+        .plannedSalary =
+        newSalary;
+
+
+      const currentMonth =
+        getMonth();
+
+
+      currentMonth
+        .salaryReceived =
+        newSalary;
 
 
       state.settings
@@ -2887,9 +3112,7 @@ function openSettings() {
 
       save();
 
-
       closeModal();
-
 
       render();
 
@@ -2922,7 +3145,6 @@ function openSettings() {
         localStorage.removeItem(
           KEY
         );
-
 
         location.reload();
 
@@ -3102,14 +3324,12 @@ document
   };
 
 
-
 document
   .getElementById(
     "createBtn"
   )
   .onclick =
   createAccount;
-
 
 
 document
@@ -3120,14 +3340,12 @@ document
   showCreateAccount;
 
 
-
 document
   .getElementById(
     "backLoginBtn"
   )
   .onclick =
   showLoginForm;
-
 
 
 document
@@ -3139,9 +3357,9 @@ document
 
 
 
-/*
-  MÊS ANTERIOR
-*/
+/* =====================================================
+   MÊS
+===================================================== */
 
 document
   .getElementById(
@@ -3156,19 +3374,12 @@ document
         -1
       );
 
-
     save();
-
 
     render();
 
   };
 
-
-
-/*
-  PRÓXIMO MÊS
-*/
 
 document
   .getElementById(
@@ -3183,9 +3394,7 @@ document
         1
       );
 
-
     save();
-
 
     render();
 
@@ -3193,9 +3402,9 @@ document
 
 
 
-/*
-  GASTO
-*/
+/* =====================================================
+   GASTO
+===================================================== */
 
 document
   .getElementById(
@@ -3207,9 +3416,22 @@ document
 
 
 
-/*
-  CATEGORIA
-*/
+/* =====================================================
+   EXTRA
+===================================================== */
+
+document
+  .getElementById(
+    "addExtraBtn"
+  )
+  .onclick =
+  openExtra;
+
+
+
+/* =====================================================
+   CATEGORIA
+===================================================== */
 
 document
   .getElementById(
@@ -3220,9 +3442,9 @@ document
 
 
 
-/*
-  CONFIGURAÇÕES
-*/
+/* =====================================================
+   CONFIGURAÇÕES
+===================================================== */
 
 document
   .getElementById(
@@ -3233,9 +3455,9 @@ document
 
 
 
-/*
-  PAGAMENTOS
-*/
+/* =====================================================
+   PAGAMENTOS
+===================================================== */
 
 document
   .getElementById(
@@ -3246,9 +3468,9 @@ document
 
 
 
-/*
-  RESERVA
-*/
+/* =====================================================
+   RESERVA
+===================================================== */
 
 document
   .getElementById(
@@ -3259,9 +3481,9 @@ document
 
 
 
-/*
-  HISTÓRICO
-*/
+/* =====================================================
+   HISTÓRICO
+===================================================== */
 
 document
   .getElementById(
@@ -3280,9 +3502,9 @@ document
 
 
 
-/*
-  FECHAR MODAL
-*/
+/* =====================================================
+   MODAL
+===================================================== */
 
 document
   .getElementById(
@@ -3291,11 +3513,6 @@ document
   .onclick =
   closeModal;
 
-
-
-/*
-  CLICAR FORA DO MODAL
-*/
 
 document
   .getElementById(
@@ -3347,13 +3564,9 @@ function initFinance() {
 
 
 
-/*
-  SE JÁ ESTÁ LOGADO,
-  MOSTRA O APP.
-
-  CASO CONTRÁRIO,
-  MOSTRA LOGIN.
-*/
+/* =====================================================
+   INÍCIO
+===================================================== */
 
 if (
   isLogged()
@@ -3382,4 +3595,4 @@ if (
       "hidden"
     );
 
-}
+     }
