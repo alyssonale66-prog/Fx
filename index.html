@@ -53,8 +53,6 @@
     </div>
 
 
-    <!-- LOGIN -->
-
     <div id="loginForm">
 
       <label>
@@ -100,8 +98,6 @@
 
     </div>
 
-
-    <!-- CRIAR CONTA -->
 
     <div
       id="createForm"
@@ -189,8 +185,6 @@
 >
 
 
-  <!-- TOPO -->
-
   <header class="topbar">
 
     <div>
@@ -241,8 +235,6 @@
   <main>
 
 
-    <!-- MÊS -->
-
     <section class="month-nav">
 
       <button
@@ -291,7 +283,7 @@
         class="muted"
         id="availableHint"
       >
-        Depois de separar a reserva e considerar os gastos.
+        Depois de considerar salário, extras, reserva e gastos.
       </div>
 
     </section>
@@ -310,6 +302,19 @@
         </span>
 
         <strong id="salaryValue">
+          R$ 0,00
+        </strong>
+
+      </div>
+
+
+      <div class="stat card">
+
+        <span>
+          Extras
+        </span>
+
+        <strong id="extraValue">
           R$ 0,00
         </strong>
 
@@ -519,7 +524,7 @@
 
 
 
-    <!-- ADICIONAR GASTO -->
+    <!-- AÇÕES -->
 
     <section class="actions">
 
@@ -530,6 +535,13 @@
         + Adicionar gasto
       </button>
 
+      <button
+        class="secondary action-secondary"
+        id="addExtraBtn"
+      >
+        + Adicionar dinheiro extra
+      </button>
+
     </section>
 
 
@@ -537,9 +549,7 @@
 
 
 
-  <!-- ===================================================
-       MODAL
-  ==================================================== -->
+  <!-- MODAL -->
 
   <div
     class="modal hidden"
