@@ -23,13 +23,21 @@ const state = load() || {
 };
 
 function load() {
-  try { return JSON.parse(localStorage.getItem(KEY)); } catch { return null; }
+  try {
+    return JSON.parse(localStorage.getItem(KEY));
+  } catch {
+    return null;
+  }
 }
-function save() { localStorage.setItem(KEY, JSON.stringify(state)); }
+
+function save() {
+  localStorage.setItem(KEY, JSON.stringify(state));
+}
 
 function monthKey(d) {
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
+
 function getMonth(key = state.currentMonth) {
   if (!state.months[key]) {
     state.months[key] = {
@@ -40,257 +48,854 @@ function getMonth(key = state.currentMonth) {
     };
     save();
   }
+
   return state.months[key];
 }
+
 function money(v) {
-  return new Intl.NumberFormat("pt-BR", { style:"currency", currency:"BRL" }).format(Number(v)||0);
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL"
+  }).format(Number(v) || 0);
 }
+
 function monthLabel(key) {
-  const [y,m] = key.split("-").map(Number);
-  return new Intl.DateTimeFormat("pt-BR", { month:"long", year:"numeric" })
-    .format(new Date(y, m-1, 1));
+  const [y, m] = key.split("-").map(Number);
+
+  return new Intl.DateTimeFormat("pt-BR", {
+    month: "long",
+    year: "numeric"
+  }).format(new Date(y, m - 1, 1));
 }
+
 function monthShift(key, delta) {
-  const [y,m] = key.split("-").map(Number);
-  return monthKey(new Date(y, m-1 + delta, 1));
+  const [y, m] = key.split("-").map(Number);
+  return monthKey(new Date(y, m - 1 + delta, 1));
 }
+
 function categorySpent(id, month) {
-  return month.expenses.filter(e => e.categoryId === id)
-    .reduce((s,e) => s + Number(e.amount), 0);
+  return month.expenses
+    .filter(e => e.categoryId === id)
+    .reduce((s, e) => s + Number(e.amount), 0);
 }
+
 function plannedTotal() {
-  return state.categories.reduce((s,c) => s + Number(c.budget||0), 0);
+  return state.categories.reduce(
+    (s, c) => s + Number(c.budget || 0),
+    0
+  );
 }
+
 function calculatedReserveContribution(month) {
   const base = state.categories.find(c => c.id === "reserve");
   const baseReserve = Number(base?.budget || 0);
-  const extra = Math.max(0, Number(month.salaryReceived||0) - plannedTotal());
+
+  const extra = Math.max(
+    0,
+    Number(month.salaryReceived || 0) - plannedTotal()
+  );
+
   return baseReserve + extra;
 }
+
 function syncReserve() {
   const keys = Object.keys(state.months).sort();
   let balance = 0;
+
   for (const k of keys) {
     const m = state.months[k];
+
     if (!m) continue;
+
     const desired = calculatedReserveContribution(m);
+
     if (m._autoReserve !== desired) {
-      // Preserve manually recorded withdrawal; contribution is derived from the month.
       m.reserveContribution = desired;
       m._autoReserve = desired;
     }
-    balance += Number(m.reserveContribution||0) - Number(m.reserveWithdrawal||0);
+
+    balance +=
+      Number(m.reserveContribution || 0) -
+      Number(m.reserveWithdrawal || 0);
   }
+
   state.reserveBalance = Math.max(0, balance);
+
   save();
 }
+
 function totalSpent(month) {
-  return month.expenses.reduce((s,e) => s + Number(e.amount), 0);
+  return month.expenses.reduce(
+    (s, e) => s + Number(e.amount),
+    0
+  );
 }
+
 function available(month) {
   const reserve = Number(month.reserveContribution || 0);
-  return Number(month.salaryReceived||0) - reserve - totalSpent(month);
+
+  return (
+    Number(month.salaryReceived || 0) -
+    reserve -
+    totalSpent(month)
+  );
 }
+
 function render() {
   const month = getMonth();
+
   syncReserve();
-  document.getElementById("monthTitle").textContent = monthLabel(state.currentMonth);
-  document.getElementById("availableValue").textContent = money(Math.max(0, available(month)));
-  document.getElementById("salaryValue").textContent = money(month.salaryReceived);
-  document.getElementById("spentValue").textContent = money(totalSpent(month));
-  document.getElementById("reserveValue").textContent = money(state.reserveBalance);
-  document.getElementById("reserveBig").textContent = money(state.reserveBalance);
 
-  const adv = Number(month.salaryReceived||0) * Number(state.settings.advancePercent||0) / 100;
-  document.getElementById("advanceValue").textContent = money(adv);
-  document.getElementById("advanceDate").textContent = `Dia ${state.settings.advanceDay}`;
-  document.getElementById("mainPayValue").textContent = money(Number(month.salaryReceived||0)-adv);
-  document.getElementById("mainPayDate").textContent = state.settings.mainPaymentLabel;
+  document.getElementById("monthTitle").textContent =
+    monthLabel(state.currentMonth);
 
-  const goal = Number(state.settings.reserveGoal||0);
+  document.getElementById("availableValue").textContent =
+    money(Math.max(0, available(month)));
+
+  document.getElementById("salaryValue").textContent =
+    money(month.salaryReceived);
+
+  document.getElementById("spentValue").textContent =
+    money(totalSpent(month));
+
+  document.getElementById("reserveValue").textContent =
+    money(state.reserveBalance);
+
+  document.getElementById("reserveBig").textContent =
+    money(state.reserveBalance);
+
+  const adv =
+    Number(month.salaryReceived || 0) *
+    Number(state.settings.advancePercent || 0) /
+    100;
+
+  document.getElementById("advanceValue").textContent =
+    money(adv);
+
+  document.getElementById("advanceDate").textContent =
+    `Dia ${state.settings.advanceDay}`;
+
+  document.getElementById("mainPayValue").textContent =
+    money(Number(month.salaryReceived || 0) - adv);
+
+  document.getElementById("mainPayDate").textContent =
+    state.settings.mainPaymentLabel;
+
+  const goal = Number(state.settings.reserveGoal || 0);
   const goalBox = document.getElementById("goalBox");
-  goalBox.innerHTML = goal > 0
-    ? `Meta ${money(goal)}<div class="progress"><div style="width:${Math.min(100, state.reserveBalance/goal*100)}%"></div></div>`
-    : "Defina uma meta em ⚙️";
+
+  goalBox.innerHTML =
+    goal > 0
+      ? `Meta ${money(goal)}
+         <div class="progress">
+           <div style="width:${Math.min(
+             100,
+             (state.reserveBalance / goal) * 100
+           )}%"></div>
+         </div>`
+      : "Defina uma meta em ⚙️";
 
   const wrap = document.getElementById("categories");
+
   wrap.innerHTML = "";
+
   state.categories.forEach(c => {
-    const spent = c.type === "reserve" ? Number(month.reserveContribution||0) : categorySpent(c.id, month);
-    const remaining = c.type === "reserve" ? Number(month.reserveContribution||0) : Number(c.budget||0) - spent;
-    const pct = c.type === "reserve" ? 100 : Math.min(100, Math.max(0, spent / Math.max(1, Number(c.budget||0))*100));
+    const spent =
+      c.type === "reserve"
+        ? Number(month.reserveContribution || 0)
+        : categorySpent(c.id, month);
+
+    const remaining =
+      c.type === "reserve"
+        ? Number(month.reserveContribution || 0)
+        : Number(c.budget || 0) - spent;
+
+    const pct =
+      c.type === "reserve"
+        ? 100
+        : Math.min(
+            100,
+            Math.max(
+              0,
+              (spent / Math.max(1, Number(c.budget || 0))) * 100
+            )
+          );
+
     const el = document.createElement("div");
-    el.className = "category" + (c.type === "reserve" ? " reserve-cat" : "");
+
+    el.className =
+      "category" +
+      (c.type === "reserve" ? " reserve-cat" : "");
+
     el.innerHTML = `
       <div class="cat-icon">${c.icon}</div>
+
       <div class="cat-main">
-        <div class="cat-name">${escapeHtml(c.name)}</div>
-        <div class="cat-sub">${c.type === "reserve" ? "Aporte deste mês" : `${money(Math.max(0, remaining))} disponíveis`}</div>
-        <div class="progress"><div style="width:${pct}%"></div></div>
+        <div class="cat-name">
+          ${escapeHtml(c.name)}
+        </div>
+
+        <div class="cat-sub">
+          ${
+            c.type === "reserve"
+              ? "Aporte deste mês"
+              : `${money(Math.max(0, remaining))} disponíveis`
+          }
+        </div>
+
+        <div class="progress">
+          <div style="width:${pct}%"></div>
+        </div>
       </div>
+
       <div class="cat-value">
         <strong>${money(spent)}</strong>
-        <small>${c.type === "reserve" ? "aporte" : `de ${money(c.budget)}`}</small>
-      </div>`;
-    if (c.type !== "reserve") el.addEventListener("click", () => openExpense(c.id));
-    else el.addEventListener("click", openReserve);
+        <small>
+          ${
+            c.type === "reserve"
+              ? "aporte"
+              : `de ${money(c.budget)}`
+          }
+        </small>
+      </div>
+    `;
+
+    if (c.type !== "reserve") {
+      el.addEventListener("click", () =>
+        openExpense(c.id)
+      );
+    } else {
+      el.addEventListener("click", openReserve);
+    }
+
     wrap.appendChild(el);
   });
 }
+
 function escapeHtml(s) {
-  return String(s).replace(/[&<>"']/g, x => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;" }[x]));
+  return String(s).replace(
+    /[&<>"']/g,
+    x =>
+      ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#039;"
+      }[x])
+  );
 }
+
 function openModal(title, html) {
-  document.getElementById("modalTitle").textContent = title;
-  document.getElementById("modalBody").innerHTML = html;
-  document.getElementById("modal").classList.remove("hidden");
+  document.getElementById("modalTitle").textContent =
+    title;
+
+  document.getElementById("modalBody").innerHTML =
+    html;
+
+  document
+    .getElementById("modal")
+    .classList.remove("hidden");
 }
-function closeModal() { document.getElementById("modal").classList.add("hidden"); }
-function openExpense(categoryId = state.categories.find(c=>c.type==="expense")?.id) {
-  const options = state.categories.filter(c=>c.type==="expense")
-    .map(c=>`<option value="${c.id}" ${c.id===categoryId?"selected":""}>${c.icon} ${escapeHtml(c.name)}</option>`).join("");
-  openModal("Adicionar gasto", `
+
+function closeModal() {
+  document
+    .getElementById("modal")
+    .classList.add("hidden");
+}
+
+function openExpense(
+  categoryId =
+    state.categories.find(c => c.type === "expense")?.id
+) {
+  const options = state.categories
+    .filter(c => c.type === "expense")
+    .map(
+      c =>
+        `<option value="${c.id}" ${
+          c.id === categoryId ? "selected" : ""
+        }>
+          ${c.icon} ${escapeHtml(c.name)}
+        </option>`
+    )
+    .join("");
+
+  openModal(
+    "Adicionar gasto",
+    `
     <form class="form" id="expenseForm">
+
       <label>Valor</label>
-      <input id="expenseAmount" inputmode="decimal" placeholder="R$ 0,00" required>
+
+      <input
+        id="expenseAmount"
+        inputmode="decimal"
+        placeholder="R$ 0,00"
+        required
+      >
+
       <label>Categoria</label>
-      <select id="expenseCategory">${options}</select>
+
+      <select id="expenseCategory">
+        ${options}
+      </select>
+
       <label>Data</label>
-      <input id="expenseDate" type="date" value="${new Date().toISOString().slice(0,10)}">
+
+      <input
+        id="expenseDate"
+        type="date"
+        value="${new Date().toISOString().slice(0, 10)}"
+      >
+
       <label>Observação (opcional)</label>
-      <input id="expenseNote" placeholder="Ex.: mercado">
+
+      <input
+        id="expenseNote"
+        placeholder="Ex.: mercado"
+      >
+
       <button>Salvar gasto</button>
-    </form>`);
-  document.getElementById("expenseForm").onsubmit = e => {
-    e.preventDefault();
-    const raw = document.getElementById("expenseAmount").value.replace(/\./g,"").replace(",",".");
-    const amount = Number(raw);
-    if (!(amount > 0)) return alert("Digite um valor válido.");
-    const m = getMonth();
-    m.expenses.push({
-      id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
-      categoryId: document.getElementById("expenseCategory").value,
-      amount,
-      date: document.getElementById("expenseDate").value,
-      note: document.getElementById("expenseNote").value.trim()
-    });
-    save(); closeModal(); render();
-  };
-}
-function openCategory() {
-  openModal("Nova categoria", `
-    <form class="form" id="categoryForm">
-      <label>Nome</label><input id="catName" required placeholder="Ex.: Alimentação">
-      <label>Ícone</label><input id="catIcon" value="💰" maxlength="2">
-      <label>Valor mensal</label><input id="catBudget" inputmode="decimal" placeholder="R$ 0,00" required>
-      <label>Tipo</label>
-      <select id="catType"><option value="expense">Gasto</option><option value="reserve">Reserva</option></select>
-      <button>Criar categoria</button>
-    </form>`);
-  document.getElementById("categoryForm").onsubmit = e => {
-    e.preventDefault();
-    const amount = Number(document.getElementById("catBudget").value.replace(/\./g,"").replace(",","."));
-    if (!document.getElementById("catName").value.trim() || !(amount >= 0)) return;
-    state.categories.push({
-      id: "cat_"+Date.now(), name: document.getElementById("catName").value.trim(),
-      icon: document.getElementById("catIcon").value || "💰",
-      budget: amount, type: document.getElementById("catType").value
-    });
-    save(); closeModal(); render();
-  };
-}
-function openSettings() {
-  openModal("Configurações", `
-    <form class="form" id="settingsForm">
-      <label>Salário planejado</label><input id="sSalary" inputmode="decimal" value="${state.settings.plannedSalary}">
-      <label>Percentual do adiantamento</label><input id="sPercent" type="number" min="0" max="100" value="${state.settings.advancePercent}">
-      <label>Dia do adiantamento</label><input id="sDay" type="number" min="1" max="31" value="${state.settings.advanceDay}">
-      <label>Texto do pagamento principal</label><input id="sMain" value="${escapeHtml(state.settings.mainPaymentLabel)}">
-      <label>Meta da reserva (0 para desativar)</label><input id="sGoal" inputmode="decimal" value="${state.settings.reserveGoal}">
-      <label><input type="checkbox" id="darkModeToggle"> 🌙 Modo escuro</label>
-      <button>Salvar configurações</button>
+
     </form>
-    <div class="notice" style="margin-top:12px">Os dados ficam somente neste aparelho. Use a opção de exportação antes de limpar o navegador.</div>
-    <button class="secondary" style="width:100%;margin-top:10px;padding:13px;border-radius:12px" id="exportBtn">Exportar backup JSON</button>
-    <button class="danger" style="width:100%;margin-top:10px;padding:13px;border-radius:12px" id="resetBtn">Apagar todos os dados</button>
-  `);
-    document.getElementById("darkModeToggle").checked =
+    `
+  );
+
+  document.getElementById("expenseForm").onsubmit =
+    e => {
+      e.preventDefault();
+
+      const raw =
+        document
+          .getElementById("expenseAmount")
+          .value
+          .replace(/\./g, "")
+          .replace(",", ".");
+
+      const amount = Number(raw);
+
+      if (!(amount > 0)) {
+        return alert("Digite um valor válido.");
+      }
+
+      const m = getMonth();
+
+      m.expenses.push({
+        id:
+          crypto.randomUUID
+            ? crypto.randomUUID()
+            : String(Date.now()),
+
+        categoryId:
+          document.getElementById(
+            "expenseCategory"
+          ).value,
+
+        amount,
+
+        date:
+          document.getElementById(
+            "expenseDate"
+          ).value,
+
+        note:
+          document.getElementById(
+            "expenseNote"
+          ).value.trim()
+      });
+
+      save();
+      closeModal();
+      render();
+    };
+}
+
+function openCategory() {
+  openModal(
+    "Nova categoria",
+    `
+    <form class="form" id="categoryForm">
+
+      <label>Nome</label>
+
+      <input
+        id="catName"
+        required
+        placeholder="Ex.: Alimentação"
+      >
+
+      <label>Ícone</label>
+
+      <input
+        id="catIcon"
+        value="💰"
+        maxlength="2"
+      >
+
+      <label>Valor mensal</label>
+
+      <input
+        id="catBudget"
+        inputmode="decimal"
+        placeholder="R$ 0,00"
+        required
+      >
+
+      <label>Tipo</label>
+
+      <select id="catType">
+        <option value="expense">Gasto</option>
+        <option value="reserve">Reserva</option>
+      </select>
+
+      <button>Criar categoria</button>
+
+    </form>
+    `
+  );
+
+  document.getElementById("categoryForm").onsubmit =
+    e => {
+      e.preventDefault();
+
+      const amount =
+        Number(
+          document
+            .getElementById("catBudget")
+            .value
+            .replace(/\./g, "")
+            .replace(",", ".")
+        );
+
+      const name =
+        document
+          .getElementById("catName")
+          .value.trim();
+
+      if (!name || !(amount >= 0)) return;
+
+      state.categories.push({
+        id: "cat_" + Date.now(),
+        name,
+        icon:
+          document.getElementById("catIcon").value ||
+          "💰",
+        budget: amount,
+        type:
+          document.getElementById("catType").value
+      });
+
+      save();
+      closeModal();
+      render();
+    };
+}
+
+function openSettings() {
+  openModal(
+    "Configurações",
+    `
+    <form class="form" id="settingsForm">
+
+      <label>Salário planejado</label>
+
+      <input
+        id="sSalary"
+        inputmode="decimal"
+        value="${state.settings.plannedSalary}"
+      >
+
+      <label>Percentual do adiantamento</label>
+
+      <input
+        id="sPercent"
+        type="number"
+        min="0"
+        max="100"
+        value="${state.settings.advancePercent}"
+      >
+
+      <label>Dia do adiantamento</label>
+
+      <input
+        id="sDay"
+        type="number"
+        min="1"
+        max="31"
+        value="${state.settings.advanceDay}"
+      >
+
+      <label>Texto do pagamento principal</label>
+
+      <input
+        id="sMain"
+        value="${escapeHtml(
+          state.settings.mainPaymentLabel
+        )}"
+      >
+
+      <label>Meta da reserva</label>
+
+      <input
+        id="sGoal"
+        inputmode="decimal"
+        value="${state.settings.reserveGoal}"
+      >
+
+      <div class="dark-mode-row">
+
+        <span>🌙 Modo escuro</span>
+
+        <label class="theme-switch">
+          <input
+            type="checkbox"
+            id="darkModeToggle"
+          >
+
+          <span class="theme-slider">
+            <span class="theme-dot"></span>
+          </span>
+        </label>
+
+      </div>
+
+      <button class="save-settings-btn">
+        Salvar
+      </button>
+
+    </form>
+
+    <div
+      class="notice"
+      style="margin-top:12px"
+    >
+      Os dados ficam somente neste aparelho.
+      Use a opção de exportação antes de limpar
+      o navegador.
+    </div>
+
+    <button
+      class="secondary"
+      style="width:100%;margin-top:10px;padding:13px;border-radius:12px"
+      id="exportBtn"
+    >
+      Exportar backup JSON
+    </button>
+
+    <button
+      class="danger"
+      style="width:100%;margin-top:10px;padding:13px;border-radius:12px"
+      id="resetBtn"
+    >
+      Apagar todos os dados
+    </button>
+    `
+  );
+
+  const darkToggle =
+    document.getElementById("darkModeToggle");
+
+  darkToggle.checked =
     localStorage.getItem("fxDarkMode") === "true";
-  
-  document.getElementById("settingsForm").onsubmit = e => {
-    e.preventDefault();
-    state.settings.plannedSalary = num("sSalary");
-    state.settings.advancePercent = Number(document.getElementById("sPercent").value)||0;
-    state.settings.advanceDay = Number(document.getElementById("sDay").value)||20;
-    state.settings.mainPaymentLabel = document.getElementById("sMain").value || "5º dia útil";
-    state.settings.reserveGoal = num("sGoal");
 
-const dark = document.getElementById("darkModeToggle").checked;
-document.body.classList.toggle("dark", dark);
-localStorage.setItem("fxDarkMode", dark);
+  document
+    .getElementById("settingsForm")
+    .onsubmit = e => {
+      e.preventDefault();
 
-save(); closeModal(); render();
-  };
-  document.getElementById("exportBtn").onclick = exportData;
-  document.getElementById("resetBtn").onclick = () => {
-    if (confirm("Apagar todos os dados do FX?")) {
-      localStorage.removeItem(KEY); location.reload();
-    }
-  };
+      state.settings.plannedSalary =
+        num("sSalary");
+
+      state.settings.advancePercent =
+        Number(
+          document.getElementById("sPercent").value
+        ) || 0;
+
+      state.settings.advanceDay =
+        Number(
+          document.getElementById("sDay").value
+        ) || 20;
+
+      state.settings.mainPaymentLabel =
+        document.getElementById("sMain").value ||
+        "5º dia útil";
+
+      state.settings.reserveGoal =
+        num("sGoal");
+
+      const dark =
+        darkToggle.checked;
+
+      document.body.classList.toggle(
+        "dark",
+        dark
+      );
+
+      localStorage.setItem(
+        "fxDarkMode",
+        dark
+      );
+
+      save();
+      closeModal();
+      render();
+    };
+
+  document.getElementById("exportBtn").onclick =
+    exportData;
+
+  document.getElementById("resetBtn").onclick =
+    () => {
+      if (
+        confirm(
+          "Apagar todos os dados do FX?"
+        )
+      ) {
+        localStorage.removeItem(KEY);
+        location.reload();
+      }
+    };
 }
+
 function num(id) {
-  return Number(document.getElementById(id).value.replace(/\./g,"").replace(",", ".")) || 0;
+  return (
+    Number(
+      document
+        .getElementById(id)
+        .value
+        .replace(/\./g, "")
+        .replace(",", ".")
+    ) || 0
+  );
 }
+
 function openReserve() {
   const m = getMonth();
-  const contribution = Number(m.reserveContribution||0);
-  openModal("Reserva", `
-    <div class="notice">Aporte deste mês: <strong>${money(contribution)}</strong><br>Reserva acumulada: <strong>${money(state.reserveBalance)}</strong></div>
-    <form class="form" id="withdrawForm" style="margin-top:12px">
+
+  const contribution =
+    Number(m.reserveContribution || 0);
+
+  openModal(
+    "Reserva",
+    `
+    <div class="notice">
+
+      Aporte deste mês:
+      <strong>${money(contribution)}</strong>
+
+      <br>
+
+      Reserva acumulada:
+      <strong>${money(state.reserveBalance)}</strong>
+
+    </div>
+
+    <form
+      class="form"
+      id="withdrawForm"
+      style="margin-top:12px"
+    >
+
       <label>Retirar da reserva</label>
-      <input id="withdrawAmount" inputmode="decimal" placeholder="R$ 0,00">
-      <button class="danger">Registrar retirada</button>
+
+      <input
+        id="withdrawAmount"
+        inputmode="decimal"
+        placeholder="R$ 0,00"
+      >
+
+      <button class="danger">
+        Registrar retirada
+      </button>
+
     </form>
-    <button class="secondary" id="closeReserveBtn" style="width:100%;padding:13px;border-radius:12px;margin-top:10px">Fechar</button>
-  `);
-  document.getElementById("withdrawForm").onsubmit = e => {
+
+    <button
+      class="secondary"
+      id="closeReserveBtn"
+      style="width:100%;padding:13px;border-radius:12px;margin-top:10px"
+    >
+      Fechar
+    </button>
+    `
+  );
+
+  document.getElementById(
+    "withdrawForm"
+  ).onsubmit = e => {
     e.preventDefault();
-    const amount = num("withdrawAmount");
-    if (!(amount > 0) || amount > state.reserveBalance) return alert("Valor inválido ou maior que a reserva.");
-    m.reserveWithdrawal = Number(m.reserveWithdrawal||0) + amount;
-    save(); closeModal(); render();
+
+    const amount =
+      num("withdrawAmount");
+
+    if (
+      !(amount > 0) ||
+      amount > state.reserveBalance
+    ) {
+      return alert(
+        "Valor inválido ou maior que a reserva."
+      );
+    }
+
+    m.reserveWithdrawal =
+      Number(m.reserveWithdrawal || 0) +
+      amount;
+
+    save();
+    closeModal();
+    render();
   };
-  document.getElementById("closeReserveBtn").onclick = closeModal;
+
+  document.getElementById(
+    "closeReserveBtn"
+  ).onclick = closeModal;
 }
+
 function openPayments() {
   const m = getMonth();
-  openModal("Pagamentos", `
+
+  openModal(
+    "Pagamentos",
+    `
     <div class="notice">
-      <strong>Adiantamento</strong><br>${money(m.salaryReceived * state.settings.advancePercent/100)} — dia ${state.settings.advanceDay}<br><br>
-      <strong>Pagamento principal</strong><br>${money(m.salaryReceived * (1-state.settings.advancePercent/100))} — ${escapeHtml(state.settings.mainPaymentLabel)}
+
+      <strong>Adiantamento</strong>
+      <br>
+
+      ${money(
+        m.salaryReceived *
+        state.settings.advancePercent /
+        100
+      )}
+
+      — dia ${state.settings.advanceDay}
+
+      <br><br>
+
+      <strong>Pagamento principal</strong>
+      <br>
+
+      ${money(
+        m.salaryReceived *
+        (
+          1 -
+          state.settings.advancePercent /
+          100
+        )
+      )}
+
+      — ${escapeHtml(
+        state.settings.mainPaymentLabel
+      )}
+
     </div>
-  `);
+    `
+  );
 }
+
 function exportData() {
-  const blob = new Blob([JSON.stringify(state,null,2)], {type:"application/json"});
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = `fx-backup-${state.currentMonth}.json`;
+  const blob = new Blob(
+    [
+      JSON.stringify(
+        state,
+        null,
+        2
+      )
+    ],
+    {
+      type: "application/json"
+    }
+  );
+
+  const a =
+    document.createElement("a");
+
+  a.href =
+    URL.createObjectURL(blob);
+
+  a.download =
+    `fx-backup-${state.currentMonth}.json`;
+
   a.click();
+
   URL.revokeObjectURL(a.href);
 }
 
-document.getElementById("prevMonth").onclick = () => { state.currentMonth = monthShift(state.currentMonth,-1); save(); render(); };
-document.getElementById("nextMonth").onclick = () => { state.currentMonth = monthShift(state.currentMonth,1); save(); render(); };
-document.getElementById("addExpenseBtn").onclick = () => openExpense();
-document.getElementById("addCategoryBtn").onclick = openCategory;
-document.getElementById("settingsBtn").onclick = openSettings;
-document.getElementById("paymentsSettingsBtn").onclick = openPayments;
-document.getElementById("reserveBtn").onclick = openReserve;
-document.getElementById("closeModal").onclick = closeModal;
-document.getElementById("modal").addEventListener("click", e => { if (e.target.id === "modal") closeModal(); });
+document.getElementById(
+  "prevMonth"
+).onclick = () => {
+  state.currentMonth =
+    monthShift(
+      state.currentMonth,
+      -1
+    );
 
-document.body.classList.toggle("dark", localStorage.getItem("fxDarkMode") === "true");
+  save();
+  render();
+};
+
+document.getElementById(
+  "nextMonth"
+).onclick = () => {
+  state.currentMonth =
+    monthShift(
+      state.currentMonth,
+      1
+    );
+
+  save();
+  render();
+};
+
+document.getElementById(
+  "addExpenseBtn"
+).onclick =
+  () => openExpense();
+
+document.getElementById(
+  "addCategoryBtn"
+).onclick =
+  openCategory;
+
+document.getElementById(
+  "settingsBtn"
+).onclick =
+  openSettings;
+
+document.getElementById(
+  "paymentsSettingsBtn"
+).onclick =
+  openPayments;
+
+document.getElementById(
+  "reserveBtn"
+).onclick =
+  openReserve;
+
+document.getElementById(
+  "closeModal"
+).onclick =
+  closeModal;
+
+document
+  .getElementById("modal")
+  .addEventListener(
+    "click",
+    e => {
+      if (
+        e.target.id === "modal"
+      ) {
+        closeModal();
+      }
+    }
+  );
+
+document.body.classList.toggle(
+  "dark",
+  localStorage.getItem(
+    "fxDarkMode"
+  ) === "true"
+);
 
 getMonth();
 syncReserve();
