@@ -29,16 +29,10 @@ html,
 body {
   margin: 0;
   padding: 0;
-
+  min-height: 100%;
   background: var(--bg);
   color: var(--text);
-
-  font-family:
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 body {
@@ -56,28 +50,26 @@ button {
   cursor: pointer;
 }
 
+.hidden {
+  display: none !important;
+}
+
 
 /* =========================
    LOGIN
 ========================= */
 
 .login-screen {
-  position: fixed;
-  inset: 0;
-
-  z-index: 9999;
+  min-height: 100vh;
+  min-height: 100dvh;
 
   display: flex;
   align-items: center;
   justify-content: center;
 
-  padding: 20px;
+  padding: 24px;
 
   background: var(--bg);
-}
-
-.login-screen.hidden {
-  display: none;
 }
 
 .login-card {
@@ -87,111 +79,85 @@ button {
   background: var(--card);
 
   border: 1px solid var(--line);
-
   border-radius: 24px;
 
-  padding: 32px 24px;
+  padding: 30px 24px;
+
+  box-shadow: 0 10px 40px rgba(0, 0, 0, .08);
 
   text-align: center;
-
-  box-shadow:
-    0 20px 60px rgba(0, 0, 0, .10);
 }
 
-.login-logo {
+.login-brand {
   font-size: 48px;
-
   font-weight: 950;
-
   letter-spacing: -3px;
-
-  margin-bottom: 8px;
 }
 
-.login-card h1 {
-  margin: 0;
+.login-title {
+  margin-top: 2px;
 
-  font-size: 24px;
-
+  font-size: 22px;
   font-weight: 900;
-
-  letter-spacing: -1px;
 }
 
-.login-card > p {
-  margin: 6px 0 26px;
+.login-subtitle {
+  margin-top: 4px;
+  margin-bottom: 28px;
 
   color: var(--muted);
 
   font-size: 13px;
 }
 
-#loginForm {
-  display: grid;
-
-  gap: 10px;
+.login-card form {
+  text-align: left;
 }
 
-#loginForm input {
-  width: 100%;
+.login-card label {
+  display: block;
 
-  padding: 15px;
+  text-align: left;
 
-  border: 1px solid var(--line);
-
-  border-radius: 14px;
-
-  background: var(--card);
-
-  color: var(--text);
-
-  outline: none;
+  margin-top: 12px;
+  margin-bottom: 6px;
 }
 
-#loginForm input:focus {
-  border-color: var(--accent);
+.login-card input {
+  text-align: left;
 }
 
-.login-btn {
-  width: 100%;
-
-  margin-top: 4px;
-
-  padding: 15px;
-
-  border-radius: 14px;
-
-  background: var(--accent);
-
-  color: var(--bg);
-
-  font-weight: 900;
+.login-button {
+  margin-top: 16px;
 }
 
-.create-account-btn {
+.login-link {
   width: 100%;
 
   margin-top: 12px;
 
-  padding: 13px;
+  padding: 10px;
 
-  border-radius: 14px;
-
-  background: var(--line);
+  background: transparent;
 
   color: var(--text);
 
   font-weight: 800;
 }
 
+.login-link:active {
+  opacity: .6;
+}
+
 .login-message {
-  min-height: 18px;
+  min-height: 20px;
 
   margin-top: 14px;
 
-  color: var(--muted);
+  color: var(--danger);
 
   font-size: 12px;
+  font-weight: 700;
 }
 
 
@@ -201,9 +167,7 @@ button {
 
 .topbar {
   display: flex;
-
   align-items: center;
-
   justify-content: space-between;
 
   padding: 22px 18px 8px;
@@ -213,19 +177,21 @@ button {
   margin: auto;
 }
 
+.top-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .brand {
   font-size: 30px;
-
   font-weight: 900;
-
   letter-spacing: -1.5px;
 }
 
 .tagline {
   font-size: 12px;
-
   color: var(--muted);
-
   margin-top: -3px;
 }
 
@@ -236,7 +202,6 @@ button {
 
 main {
   max-width: 720px;
-
   margin: auto;
 
   padding: 8px 16px 36px;
@@ -244,9 +209,7 @@ main {
 
 .month-nav {
   display: flex;
-
   justify-content: space-between;
-
   align-items: center;
 
   margin: 8px 0 14px;
@@ -254,7 +217,6 @@ main {
 
 .month-title {
   font-weight: 800;
-
   text-transform: capitalize;
 }
 
@@ -287,8 +249,7 @@ main {
 
   border-radius: var(--radius);
 
-  box-shadow:
-    0 2px 10px rgba(0, 0, 0, .03);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, .03);
 }
 
 .hero {
@@ -320,7 +281,6 @@ main {
 .muted,
 small {
   color: var(--muted);
-
   font-size: 12px;
 }
 
@@ -332,8 +292,7 @@ small {
 .stats {
   display: grid;
 
-  grid-template-columns:
-    repeat(3, 1fr);
+  grid-template-columns: repeat(3, 1fr);
 
   gap: 8px;
 
@@ -469,6 +428,11 @@ small {
   font-size: 14px;
 }
 
+
+/* =========================
+   BARRA
+========================= */
+
 .progress {
   height: 5px;
 
@@ -508,8 +472,7 @@ small {
 .payment-grid {
   display: grid;
 
-  grid-template-columns:
-    1fr 1fr;
+  grid-template-columns: 1fr 1fr;
 
   gap: 12px;
 }
@@ -616,8 +579,7 @@ small {
 
   max-width: 720px;
 
-  border-radius:
-    22px 22px 0 0;
+  border-radius: 22px 22px 0 0;
 
   padding: 18px 16px 28px;
 
@@ -670,6 +632,13 @@ select {
   background: var(--card);
 
   color: var(--text);
+
+  outline: none;
+}
+
+input:focus,
+select:focus {
+  border-color: var(--accent);
 }
 
 .form button {
@@ -683,6 +652,86 @@ select {
 
   font-weight: 800;
 }
+
+
+/* =========================
+   MODO ESCURO
+========================= */
+
+.dark-mode-row {
+  display: flex;
+
+  align-items: center;
+
+  justify-content: space-between;
+
+  padding: 4px 0;
+}
+
+.theme-switch {
+  position: relative;
+
+  display: block;
+
+  width: 52px;
+  height: 30px;
+
+  margin: 0;
+
+  cursor: pointer;
+}
+
+.theme-switch input {
+  position: absolute;
+
+  opacity: 0;
+
+  width: 0;
+  height: 0;
+}
+
+.theme-slider {
+  position: absolute;
+
+  inset: 0;
+
+  background: var(--line);
+
+  border-radius: 30px;
+
+  transition: .2s;
+}
+
+.theme-dot {
+  position: absolute;
+
+  width: 22px;
+  height: 22px;
+
+  left: 4px;
+  top: 4px;
+
+  border-radius: 50%;
+
+  background: var(--muted);
+
+  transition: .2s;
+}
+
+.theme-switch input:checked + .theme-slider {
+  background: var(--accent);
+}
+
+.theme-switch input:checked + .theme-slider .theme-dot {
+  transform: translateX(22px);
+
+  background: var(--bg);
+}
+
+
+/* =========================
+   OUTROS BOTÕES
+========================= */
 
 .secondary {
   background: var(--line) !important;
@@ -720,91 +769,6 @@ body.dark .modal {
 
 
 /* =========================
-   MODO ESCURO
-========================= */
-
-.dark-mode-row {
-  display: flex;
-
-  align-items: center;
-
-  justify-content: space-between;
-
-  width: 100%;
-
-  padding: 4px 0;
-}
-
-.dark-mode-row > span {
-  font-size: 13px;
-
-  font-weight: 800;
-
-  color: var(--text);
-}
-
-.theme-switch {
-  position: relative;
-
-  display: block;
-
-  width: 52px;
-  height: 30px;
-
-  flex-shrink: 0;
-}
-
-.theme-switch input {
-  position: absolute;
-
-  opacity: 0;
-
-  width: 0;
-  height: 0;
-}
-
-.theme-slider {
-  position: absolute;
-
-  inset: 0;
-
-  background: var(--line);
-
-  border-radius: 30px;
-
-  cursor: pointer;
-
-  transition: .2s;
-}
-
-.theme-dot {
-  position: absolute;
-
-  width: 22px;
-  height: 22px;
-
-  left: 4px;
-  top: 4px;
-
-  background: var(--muted);
-
-  border-radius: 50%;
-
-  transition: .2s;
-}
-
-.theme-switch input:checked + .theme-slider {
-  background: var(--accent);
-}
-
-.theme-switch input:checked + .theme-slider .theme-dot {
-  transform: translateX(22px);
-
-  background: var(--bg);
-}
-
-
-/* =========================
    CELULAR
 ========================= */
 
@@ -824,10 +788,6 @@ body.dark .modal {
 
   .stat strong {
     font-size: 12px;
-  }
-
-  .login-card {
-    padding: 28px 20px;
   }
 
 }
