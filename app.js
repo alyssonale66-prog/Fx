@@ -1,7 +1,7 @@
 /* =====================================================
    PROJETO FX — SEU DINHEIRO. SUAS REGRAS.
    Arquivo: app.js
-   Versão: 1.2.5 — Saldos de Salário e Extra 100% separados
+   Versão: 1.2.6 — Saldo "Quanto posso gastar" isolado no Salário
 ===================================================== */
 
 const KEY = "fx_finance_v1";
@@ -477,8 +477,9 @@ function getExtraAvailable(month) {
   return Math.max(0, extras - spent - reserveSaved);
 }
 
+/* O "Quanto posso gastar" do topo é ESTRITAMENTE o Salário Livre */
 function available(month) {
-  return getSalaryAvailable(month) + getExtraAvailable(month);
+  return getSalaryAvailable(month);
 }
 
 /* =====================================================
@@ -520,10 +521,16 @@ function render() {
   const month = getMonth();
   syncReserve();
 
+  const salaryAvail = getSalaryAvailable(month);
+  const extraAvail = getExtraAvailable(month);
+
   document.getElementById("monthTitle").textContent = monthLabel(state.currentMonth);
-  document.getElementById("availableValue").textContent = money(available(month));
-  document.getElementById("salaryValue").textContent = money(getSalaryAvailable(month));
-  document.getElementById("extraValue").textContent = money(getExtraAvailable(month));
+
+  /* "QUANTO POSSO GASTAR?" exibe APENAS o saldo de Salário */
+  document.getElementById("availableValue").textContent = money(salaryAvail);
+
+  document.getElementById("salaryValue").textContent = money(salaryAvail);
+  document.getElementById("extraValue").textContent = money(extraAvail);
   document.getElementById("spentValue").textContent = money(totalSpent(month));
   document.getElementById("reserveBig").textContent = money(state.reserveBalance);
 
