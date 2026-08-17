@@ -1,14 +1,12 @@
 /* =====================================================
    PROJETO FX — SEU DINHEIRO. SUAS REGRAS.
    Arquivo: app.js
-   Versão: 1.1.0
-   Núcleo financeiro estável
+   Versão: 1.2.3 — Usuário com validação reforçada
 ===================================================== */
 
 const KEY = "fx_finance_v1";
 const ACCOUNT_KEY = "fx_account_v1";
 const SESSION_KEY = "fx_session_v1";
-const DARK_KEY = "fxDarkMode";
 
 /* =====================================================
    CATEGORIAS PADRÃO
@@ -90,26 +88,39 @@ function login(username, password) {
 }
 
 function createAccount() {
-  const username =
-    document.getElementById("createUsername").value.trim();
+  const username = document.getElementById("createUsername").value.trim();
+  const password = document.getElementById("createPassword").value;
+  const confirmation = document.getElementById("createPasswordConfirm").value;
 
-  const password =
-    document.getElementById("createPassword").value;
+  /* =====================================================
+     USUÁRIO — VALIDAÇÃO REFORÇADA
+  ===================================================== */
 
-  const confirmation =
-    document.getElementById("createPasswordConfirm").value;
+  if (username.length < 6 || username.length > 20) {
+    showLoginMessage("O usuário precisa ter de 6 a 20 caracteres.");
+    return;
+  }
 
-  if (username.length < 2 || username.length > 6) {
+  if (!/^[a-zA-Z0-9._-]+$/.test(username)) {
     showLoginMessage(
-      "O usuário precisa ter de 2 a 6 caracteres."
+      "O usuário pode usar apenas letras, números, ponto, hífen e underline."
     );
     return;
   }
 
-  if (password.length !== 8) {
+  if (!/[a-zA-Z]/.test(username)) {
     showLoginMessage(
-      "A senha precisa ter exatamente 8 caracteres."
+      "O usuário precisa conter pelo menos uma letra."
     );
+    return;
+  }
+
+  /* =====================================================
+     SENHA
+  ===================================================== */
+
+  if (password.length !== 8) {
+    showLoginMessage("A senha precisa ter exatamente 8 caracteres.");
     return;
   }
 
@@ -119,17 +130,11 @@ function createAccount() {
   }
 
   if (getAccount()) {
-    showLoginMessage(
-      "Já existe uma conta neste aparelho."
-    );
+    showLoginMessage("Já existe uma conta neste aparelho.");
     return;
   }
 
-  saveAccount({
-    username,
-    password
-  });
-
+  saveAccount({ username, password });
   localStorage.setItem(SESSION_KEY, "true");
   showApp();
 }
@@ -137,13 +142,8 @@ function createAccount() {
 function logout() {
   localStorage.removeItem(SESSION_KEY);
 
-  document
-    .getElementById("appScreen")
-    .classList.add("hidden");
-
-  document
-    .getElementById("loginScreen")
-    .classList.remove("hidden");
+  document.getElementById("appScreen").classList.add("hidden");
+  document.getElementById("loginScreen").classList.remove("hidden");
 
   document.getElementById("loginUsername").value = "";
   document.getElementById("loginPassword").value = "";
@@ -152,8 +152,7 @@ function logout() {
 }
 
 function showLoginMessage(message) {
-  const element =
-    document.getElementById("loginMessage");
+  const element = document.getElementById("loginMessage");
 
   if (element) {
     element.textContent = message;
@@ -161,43 +160,26 @@ function showLoginMessage(message) {
 }
 
 function showCreateAccount() {
-  document
-    .getElementById("loginForm")
-    .classList.add("hidden");
-
-  document
-    .getElementById("createForm")
-    .classList.remove("hidden");
-
+  document.getElementById("loginForm").classList.add("hidden");
+  document.getElementById("createForm").classList.remove("hidden");
   showLoginMessage("");
 }
 
 function showLoginForm() {
-  document
-    .getElementById("createForm")
-    .classList.add("hidden");
-
-  document
-    .getElementById("loginForm")
-    .classList.remove("hidden");
-
+  document.getElementById("createForm").classList.add("hidden");
+  document.getElementById("loginForm").classList.remove("hidden");
   showLoginMessage("");
 }
 
 function showApp() {
-  document
-    .getElementById("loginScreen")
-    .classList.add("hidden");
-
-  document
-    .getElementById("appScreen")
-    .classList.remove("hidden");
+  document.getElementById("loginScreen").classList.add("hidden");
+  document.getElementById("appScreen").classList.remove("hidden");
 
   initFinance();
 }
 
 /* =====================================================
-   ESTADO
+   ESTADO INICIAL
 ===================================================== */
 
 const state = load() || {
@@ -205,14 +187,14 @@ const state = load() || {
     plannedSalary: 0,
 
     salarySplitEnabled: false,
-
     advancePercent: 40,
+    advanceDay: 20,
+    mainPaymentLabel: "5º dia útil",
 
-    advanceDay: 20
+    reserveGoal: 0
   },
 
-  categories:
-    defaultCategories.map(cat => ({ ...cat })),
+  categories: defaultCategories.map(cat => ({ ...cat })),
 
   months: {},
 
@@ -223,7 +205,6 @@ const state = load() || {
 
 /* =====================================================
    DINHEIRO
-   Tudo internamente em centavos.
 ===================================================== */
 
 function money(cents) {
@@ -236,17 +217,16 @@ function money(cents) {
 }
 
 function parseToCents(value) {
-  if (
-    value === null ||
-    value === undefined
-  ) {
+  if (value === null || value === undefined) {
     return 0;
   }
 
   if (typeof value === "number") {
-    return Number.isFinite(value)
-      ? Math.round(value)
-      : 0;
+    if (!Number.isFinite(value)) {
+      return 0;
+    }
+
+    return Math.round(value * 100);
   }
 
   let text = String(value)
@@ -254,17 +234,39 @@ function parseToCents(value) {
     .replace(/R\$/gi, "")
     .replace(/\s/g, "");
 
-  if (!text) return 0;
-
-  if (text.includes(",")) {
-    text = text
-      .replace(/\./g, "")
-      .replace(",", ".");
-  } else {
-    text = text.replace(/[^0-9.-]/g, "");
+  if (!text) {
+    return 0;
   }
 
-  const parsed = parseFloat(text);
+  if (text.includes(",")) {
+    text = text.replace(/\./g, "");
+    text = text.replace(",", ".");
+
+    const [integerPart, decimalPart = ""] = text.split(".");
+
+    const integer = parseInt(
+      integerPart.replace(/\D/g, "") || "0",
+      10
+    );
+
+    const decimal = decimalPart
+      .replace(/\D/g, "")
+      .padEnd(2, "0")
+      .slice(0, 2);
+
+    return (
+      integer * 100 +
+      parseInt(decimal || "0", 10)
+    );
+  }
+
+  text = text.replace(/[^0-9.-]/g, "");
+
+  if (!text) {
+    return 0;
+  }
+
+  const parsed = Number(text);
 
   if (!Number.isFinite(parsed)) {
     return 0;
@@ -274,10 +276,11 @@ function parseToCents(value) {
 }
 
 function numCents(id) {
-  const element =
-    document.getElementById(id);
+  const element = document.getElementById(id);
 
-  if (!element) return 0;
+  if (!element) {
+    return 0;
+  }
 
   return parseToCents(element.value);
 }
@@ -291,28 +294,22 @@ function normalizeState(data) {
     return null;
   }
 
-  if (
-    !data.settings ||
-    typeof data.settings !== "object"
-  ) {
+  if (!data.settings || typeof data.settings !== "object") {
     data.settings = {};
   }
 
   data.settings.plannedSalary =
-    parseToCents(
-      data.settings.plannedSalary
-    );
+    parseToCents(data.settings.plannedSalary);
 
-  data.settings.salarySplitEnabled =
-    typeof data.settings.salarySplitEnabled === "boolean"
-      ? data.settings.salarySplitEnabled
-      : false;
+  if (typeof data.settings.salarySplitEnabled !== "boolean") {
+    data.settings.salarySplitEnabled = false;
+  }
 
   data.settings.advancePercent = Math.min(
     100,
     Math.max(
       0,
-      Number(data.settings.advancePercent) || 40
+      Number(data.settings.advancePercent) || 0
     )
   );
 
@@ -324,12 +321,14 @@ function normalizeState(data) {
     )
   );
 
-  /*
-    Compatibilidade com versões antigas.
-    mainPaymentLabel não é mais necessário,
-    pois o pagamento principal é sempre
-    o 5º dia útil.
-  */
+  data.settings.mainPaymentLabel =
+    String(
+      data.settings.mainPaymentLabel ||
+      "5º dia útil"
+    ).trim();
+
+  data.settings.reserveGoal =
+    parseToCents(data.settings.reserveGoal);
 
   if (
     !Array.isArray(data.categories) ||
@@ -345,14 +344,10 @@ function normalizeState(data) {
       "cat_" + createId(),
 
     name:
-      String(
-        category.name || "Categoria"
-      ).trim(),
+      String(category.name || "Categoria").trim(),
 
     icon:
-      String(
-        category.icon || "💰"
-      ).trim(),
+      String(category.icon || "💰").trim(),
 
     type:
       category.type === "reserve"
@@ -363,17 +358,11 @@ function normalizeState(data) {
       parseToCents(category.budget)
   }));
 
-  /*
-    Garante que as categorias essenciais
-    existam.
-  */
-
   defaultCategories.forEach(defaultCategory => {
-    const exists =
-      data.categories.some(
-        category =>
-          category.id === defaultCategory.id
-      );
+    const exists = data.categories.some(
+      category =>
+        category.id === defaultCategory.id
+    );
 
     if (!exists) {
       data.categories.unshift({
@@ -382,38 +371,25 @@ function normalizeState(data) {
     }
   });
 
-  /*
-    Reserva é SEMPRE fixa.
-  */
-
   let reserveCategory =
     data.categories.find(
-      category =>
-        category.id === "reserve"
+      category => category.id === "reserve"
     );
 
   if (!reserveCategory) {
     reserveCategory = {
       ...defaultCategories.find(
-        category =>
-          category.id === "reserve"
+        category => category.id === "reserve"
       )
     };
 
-    data.categories.unshift(
-      reserveCategory
-    );
+    data.categories.unshift(reserveCategory);
   }
 
   reserveCategory.name = "Reserva";
   reserveCategory.icon = "🏦";
   reserveCategory.type = "reserve";
   reserveCategory.budget = 0;
-
-  /*
-    Nenhuma outra categoria pode ser
-    do tipo reserva.
-  */
 
   data.categories.forEach(category => {
     if (
@@ -440,41 +416,33 @@ function normalizeState(data) {
       month.extras = [];
     }
 
-    if (
-      !Array.isArray(
-        month.reserveTransactions
-      )
-    ) {
+    if (!Array.isArray(month.reserveTransactions)) {
       month.reserveTransactions = [];
     }
 
-    /*
-      Compatibilidade com versões anteriores.
-    */
-
     month.salaryReceived =
-      parseToCents(
-        month.salaryReceived
-      );
+      parseToCents(month.salaryReceived);
 
     month.reserveContribution =
-      parseToCents(
-        month.reserveContribution
-      );
+      parseToCents(month.reserveContribution);
 
     month.reserveWithdrawal =
-      parseToCents(
-        month.reserveWithdrawal
-      );
+      parseToCents(month.reserveWithdrawal);
+
+    month.salaryReserveReturn =
+      parseToCents(month.salaryReserveReturn);
 
     month.expenses.forEach(expense => {
       expense.amount =
         parseToCents(expense.amount);
 
+      expense.source =
+        expense.source === "extra"
+          ? "extra"
+          : "salary";
+
       expense.note =
-        String(
-          expense.note || ""
-        ).trim();
+        String(expense.note || "").trim();
     });
 
     month.extras.forEach(extra => {
@@ -482,93 +450,27 @@ function normalizeState(data) {
         parseToCents(extra.amount);
 
       extra.name =
-        String(
-          extra.name || ""
-        ).trim();
+        String(extra.name || "").trim();
     });
-
-    /*
-      Normaliza transações da reserva.
-    */
 
     month.reserveTransactions.forEach(tx => {
       tx.amount =
         parseToCents(tx.amount);
-
-      tx.note =
-        String(
-          tx.note || ""
-        ).trim();
 
       tx.type =
         tx.type === "out"
           ? "out"
           : "in";
 
-      if (!tx.date) {
-        tx.date = todayKey();
-      }
+      tx.note =
+        String(tx.note || "").trim();
     });
-
-    /*
-      Migração de reservas antigas:
-      caso existam valores antigos mas não
-      existam transações correspondentes,
-      transforma-os em transações.
-    */
-
-    if (
-      month.reserveContribution > 0 &&
-      !month.reserveTransactions.some(
-        tx =>
-          tx.type === "in" &&
-          tx.amount === month.reserveContribution
-      )
-    ) {
-      month.reserveTransactions.push({
-        id: createId(),
-        type: "in",
-        amount: month.reserveContribution,
-        date:
-          month.keyDate ||
-          todayKey(),
-        note:
-          "Reserva migrada da versão anterior"
-      });
-    }
-
-    if (
-      month.reserveWithdrawal > 0 &&
-      !month.reserveTransactions.some(
-        tx =>
-          tx.type === "out" &&
-          tx.amount === month.reserveWithdrawal
-      )
-    ) {
-      month.reserveTransactions.push({
-        id: createId(),
-        type: "out",
-        amount: month.reserveWithdrawal,
-        date:
-          month.keyDate ||
-          todayKey(),
-        note:
-          "Resgate migrado da versão anterior"
-      });
-    }
   });
 
-  /*
-    O saldo da reserva agora é calculado
-    exclusivamente pelas transações.
-  */
-
   data.reserveBalance =
-    calculateReserveBalance(data);
+    parseToCents(data.reserveBalance);
 
-  if (
-    typeof data.currentMonth !== "string"
-  ) {
+  if (typeof data.currentMonth !== "string") {
     data.currentMonth =
       monthKey(new Date());
   }
@@ -582,7 +484,7 @@ function normalizeState(data) {
 }
 
 /* =====================================================
-   CARREGAMENTO
+   LOAD / SAVE
 ===================================================== */
 
 function load() {
@@ -590,10 +492,11 @@ function load() {
     const raw =
       localStorage.getItem(KEY);
 
-    if (!raw) return null;
+    if (!raw) {
+      return null;
+    }
 
-    const data =
-      JSON.parse(raw);
+    const data = JSON.parse(raw);
 
     return normalizeState(data);
   } catch {
@@ -601,14 +504,7 @@ function load() {
   }
 }
 
-/* =====================================================
-   PERSISTÊNCIA
-===================================================== */
-
 function save() {
-  state.reserveBalance =
-    calculateReserveBalance(state);
-
   localStorage.setItem(
     KEY,
     JSON.stringify(state)
@@ -641,14 +537,13 @@ function getMonth(key = state.currentMonth) {
 
       reserveTransactions: [],
 
-      keyDate: key
+      salaryReserveReturn: 0
     };
 
     save();
   }
 
-  const month =
-    state.months[key];
+  const month = state.months[key];
 
   if (!Array.isArray(month.expenses)) {
     month.expenses = [];
@@ -658,12 +553,12 @@ function getMonth(key = state.currentMonth) {
     month.extras = [];
   }
 
-  if (
-    !Array.isArray(
-      month.reserveTransactions
-    )
-  ) {
+  if (!Array.isArray(month.reserveTransactions)) {
     month.reserveTransactions = [];
+  }
+
+  if (!Number.isFinite(month.salaryReserveReturn)) {
+    month.salaryReserveReturn = 0;
   }
 
   return month;
@@ -698,65 +593,7 @@ function monthShift(key, delta) {
 }
 
 /* =====================================================
-   RESERVA
-===================================================== */
-
-function calculateReserveBalance(source) {
-  let balance = 0;
-
-  Object.values(
-    source.months || {}
-  ).forEach(month => {
-    (
-      month.reserveTransactions || []
-    ).forEach(tx => {
-      const amount =
-        parseToCents(tx.amount);
-
-      if (tx.type === "in") {
-        balance += amount;
-      } else if (tx.type === "out") {
-        balance -= amount;
-      }
-    });
-  });
-
-  return balance;
-}
-
-function getReserveBalance() {
-  return calculateReserveBalance(state);
-}
-
-function syncReserve() {
-  state.reserveBalance =
-    getReserveBalance();
-}
-
-function reserveMonthTotals(month) {
-  let incoming = 0;
-  let outgoing = 0;
-
-  (
-    month.reserveTransactions || []
-  ).forEach(tx => {
-    if (tx.type === "in") {
-      incoming +=
-        parseToCents(tx.amount);
-    } else {
-      outgoing +=
-        parseToCents(tx.amount);
-    }
-  });
-
-  return {
-    incoming,
-    outgoing
-  };
-}
-
-/* =====================================================
-   CÁLCULOS
+   CÁLCULOS DE GASTOS
 ===================================================== */
 
 function categorySpent(id, month) {
@@ -767,8 +604,7 @@ function categorySpent(id, month) {
     )
     .reduce(
       (sum, expense) =>
-        sum +
-        (expense.amount || 0),
+        sum + (expense.amount || 0),
       0
     );
 }
@@ -776,63 +612,140 @@ function categorySpent(id, month) {
 function totalSpent(month) {
   return month.expenses.reduce(
     (sum, expense) =>
-      sum +
-      (expense.amount || 0),
+      sum + (expense.amount || 0),
     0
   );
+}
+
+function totalSalarySpent(month) {
+  return month.expenses
+    .filter(
+      expense =>
+        expense.source !== "extra"
+    )
+    .reduce(
+      (sum, expense) =>
+        sum + (expense.amount || 0),
+      0
+    );
+}
+
+function totalExtraSpent(month) {
+  return month.expenses
+    .filter(
+      expense =>
+        expense.source === "extra"
+    )
+    .reduce(
+      (sum, expense) =>
+        sum + (expense.amount || 0),
+      0
+    );
 }
 
 function totalExtras(month) {
   return month.extras.reduce(
     (sum, extra) =>
-      sum +
-      (extra.amount || 0),
+      sum + (extra.amount || 0),
     0
   );
 }
 
-function available(month) {
+/* =====================================================
+   RESERVA
+===================================================== */
+
+function getReserveBalanceUntil(monthKeyLimit) {
+  let balance = 0;
+
+  const keys = Object.keys(state.months)
+    .sort();
+
+  for (const key of keys) {
+    if (key > monthKeyLimit) {
+      continue;
+    }
+
+    const month = state.months[key];
+
+    balance +=
+      month.reserveContribution || 0;
+
+    balance -=
+      month.reserveWithdrawal || 0;
+  }
+
+  return Math.max(0, balance);
+}
+
+function getReserveBalance() {
+  return getReserveBalanceUntil(
+    state.currentMonth
+  );
+}
+
+function syncReserve() {
+  state.reserveBalance =
+    getReserveBalance();
+
+  save();
+}
+
+/* =====================================================
+   SALDOS POR ORIGEM
+===================================================== */
+
+function getSalaryAvailable(month) {
   const salary =
     month.salaryReceived || 0;
 
+  const spent =
+    totalSalarySpent(month);
+
+  const reserveSaved =
+    month.reserveContribution || 0;
+
+  const reserveReturned =
+    month.salaryReserveReturn || 0;
+
+  return Math.max(
+    0,
+    salary +
+      reserveReturned -
+      spent -
+      reserveSaved
+  );
+}
+
+function getExtraAvailable(month) {
   const extras =
     totalExtras(month);
 
-  const reserveTotals =
-    reserveMonthTotals(month);
+  const spent =
+    totalExtraSpent(month);
 
-  const expenses =
-    totalSpent(month);
+  return Math.max(
+    0,
+    extras - spent
+  );
+}
 
-  /*
-    Dinheiro disponível:
-    salário
-    + extras
-    + resgates
-    - valores guardados
-    - gastos
-  */
-
+function available(month) {
   return (
-    salary +
-    extras +
-    reserveTotals.outgoing -
-    reserveTotals.incoming -
-    expenses
+    getSalaryAvailable(month) +
+    getExtraAvailable(month)
   );
 }
 
 /* =====================================================
-   DIVISÃO DO SALÁRIO
+   SALÁRIO DIVIDIDO
 ===================================================== */
 
 function getSalarySplit(month) {
   const salary =
     month.salaryReceived || 0;
 
-  if (
-    !state.settings.salarySplitEnabled
-  ) {
+  if (!state.settings.salarySplitEnabled) {
     return {
       enabled: false,
       advance: 0,
@@ -840,12 +753,14 @@ function getSalarySplit(month) {
     };
   }
 
-  const percent =
-    state.settings.advancePercent || 40;
-
   const advance =
     Math.round(
-      (salary * percent) / 100
+      (
+        salary *
+        (
+          state.settings.advancePercent || 0
+        )
+      ) / 100
     );
 
   const main =
@@ -858,10 +773,6 @@ function getSalarySplit(month) {
   };
 }
 
-/* =====================================================
-   VISIBILIDADE DOS PAGAMENTOS
-===================================================== */
-
 function updatePaymentVisibility() {
   const enabled =
     !!state.settings.salarySplitEnabled;
@@ -872,7 +783,9 @@ function updatePaymentVisibility() {
     );
 
   const paymentCard =
-    advanceElement?.closest(".payment") ||
+    advanceElement?.closest(
+      ".payment"
+    ) ||
     advanceElement?.closest(
       ".payments-card"
     );
@@ -918,169 +831,106 @@ function render() {
 
   syncReserve();
 
-  const monthTitle =
-    document.getElementById(
-      "monthTitle"
+  document.getElementById(
+    "monthTitle"
+  ).textContent =
+    monthLabel(state.currentMonth);
+
+  document.getElementById(
+    "availableValue"
+  ).textContent =
+    money(
+      available(month)
     );
 
-  if (monthTitle) {
-    monthTitle.textContent =
-      monthLabel(
-        state.currentMonth
-      );
-  }
-
-  const availableValue =
-    document.getElementById(
-      "availableValue"
+  document.getElementById(
+    "salaryValue"
+  ).textContent =
+    money(
+      month.salaryReceived
     );
 
-  if (availableValue) {
-    availableValue.textContent =
-      money(
-        Math.max(
-          0,
-          available(month)
-        )
-      );
-  }
-
-  const salaryValue =
-    document.getElementById(
-      "salaryValue"
+  document.getElementById(
+    "extraValue"
+  ).textContent =
+    money(
+      totalExtras(month)
     );
 
-  if (salaryValue) {
-    salaryValue.textContent =
-      money(
-        month.salaryReceived
-      );
-  }
-
-  const extraValue =
-    document.getElementById(
-      "extraValue"
+  document.getElementById(
+    "spentValue"
+  ).textContent =
+    money(
+      totalSpent(month)
     );
 
-  if (extraValue) {
-    extraValue.textContent =
-      money(
-        totalExtras(month)
-      );
-  }
-
-  const spentValue =
-    document.getElementById(
-      "spentValue"
+  document.getElementById(
+    "reserveBig"
+  ).textContent =
+    money(
+      state.reserveBalance
     );
-
-  if (spentValue) {
-    spentValue.textContent =
-      money(
-        totalSpent(month)
-      );
-  }
-
-  const reserveBig =
-    document.getElementById(
-      "reserveBig"
-    );
-
-  if (reserveBig) {
-    reserveBig.textContent =
-      money(
-        state.reserveBalance
-      );
-  }
 
   const split =
     getSalarySplit(month);
 
-  const advanceValue =
-    document.getElementById(
-      "advanceValue"
-    );
+  document.getElementById(
+    "advanceValue"
+  ).textContent =
+    money(split.advance);
 
-  if (advanceValue) {
-    advanceValue.textContent =
-      money(split.advance);
-  }
+  document.getElementById(
+    "advanceDate"
+  ).textContent =
+    `Dia ${state.settings.advanceDay}`;
 
-  const advanceDate =
-    document.getElementById(
-      "advanceDate"
-    );
+  document.getElementById(
+    "mainPayValue"
+  ).textContent =
+    money(split.main);
 
-  if (advanceDate) {
-    advanceDate.textContent =
-      `Dia ${state.settings.advanceDay}`;
-  }
-
-  const mainPayValue =
-    document.getElementById(
-      "mainPayValue"
-    );
-
-  if (mainPayValue) {
-    mainPayValue.textContent =
-      money(split.main);
-  }
-
-  const mainPayDate =
-    document.getElementById(
-      "mainPayDate"
-    );
-
-  if (mainPayDate) {
-    mainPayDate.textContent =
-      "5º dia útil";
-  }
+  document.getElementById(
+    "mainPayDate"
+  ).textContent =
+    state.settings.mainPaymentLabel;
 
   updatePaymentVisibility();
 
-  renderReserveGoal();
-  renderCategories();
-  renderExtras();
-  renderHistoryPreview();
-}
+  const goal =
+    state.settings.reserveGoal || 0;
 
-/* =====================================================
-   META DA RESERVA
-===================================================== */
-
-function renderReserveGoal() {
   const goalBox =
     document.getElementById(
       "goalBox"
     );
 
-  if (!goalBox) return;
+  if (goal > 0) {
+    const percent =
+      Math.min(
+        100,
+        Math.max(
+          0,
+          (
+            state.reserveBalance /
+            goal
+          ) * 100
+        )
+      );
 
-  const goal =
-    state.settings.reserveGoal || 0;
+    goalBox.innerHTML = `
+      Meta ${money(goal)}
 
-  if (goal <= 0) {
+      <div class="progress">
+        <div style="width:${percent}%"></div>
+      </div>
+    `;
+  } else {
     goalBox.innerHTML = "";
-    return;
   }
 
-  const percent =
-    Math.min(
-      100,
-      Math.max(
-        0,
-        (state.reserveBalance /
-          goal) *
-          100
-      )
-    );
-
-  goalBox.innerHTML = `
-    Meta ${money(goal)}
-    <div class="progress">
-      <div style="width:${percent}%"></div>
-    </div>
-  `;
+  renderCategories();
+  renderExtras();
+  renderHistoryPreview();
 }
 
 /* =====================================================
@@ -1095,193 +945,175 @@ function renderCategories() {
       "categories"
     );
 
-  if (!wrap) return;
+  if (!wrap) {
+    return;
+  }
 
   wrap.innerHTML = "";
 
-  state.categories.forEach(
-    category => {
+  state.categories.forEach(category => {
 
-      /*
-        Reserva é especial.
-      */
+    if (
+      category.id === "reserve" ||
+      category.type === "reserve"
+    ) {
+      const contribution =
+        month.reserveContribution || 0;
 
-      if (
-        category.id === "reserve" ||
-        category.type === "reserve"
-      ) {
-        const totals =
-          reserveMonthTotals(
-            month
-          );
+      const element =
+        document.createElement("div");
 
-        const el =
-          document.createElement(
-            "div"
-          );
+      element.className =
+        "category reserve-cat";
 
-        el.className =
-          "category reserve-cat";
-
-        el.innerHTML = `
-          <div class="cat-icon">🏦</div>
-
-          <div class="cat-main">
-            <div class="cat-name">
-              Reserva
-            </div>
-
-            <div class="cat-sub">
-              Guardado neste mês
-            </div>
-
-            <div class="progress">
-              <div style="width:${
-                totals.incoming > 0
-                  ? 100
-                  : 0
-              }%"></div>
-            </div>
-          </div>
-
-          <div class="cat-value">
-            <strong>
-              ${money(totals.incoming)}
-            </strong>
-
-            <small>
-              guardado
-            </small>
-          </div>
-        `;
-
-        el.addEventListener(
-          "click",
-          () => openReserve()
-        );
-
-        wrap.appendChild(el);
-
-        return;
-      }
-
-      const spent =
-        categorySpent(
-          category.id,
-          month
-        );
-
-      const budget =
-        category.budget || 0;
-
-      const remaining =
-        budget - spent;
-
-      const pct =
-        budget > 0
-          ? Math.min(
-              100,
-              Math.max(
-                0,
-                (spent / budget) *
-                  100
-              )
-            )
-          : 0;
-
-      const el =
-        document.createElement(
-          "div"
-        );
-
-      el.className =
-        "category";
-
-      el.innerHTML = `
-        <div class="cat-icon">
-          ${escapeHtml(
-            category.icon
-          )}
-        </div>
+      element.innerHTML = `
+        <div class="cat-icon">🏦</div>
 
         <div class="cat-main">
-          <div class="cat-name">
-            ${escapeHtml(
-              category.name
-            )}
-          </div>
+          <div class="cat-name">Reserva</div>
 
           <div class="cat-sub">
-            ${money(
-              Math.max(
-                0,
-                remaining
-              )
-            )}
-            disponíveis
+            Guardado neste mês
           </div>
 
           <div class="progress">
-            <div style="width:${pct}%"></div>
+            <div style="width:${
+              contribution > 0 ? 100 : 0
+            }%"></div>
           </div>
         </div>
 
         <div class="cat-value">
-          <strong>
-            ${money(spent)}
-          </strong>
+          <strong>${money(
+            contribution
+          )}</strong>
 
-          <small>
-            de ${money(budget)}
-          </small>
-        </div>
-
-        <div class="cat-actions">
-          <button
-            class="cat-edit"
-            type="button"
-            title="Editar categoria"
-          >
-            ✎
-          </button>
+          <small>guardado</small>
         </div>
       `;
 
-      el.addEventListener(
+      element.addEventListener(
+        "click",
+        () => openReserve()
+      );
+
+      wrap.appendChild(element);
+
+      return;
+    }
+
+    const spent =
+      categorySpent(
+        category.id,
+        month
+      );
+
+    const budget =
+      category.budget || 0;
+
+    const remaining =
+      budget - spent;
+
+    const percent =
+      budget > 0
+        ? Math.min(
+            100,
+            Math.max(
+              0,
+              (spent / budget) * 100
+            )
+          )
+        : 0;
+
+    const element =
+      document.createElement("div");
+
+    element.className =
+      "category";
+
+    element.innerHTML = `
+      <div class="cat-icon">
+        ${escapeHtml(category.icon)}
+      </div>
+
+      <div class="cat-main">
+
+        <div class="cat-name">
+          ${escapeHtml(category.name)}
+        </div>
+
+        <div class="cat-sub">
+          ${money(
+            Math.max(
+              0,
+              remaining
+            )
+          )} disponíveis
+        </div>
+
+        <div class="progress">
+          <div style="width:${percent}%"></div>
+        </div>
+
+      </div>
+
+      <div class="cat-value">
+
+        <strong>
+          ${money(spent)}
+        </strong>
+
+        <small>
+          de ${money(budget)}
+        </small>
+
+      </div>
+
+      <div class="cat-actions">
+
+        <button
+          class="cat-edit"
+          type="button"
+          title="Editar categoria"
+        >
+          ✎
+        </button>
+
+      </div>
+    `;
+
+    element.addEventListener(
+      "click",
+      event => {
+        if (
+          event.target.closest(
+            ".cat-edit"
+          )
+        ) {
+          return;
+        }
+
+        openExpense(
+          category.id
+        );
+      }
+    );
+
+    element
+      .querySelector(".cat-edit")
+      .addEventListener(
         "click",
         event => {
-          if (
-            event.target.closest(
-              ".cat-edit"
-            )
-          ) {
-            return;
-          }
+          event.stopPropagation();
 
-          openExpense(
+          openEditCategory(
             category.id
           );
         }
       );
 
-      el
-        .querySelector(
-          ".cat-edit"
-        )
-        .addEventListener(
-          "click",
-          event => {
-            event.stopPropagation();
-
-            openEditCategory(
-              category.id
-            );
-          }
-        );
-
-      wrap.appendChild(el);
-    }
-  );
+    wrap.appendChild(element);
+  });
 }
 
 /* =====================================================
@@ -1292,103 +1124,85 @@ function openCategory() {
   openModal(
     "Nova categoria",
     `
-    <form
-      class="form"
-      id="categoryForm"
-    >
+      <form class="form" id="categoryForm">
 
-      <label>Nome</label>
+        <label>Nome</label>
 
-      <input
-        id="catName"
-        required
-        placeholder="Ex.: Alimentação"
-      >
+        <input
+          id="catName"
+          required
+          placeholder="Ex.: Alimentação"
+        >
 
-      <label>Ícone</label>
+        <label>Ícone</label>
 
-      <input
-        id="catIcon"
-        value="💰"
-        maxlength="4"
-      >
+        <input
+          id="catIcon"
+          value="💰"
+          maxlength="2"
+        >
 
-      <label>Valor mensal</label>
+        <label>Valor mensal</label>
 
-      <input
-        id="catBudget"
-        inputmode="decimal"
-        placeholder="R$ 0,00"
-        required
-      >
+        <input
+          id="catBudget"
+          inputmode="decimal"
+          placeholder="R$ 0,00"
+          required
+        >
 
-      <button type="submit">
-        Criar categoria
-      </button>
+        <button type="submit">
+          Criar categoria
+        </button>
 
-    </form>
+      </form>
     `
   );
 
-  document
-    .getElementById(
-      "categoryForm"
-    )
-    .addEventListener(
-      "submit",
-      event => {
-        event.preventDefault();
+  document.getElementById(
+    "categoryForm"
+  ).onsubmit = event => {
 
-        const name =
-          document
-            .getElementById(
-              "catName"
-            )
-            .value
-            .trim();
+    event.preventDefault();
 
-        const amount =
-          numCents(
-            "catBudget"
-          );
+    const name =
+      document.getElementById(
+        "catName"
+      ).value.trim();
 
-        if (
-          !name ||
-          amount < 0
-        ) {
-          alert(
-            "Digite um nome e um valor válido."
-          );
+    const amount =
+      numCents("catBudget");
 
-          return;
-        }
+    if (!name || amount < 0) {
+      alert(
+        "Digite um nome e um valor válido."
+      );
 
-        state.categories.push({
-          id:
-            "cat_" +
-            createId(),
+      return;
+    }
 
-          name,
+    state.categories.push({
+      id:
+        "cat_" + createId(),
 
-          icon:
-            document
-              .getElementById(
-                "catIcon"
-              )
-              .value
-              .trim() ||
-            "💰",
+      name,
 
-          budget: amount,
+      icon:
+        document.getElementById(
+          "catIcon"
+        ).value.trim() || "💰",
 
-          type: "expense"
-        });
+      budget: amount,
 
-        save();
-        closeModal();
-        render();
-      }
-    );
+      type: "expense"
+    });
+
+    save();
+
+    closeModal();
+
+    render();
+  };
 }
 
 /* =====================================================
@@ -1396,11 +1210,6 @@ function openCategory() {
 ===================================================== */
 
 function openEditCategory(id) {
-
-  /*
-    Reserva nunca entra aqui
-    como categoria editável.
-  */
 
   if (id === "reserve") {
     openReserve();
@@ -1423,155 +1232,150 @@ function openEditCategory(id) {
   openModal(
     "Editar categoria",
     `
-    <form
-      class="form"
-      id="editCategoryForm"
-    >
+      <form class="form" id="editCategoryForm">
 
-      <label>Nome</label>
+        <label>Nome</label>
 
-      <input
-        id="editCatName"
-        value="${escapeHtml(
-          category.name
-        )}"
-        required
+        <input
+          id="editCatName"
+          value="${escapeHtml(
+            category.name
+          )}"
+          required
+        >
+
+        <label>Ícone</label>
+
+        <input
+          id="editCatIcon"
+          value="${escapeHtml(
+            category.icon
+          )}"
+          maxlength="2"
+        >
+
+        <label>Valor mensal</label>
+
+        <input
+          id="editCatBudget"
+          inputmode="decimal"
+          value="${(
+            category.budget / 100
+          ).toFixed(2)}"
+          required
+        >
+
+        <button type="submit">
+          Salvar alterações
+        </button>
+
+      </form>
+
+      <button
+        class="danger"
+        id="deleteCategoryBtn"
+        type="button"
+        style="
+          width:100%;
+          padding:13px;
+          border-radius:12px;
+          margin-top:10px
+        "
       >
-
-      <label>Ícone</label>
-
-      <input
-        id="editCatIcon"
-        value="${escapeHtml(
-          category.icon
-        )}"
-        maxlength="4"
-      >
-
-      <label>Valor mensal</label>
-
-      <input
-        id="editCatBudget"
-        inputmode="decimal"
-        value="${(
-          category.budget /
-          100
-        ).toFixed(2)}"
-        required
-      >
-
-      <button type="submit">
-        Salvar alterações
+        Excluir categoria
       </button>
-
-    </form>
-
-    <button
-      class="danger"
-      id="deleteCategoryBtn"
-      type="button"
-      style="
-        width:100%;
-        padding:13px;
-        border-radius:12px;
-        margin-top:10px
-      "
-    >
-      Excluir categoria
-    </button>
     `
   );
 
-  document
-    .getElementById(
-      "editCategoryForm"
-    )
-    .addEventListener(
-      "submit",
-      event => {
-        event.preventDefault();
+  document.getElementById(
+    "editCategoryForm"
+  ).onsubmit = event => {
 
-        const name =
-          document
-            .getElementById(
-              "editCatName"
-            )
-            .value
-            .trim();
+    event.preventDefault();
 
-        if (!name) {
-          alert(
-            "Digite um nome."
-          );
+    const name =
+      document.getElementById(
+        "editCatName"
+      ).value.trim();
 
-          return;
-        }
+    if (!name) {
+      alert("Digite um nome.");
+      return;
+    }
 
-        category.name =
-          name;
+    category.name =
+      name;
 
-        category.icon =
-          document
-            .getElementById(
-              "editCatIcon"
-            )
-            .value
-            .trim() ||
-          "💰";
+    category.icon =
+      document.getElementById(
+        "editCatIcon"
+      ).value.trim() || "💰";
 
-        category.budget =
-          Math.max(
-            0,
-            numCents(
-              "editCatBudget"
-            )
-          );
+    category.budget =
+      numCents(
+        "editCatBudget"
+      );
 
-        save();
-        closeModal();
-        render();
-      }
-    );
+    save();
 
-  const deleteBtn =
-    document.getElementById(
-      "deleteCategoryBtn"
-    );
+    closeModal();
 
-  if (deleteBtn) {
-    deleteBtn.onclick = () => {
+    render();
+  };
 
-      if (id === "reserve") {
-        alert(
-          "A categoria Reserva é fixa e não pode ser excluída."
-        );
+  document.getElementById(
+    "deleteCategoryBtn"
+  ).onclick = () => {
 
-        return;
-      }
+    if (id === "reserve") {
+      alert(
+        "A categoria Reserva é fixa e não pode ser excluída."
+      );
 
-      if (
-        !confirm(
-          `Excluir a categoria "${category.name}"? Os gastos antigos serão mantidos no extrato.`
-        )
-      ) {
-        return;
-      }
+      return;
+    }
 
-      state.categories =
-        state.categories.filter(
-          c => c.id !== id
-        );
+    if (
+      !confirm(
+        `Excluir a categoria "${category.name}"? Os gastos antigos serão mantidos no extrato.`
+      )
+    ) {
+      return;
+    }
 
-      save();
-      closeModal();
-      render();
-    };
-  }
+    state.categories =
+      state.categories.filter(
+        c => c.id !== id
+      );
+
+    save();
+
+    closeModal();
+
+    render();
+  };
 }
 
 /* =====================================================
    GASTOS
 ===================================================== */
+
+function getSelectedMonthDate() {
+  const currentRealMonth =
+    monthKey(new Date());
+
+  if (
+    state.currentMonth ===
+    currentRealMonth
+  ) {
+    return todayKey();
+  }
+
+  const [year, month] =
+    state.currentMonth.split("-");
+
+  return `${year}-${month}-01`;
+}
 
 function openExpense(
   categoryId =
@@ -1583,147 +1387,205 @@ function openExpense(
   const options =
     state.categories
       .filter(
-        c =>
-          c.type ===
-          "expense"
+        c => c.type === "expense"
       )
       .map(
         c => `
           <option
-            value="${escapeHtml(
-              c.id
-            )}"
+            value="${escapeHtml(c.id)}"
             ${
               c.id === categoryId
                 ? "selected"
                 : ""
             }
           >
-            ${escapeHtml(
-              c.icon
-            )}
-            ${escapeHtml(
-              c.name
-            )}
+            ${escapeHtml(c.icon)}
+            ${escapeHtml(c.name)}
           </option>
         `
       )
       .join("");
 
-  const today =
-    todayKey();
+  const selectedDate =
+    getSelectedMonthDate();
+
+  const month =
+    getMonth();
+
+  const salaryAvailable =
+    getSalaryAvailable(month);
+
+  const extraAvailable =
+    getExtraAvailable(month);
 
   openModal(
     "Adicionar gasto",
     `
-    <form
-      class="form"
-      id="expenseForm"
-    >
+      <form class="form" id="expenseForm">
 
-      <label>Valor</label>
+        <label>Valor</label>
 
-      <input
-        id="expenseAmount"
-        inputmode="decimal"
-        placeholder="R$ 0,00"
-        required
-      >
+        <input
+          id="expenseAmount"
+          inputmode="decimal"
+          placeholder="R$ 0,00"
+          required
+        >
 
-      <label>Categoria</label>
+        <label>Categoria</label>
 
-      <select
-        id="expenseCategory"
-      >
-        ${options}
-      </select>
+        <select id="expenseCategory">
+          ${options}
+        </select>
 
-      <label>Data</label>
+        <label>De onde saiu o dinheiro?</label>
 
-      <input
-        id="expenseDate"
-        type="date"
-        value="${today}"
-      >
+        <select id="expenseSource">
 
-      <label>
-        Onde / com o que gastei?
-      </label>
+          <option value="salary">
+            Salário — ${money(
+              salaryAvailable
+            )}
+            disponível
+          </option>
 
-      <input
-        id="expenseNote"
-        placeholder="Ex.: mercado, farmácia, gasolina..."
-      >
+          <option value="extra">
+            Extra — ${money(
+              extraAvailable
+            )}
+            disponível
+          </option>
 
-      <button type="submit">
-        Salvar gasto
-      </button>
+        </select>
 
-    </form>
+        <label>Data</label>
+
+        <input
+          id="expenseDate"
+          type="date"
+          value="${selectedDate}"
+        >
+
+        <label>
+          Onde / com o que gastei?
+        </label>
+
+        <input
+          id="expenseNote"
+          placeholder="Ex.: mercado, farmácia, gasolina..."
+        >
+
+        <button type="submit">
+          Salvar gasto
+        </button>
+
+      </form>
     `
   );
 
-  document
-    .getElementById(
-      "expenseForm"
-    )
-    .addEventListener(
-      "submit",
-      event => {
-        event.preventDefault();
+  document.getElementById(
+    "expenseForm"
+  ).onsubmit = event => {
 
-        const amount =
-          numCents(
-            "expenseAmount"
-          );
+    event.preventDefault();
 
-        if (
-          amount <= 0
-        ) {
-          alert(
-            "Digite um valor válido maior que zero."
-          );
+    const amount =
+      numCents(
+        "expenseAmount"
+      );
 
-          return;
-        }
+    if (amount <= 0) {
+      alert(
+        "Digite um valor válido maior que zero."
+      );
 
-        const month =
-          getMonth();
+      return;
+    }
 
-        month.expenses.push({
-          id: createId(),
+    const source =
+      document.getElementById(
+        "expenseSource"
+      ).value;
 
-          categoryId:
-            document
-              .getElementById(
-                "expenseCategory"
-              )
-              .value,
+    const month =
+      getMonth();
 
-          amount,
+    const salaryAvailable =
+      getSalaryAvailable(month);
 
-          date:
-            document
-              .getElementById(
-                "expenseDate"
-              )
-              .value ||
-            today,
+    const extraAvailable =
+      getExtraAvailable(month);
 
-          note:
-            document
-              .getElementById(
-                "expenseNote"
-              )
-              .value
-              .trim()
-        });
+    if (
+      source === "salary" &&
+      amount > salaryAvailable
+    ) {
+      alert(
+        `Saldo de salário insuficiente.\n\nDisponível: ${money(
+          salaryAvailable
+        )}\nTentativa: ${money(amount)}`
+      );
 
-        save();
-        closeModal();
-        render();
-      }
-    );
+      return;
+    }
+
+    if (
+      source === "extra" &&
+      amount > extraAvailable
+    ) {
+      alert(
+        `Saldo de extras insuficiente.\n\nDisponível: ${money(
+          extraAvailable
+        )}\nTentativa: ${money(amount)}`
+      );
+
+      return;
+    }
+
+    const date =
+      document.getElementById(
+        "expenseDate"
+      ).value ||
+      selectedDate;
+
+    if (
+      !date.startsWith(
+        state.currentMonth
+      )
+    ) {
+      alert(
+        "A data do gasto precisa pertencer ao mês selecionado."
+      );
+
+      return;
+    }
+
+    month.expenses.push({
+      id: createId(),
+
+      categoryId:
+        document.getElementById(
+          "expenseCategory"
+        ).value,
+
+      amount,
+
+      source,
+
+      date,
+
+      note:
+        document.getElementById(
+          "expenseNote"
+        ).value.trim()
+    });
+
+    save();
+
+    closeModal();
+
+    render();
+  };
 }
 
 /* =====================================================
@@ -1739,17 +1601,17 @@ function renderExtras() {
       "extrasList"
     );
 
-  if (!container) return;
+  if (!container) {
+    return;
+  }
 
   if (
     month.extras.length === 0
   ) {
     container.innerHTML =
-      `
-      <div class="empty-history">
+      `<div class="empty-history">
         Nenhuma entrada extra neste mês.
-      </div>
-      `;
+      </div>`;
 
     return;
   }
@@ -1815,6 +1677,7 @@ function renderExtras() {
       ".extra-delete"
     )
     .forEach(button => {
+
       button.addEventListener(
         "click",
         () =>
@@ -1822,111 +1685,117 @@ function renderExtras() {
             button.dataset.id
           )
       );
+
     });
 }
 
 function openExtra() {
   const today =
-    todayKey();
+    getSelectedMonthDate();
 
   openModal(
     "Adicionar entrada extra",
     `
-    <form
-      class="form"
-      id="extraForm"
-    >
+      <form class="form" id="extraForm">
 
-      <label>Descrição</label>
+        <label>Descrição</label>
 
-      <input
-        id="extraName"
-        placeholder="Ex.: venda de algo pessoal"
-        required
-      >
+        <input
+          id="extraName"
+          placeholder="Ex.: venda de algo pessoal"
+          required
+        >
 
-      <label>Valor</label>
+        <label>Valor</label>
 
-      <input
-        id="extraAmount"
-        inputmode="decimal"
-        placeholder="R$ 0,00"
-        required
-      >
+        <input
+          id="extraAmount"
+          inputmode="decimal"
+          placeholder="R$ 0,00"
+          required
+        >
 
-      <label>Data</label>
+        <label>Data</label>
 
-      <input
-        id="extraDate"
-        type="date"
-        value="${today}"
-        required
-      >
+        <input
+          id="extraDate"
+          type="date"
+          value="${today}"
+          required
+        >
 
-      <button type="submit">
-        Salvar entrada
-      </button>
+        <button type="submit">
+          Salvar entrada
+        </button>
 
-    </form>
+      </form>
     `
   );
 
-  document
-    .getElementById(
-      "extraForm"
-    )
-    .addEventListener(
-      "submit",
-      event => {
-        event.preventDefault();
+  document.getElementById(
+    "extraForm"
+  ).onsubmit = event => {
 
-        const name =
-          document
-            .getElementById(
-              "extraName"
-            )
-            .value
-            .trim();
+    event.preventDefault();
 
-        const amount =
-          numCents(
-            "extraAmount"
-          );
+    const name =
+      document.getElementById(
+        "extraName"
+      ).value.trim();
 
-        const date =
-          document
-            .getElementById(
-              "extraDate"
-            )
-            .value;
+    const amount =
+      numCents(
+        "extraAmount"
+      );
 
-        if (
-          !name ||
-          amount <= 0
-        ) {
-          alert(
-            "Informe uma descrição e um valor válido maior que zero."
-          );
+    const date =
+      document.getElementById(
+        "extraDate"
+      ).value;
 
-          return;
-        }
+    if (
+      !name ||
+      amount <= 0
+    ) {
+      alert(
+        "Informe uma descrição e um valor válido maior que zero."
+      );
 
-        const month =
-          getMonth();
+      return;
+    }
 
-        month.extras.push({
-          id: createId(),
-          name,
-          amount,
-          date:
-            date || today
-        });
+    if (
+      !date.startsWith(
+        state.currentMonth
+      )
+    ) {
+      alert(
+        "A data da entrada extra precisa pertencer ao mês selecionado."
+      );
 
-        save();
-        closeModal();
-        render();
-      }
-    );
+      return;
+    }
+
+    const month =
+      getMonth();
+
+    month.extras.push({
+      id: createId(),
+
+      name,
+
+      amount,
+
+      date:
+        date || today
+    });
+
+    save();
+
+    closeModal();
+
+    render();
+  };
 }
 
 function deleteExtra(id) {
@@ -1935,11 +1804,12 @@ function deleteExtra(id) {
 
   const extra =
     month.extras.find(
-      item =>
-        item.id === id
+      item => item.id === id
     );
 
-  if (!extra) return;
+  if (!extra) {
+    return;
+  }
 
   if (
     !confirm(
@@ -1951,13 +1821,52 @@ function deleteExtra(id) {
     return;
   }
 
+  const remainingExtras =
+    month.extras
+      .filter(
+        item => item.id !== id
+      )
+      .reduce(
+        (sum, item) =>
+          sum + (item.amount || 0),
+        0
+      );
+
+  const salaryAvailableForReserve = Math.max(
+    0,
+    (month.salaryReceived || 0) +
+      (month.salaryReserveReturn || 0) -
+      totalSalarySpent(month)
+  );
+
+  const extraCommittedToReserve = Math.max(
+    0,
+    (month.reserveContribution || 0) -
+      salaryAvailableForReserve
+  );
+
+  const totalExtraCommitted =
+    totalExtraSpent(month) +
+    extraCommittedToReserve;
+
+  if (
+    remainingExtras <
+    totalExtraCommitted
+  ) {
+    alert(
+      "Este extra não pode ser excluído pois seu saldo já está comprometido por gastos ou aportes efetuados na reserva."
+    );
+
+    return;
+  }
+
   month.extras =
     month.extras.filter(
-      item =>
-        item.id !== id
+      item => item.id !== id
     );
 
   save();
+
   render();
 }
 
@@ -1969,26 +1878,26 @@ function openReserve() {
   const month =
     getMonth();
 
-  const totals =
-    reserveMonthTotals(
-      month
-    );
+  const contribution =
+    month.reserveContribution || 0;
 
-  const balance =
+  const withdrawal =
+    month.reserveWithdrawal || 0;
+
+  const reserveBalance =
     getReserveBalance();
 
+  const availableMoney =
+    available(month);
+
   const goal =
-    state.settings.reserveGoal ||
-    0;
+    state.settings.reserveGoal || 0;
 
   const goalText =
     goal > 0
       ? `
         <br><br>
-        <strong>
-          Meta da reserva
-        </strong>
-        <br>
+        <strong>Meta da reserva</strong><br>
         ${money(goal)}
       `
       : "";
@@ -1996,234 +1905,277 @@ function openReserve() {
   openModal(
     "Reserva",
     `
-    <div class="notice">
+      <div class="notice">
 
-      <strong>
-        Valor guardado
-      </strong>
+        <strong>Valor guardado</strong><br>
 
-      <br>
+        ${money(
+          reserveBalance
+        )}
 
-      ${money(balance)}
+        ${goalText}
 
-      ${goalText}
+        <br><br>
 
-      <br><br>
+        <strong>
+          Disponível para guardar
+        </strong><br>
 
-      <strong>
-        Guardado neste mês
-      </strong>
+        ${money(
+          availableMoney
+        )}
 
-      <br>
+        <br><br>
 
-      ${money(
-        totals.incoming
-      )}
+        <strong>
+          Guardado neste mês
+        </strong><br>
 
-      <br><br>
+        ${money(
+          contribution
+        )}
 
-      <strong>
-        Resgatado neste mês
-      </strong>
+        <br><br>
 
-      <br>
+        <strong>
+          Resgatado neste mês
+        </strong><br>
 
-      ${money(
-        totals.outgoing
-      )}
+        ${money(
+          withdrawal
+        )}
 
-    </div>
+      </div>
 
-    <form
-      class="form"
-      id="reserveForm"
-      style="margin-top:12px"
-    >
-
-      <label>
-        Quanto você quer guardar na reserva?
-      </label>
-
-      <input
-        id="reserveAmount"
-        inputmode="decimal"
-        placeholder="R$ 0,00"
+      <form
+        class="form"
+        id="reserveForm"
+        style="margin-top:12px"
       >
 
-      <label>
-        Observação
-      </label>
+        <label>
+          Quanto você quer guardar na reserva?
+        </label>
 
-      <input
-        id="reserveNote"
-        placeholder="Ex.: dinheiro que consegui guardar"
+        <input
+          id="reserveAmount"
+          inputmode="decimal"
+          placeholder="R$ 0,00"
+        >
+
+        <label>Observação</label>
+
+        <input
+          id="reserveNote"
+          placeholder="Ex.: dinheiro que consegui guardar"
+        >
+
+        <button type="submit">
+          Guardar na reserva
+        </button>
+
+      </form>
+
+      <form
+        class="form"
+        id="withdrawForm"
+        style="margin-top:16px"
       >
 
-      <button type="submit">
-        Guardar na reserva
-      </button>
+        <label>
+          Quanto você quer resgatar da reserva?
+        </label>
 
-    </form>
+        <input
+          id="withdrawAmount"
+          inputmode="decimal"
+          placeholder="R$ 0,00"
+        >
 
-    <form
-      class="form"
-      id="withdrawForm"
-      style="margin-top:16px"
-    >
+        <label>
+          Motivo do resgate
+        </label>
 
-      <label>
-        Quanto você quer resgatar da reserva?
-      </label>
+        <input
+          id="withdrawNote"
+          placeholder="Ex.: emergência"
+        >
 
-      <input
-        id="withdrawAmount"
-        inputmode="decimal"
-        placeholder="R$ 0,00"
-      >
+        <button
+          class="danger"
+          type="submit"
+        >
+          Resgatar da reserva
+        </button>
 
-      <label>
-        Motivo do resgate
-      </label>
-
-      <input
-        id="withdrawNote"
-        placeholder="Ex.: emergência"
-      >
+      </form>
 
       <button
-        class="danger"
-        type="submit"
+        class="secondary"
+        id="closeReserveBtn"
+        type="button"
+        style="
+          width:100%;
+          padding:13px;
+          border-radius:12px;
+          margin-top:10px
+        "
       >
-        Resgatar da reserva
+        Fechar
       </button>
-
-    </form>
-
-    <button
-      class="secondary"
-      id="closeReserveBtn"
-      type="button"
-      style="
-        width:100%;
-        padding:13px;
-        border-radius:12px;
-        margin-top:10px
-      "
-    >
-      Fechar
-    </button>
     `
   );
 
-  document
-    .getElementById(
-      "reserveForm"
-    )
-    .addEventListener(
-      "submit",
-      event => {
-        event.preventDefault();
+  document.getElementById(
+    "reserveForm"
+  ).onsubmit = event => {
 
-        const amount =
-          numCents(
-            "reserveAmount"
-          );
+    event.preventDefault();
 
-        if (
-          amount <= 0
-        ) {
-          alert(
-            "Digite um valor válido maior que zero."
-          );
+    const amount =
+      numCents(
+        "reserveAmount"
+      );
 
-          return;
-        }
+    if (amount <= 0) {
+      alert(
+        "Digite um valor válido maior que zero."
+      );
 
-        const note =
-          document
-            .getElementById(
-              "reserveNote"
-            )
-            .value
-            .trim();
+      return;
+    }
 
-        month.reserveTransactions.push({
-          id: createId(),
+    const currentAvailable =
+      available(
+        month
+      );
 
-          type: "in",
+    if (
+      amount >
+      currentAvailable
+    ) {
+      alert(
+        `Saldo insuficiente para guardar na reserva.\n\nDisponível: ${money(
+          currentAvailable
+        )}\nTentativa: ${money(
+          amount
+        )}`
+      );
 
-          amount,
+      return;
+    }
 
-          date: todayKey(),
+    const note =
+      document.getElementById(
+        "reserveNote"
+      ).value.trim();
 
-          note
-        });
+    month.reserveContribution =
+      (
+        month.reserveContribution || 0
+      ) + amount;
 
-        save();
-        closeModal();
-        render();
-      }
-    );
+    const txDate =
+      getSelectedMonthDate();
 
-  document
-    .getElementById(
-      "withdrawForm"
-    )
-    .addEventListener(
-      "submit",
-      event => {
-        event.preventDefault();
+    month.reserveTransactions.push({
+      id: createId(),
 
-        const amount =
-          numCents(
-            "withdrawAmount"
-          );
+      type: "in",
 
-        const currentBalance =
-          getReserveBalance();
+      amount,
 
-        if (
-          amount <= 0 ||
-          amount > currentBalance
-        ) {
-          alert(
-            "Valor inválido ou maior do que o saldo atual da reserva."
-          );
+      date: txDate,
 
-          return;
-        }
+      note
+    });
 
-        const note =
-          document
-            .getElementById(
-              "withdrawNote"
-            )
-            .value
-            .trim();
+    save();
 
-        month.reserveTransactions.push({
-          id: createId(),
+    closeModal();
 
-          type: "out",
+    render();
+  };
 
-          amount,
+  document.getElementById(
+    "withdrawForm"
+  ).onsubmit = event => {
 
-          date: todayKey(),
+    event.preventDefault();
 
-          note
-        });
+    const amount =
+      numCents(
+        "withdrawAmount"
+      );
 
-        save();
-        closeModal();
-        render();
-      }
-    );
+    const currentReserve =
+      getReserveBalance();
 
-  document
-    .getElementById(
-      "closeReserveBtn"
-    )
-    .onclick =
+    if (
+      amount <= 0
+    ) {
+      alert(
+        "Digite um valor válido maior que zero."
+      );
+
+      return;
+    }
+
+    if (
+      amount >
+      currentReserve
+    ) {
+      alert(
+        `Saldo insuficiente na reserva.\n\nDisponível: ${money(
+          currentReserve
+        )}\nTentativa: ${money(
+          amount
+        )}`
+      );
+
+      return;
+    }
+
+    const note =
+      document.getElementById(
+        "withdrawNote"
+      ).value.trim();
+
+    month.reserveWithdrawal =
+      (
+        month.reserveWithdrawal || 0
+      ) + amount;
+
+    month.salaryReserveReturn =
+      (
+        month.salaryReserveReturn || 0
+      ) + amount;
+
+    const txDate =
+      getSelectedMonthDate();
+
+    month.reserveTransactions.push({
+      id: createId(),
+
+      type: "out",
+
+      amount,
+
+      date: txDate,
+
+      note
+    });
+
+    save();
+
+    closeModal();
+
+    render();
+  };
+
+  document.getElementById(
+    "closeReserveBtn"
+  ).onclick =
     closeModal;
 }
 
@@ -2236,6 +2188,7 @@ function getHistory(month) {
 
   month.expenses.forEach(
     expense => {
+
       const category =
         state.categories.find(
           c =>
@@ -2263,7 +2216,14 @@ function getHistory(month) {
             : "💰",
 
         note:
-          expense.note || "",
+          expense.source === "extra"
+            ? `Pago com Extra${
+                expense.note
+                  ? " — " +
+                    expense.note
+                  : ""
+              }`
+            : expense.note || "",
 
         id:
           expense.id
@@ -2273,6 +2233,7 @@ function getHistory(month) {
 
   month.extras.forEach(
     extra => {
+
       items.push({
         type: "extra-in",
 
@@ -2297,41 +2258,47 @@ function getHistory(month) {
     }
   );
 
-  (
-    month.reserveTransactions ||
-    []
-  ).forEach(
-    tx => {
-      items.push({
-        type:
-          tx.type === "in"
-            ? "reserve-in"
-            : "reserve-out",
+  if (
+    Array.isArray(
+      month.reserveTransactions
+    )
+  ) {
 
-        date:
-          tx.date,
+    month.reserveTransactions.forEach(
+      tx => {
 
-        amount:
-          tx.amount || 0,
+        items.push({
+          type:
+            tx.type === "in"
+              ? "reserve-in"
+              : "reserve-out",
 
-        name:
-          tx.type === "in"
-            ? "Dinheiro guardado"
-            : "Dinheiro resgatado",
+          date:
+            tx.date,
 
-        icon:
-          tx.type === "in"
-            ? "🏦"
-            : "💸",
+          amount:
+            tx.amount || 0,
 
-        note:
-          tx.note || "",
+          name:
+            tx.type === "in"
+              ? "Dinheiro guardado"
+              : "Dinheiro resgatado",
 
-        id:
-          tx.id
-      });
-    }
-  );
+          icon:
+            tx.type === "in"
+              ? "🏦"
+              : "💸",
+
+          note:
+            tx.note || "",
+
+          id:
+            tx.id
+        });
+
+      }
+    );
+  }
 
   items.sort(
     (a, b) =>
@@ -2348,7 +2315,9 @@ function renderHistoryPreview() {
       "historyPreview"
     );
 
-  if (!container) return;
+  if (!container) {
+    return;
+  }
 
   const month =
     getMonth();
@@ -2360,11 +2329,9 @@ function renderHistoryPreview() {
     items.length === 0
   ) {
     container.innerHTML =
-      `
-      <div class="empty-history">
+      `<div class="empty-history">
         Nenhum lançamento neste mês.
-      </div>
-      `;
+      </div>`;
 
     return;
   }
@@ -2374,9 +2341,7 @@ function renderHistoryPreview() {
       .slice(0, 4)
       .map(
         item =>
-          historyItemHtml(
-            item
-          )
+          historyItemHtml(item)
       )
       .join("");
 }
@@ -2389,24 +2354,23 @@ function historyItemHtml(item) {
     "- ";
 
   if (
-    item.type ===
-      "extra-in" ||
-    item.type ===
-      "reserve-in"
+    item.type === "extra-in" ||
+    item.type === "reserve-in"
   ) {
+
     valueClass =
-      item.type ===
-      "extra-in"
+      item.type === "extra-in"
         ? "extra-in"
         : "reserve-in";
 
-    prefix = "+ ";
+    prefix =
+      "+ ";
   }
 
   if (
-    item.type ===
-    "reserve-out"
+    item.type === "reserve-out"
   ) {
+
     valueClass =
       "reserve-out";
 
@@ -2476,10 +2440,17 @@ function openHistory() {
   const extrasTotal =
     totalExtras(month);
 
-  const reserveTotals =
-    reserveMonthTotals(
-      month
-    );
+  const contribution =
+    month.reserveContribution || 0;
+
+  const withdrawal =
+    month.reserveWithdrawal || 0;
+
+  const salarySpent =
+    totalSalarySpent(month);
+
+  const extraSpent =
+    totalExtraSpent(month);
 
   const content =
     items.length === 0
@@ -2491,9 +2462,7 @@ function openHistory() {
       : items
           .map(
             item =>
-              historyItemHtml(
-                item
-              )
+              historyItemHtml(item)
           )
           .join("");
 
@@ -2504,69 +2473,72 @@ function openHistory() {
       ),
 
     `
-    <div class="history-total">
-      <span>
-        Salário
-      </span>
+      <div class="history-total">
+        <span>Salário</span>
+        <strong>
+          ${money(
+            month.salaryReceived
+          )}
+        </strong>
+      </div>
 
-      <strong>
-        ${money(
-          month.salaryReceived
-        )}
-      </strong>
-    </div>
+      <div class="history-total">
+        <span>Extras recebidos</span>
+        <strong>
+          ${money(
+            extrasTotal
+          )}
+        </strong>
+      </div>
 
-    <div class="history-total">
-      <span>
-        Entradas extras
-      </span>
+      <div class="history-total">
+        <span>Gastos com salário</span>
+        <strong>
+          ${money(
+            salarySpent
+          )}
+        </strong>
+      </div>
 
-      <strong>
-        ${money(
-          extrasTotal
-        )}
-      </strong>
-    </div>
+      <div class="history-total">
+        <span>Gastos com extras</span>
+        <strong>
+          ${money(
+            extraSpent
+          )}
+        </strong>
+      </div>
 
-    <div class="history-total">
-      <span>
-        Gastos deste mês
-      </span>
+      <div class="history-total">
+        <span>Total de gastos</span>
+        <strong>
+          ${money(
+            expensesTotal
+          )}
+        </strong>
+      </div>
 
-      <strong>
-        ${money(
-          expensesTotal
-        )}
-      </strong>
-    </div>
+      <div class="history-total">
+        <span>Guardado na reserva</span>
+        <strong>
+          ${money(
+            contribution
+          )}
+        </strong>
+      </div>
 
-    <div class="history-total">
-      <span>
-        Dinheiro guardado na reserva
-      </span>
+      <div class="history-total">
+        <span>Resgatado da reserva</span>
+        <strong>
+          ${money(
+            withdrawal
+          )}
+        </strong>
+      </div>
 
-      <strong>
-        ${money(
-          reserveTotals.incoming
-        )}
-      </strong>
-    </div>
-
-    <div class="history-total">
-      <span>
-        Dinheiro resgatado da reserva
-      </span>
-
-      <strong>
-        ${money(
-          reserveTotals.outgoing
-        )}
-      </strong>
-    </div>
-
-    <div class="full-history">
-      ${content}
-    </div>
+      <div class="full-history">
+        ${content}
+      </div>
     `
   );
 }
@@ -2582,183 +2554,165 @@ function openSettings() {
   openModal(
     "Configurações",
     `
-    <form
-      class="form"
-      id="settingsForm"
-    >
-
-      <label>
-        Salário deste mês
-      </label>
-
-      <input
-        id="sSalary"
-        inputmode="decimal"
-        value="${(
-          month.salaryReceived /
-          100
-        ).toFixed(2)}"
+      <form
+        class="form"
+        id="settingsForm"
       >
 
-      <div class="dark-mode-row">
+        <label>
+          Salário deste mês
+        </label>
 
-        <span>
-          💰 Dividir salário em dois pagamentos
-        </span>
+        <input
+          id="sSalary"
+          inputmode="decimal"
+          value="${(
+            month.salaryReceived /
+            100
+          ).toFixed(2)}"
+        >
 
-        <label class="theme-switch">
+        <div class="dark-mode-row">
 
-          <input
-            type="checkbox"
-            id="salarySplitToggle"
-          >
-
-          <span class="theme-slider">
-            <span class="theme-dot"></span>
+          <span>
+            💰 Dividir salário em dois pagamentos
           </span>
 
-        </label>
+          <label class="theme-switch">
 
-      </div>
+            <input
+              type="checkbox"
+              id="salarySplitToggle"
+            >
 
-      <div id="salarySplitOptions">
+            <span class="theme-slider">
+              <span class="theme-dot"></span>
+            </span>
 
-        <label>
-          Percentual do adiantamento (%)
-        </label>
+          </label>
 
-        <input
-          id="sPercent"
-          type="number"
-          min="0"
-          max="100"
-          value="${state.settings.advancePercent}"
-        >
-
-        <label>
-          Dia do adiantamento
-        </label>
-
-        <input
-          id="sDay"
-          type="number"
-          min="1"
-          max="31"
-          value="${state.settings.advanceDay}"
-        >
-
-        <div class="notice">
-          O restante do salário será considerado
-          como pagamento principal no
-          <strong>5º dia útil</strong>.
         </div>
 
-      </div>
+        <div id="salarySplitOptions">
 
-      <label>
-        Meta da reserva (opcional)
-      </label>
-
-      <input
-        id="sGoal"
-        inputmode="decimal"
-        value="${
-          state.settings.reserveGoal > 0
-            ? (
-                state.settings.reserveGoal /
-                100
-              ).toFixed(2)
-            : ""
-        }"
-        placeholder="Deixe vazio se não quiser uma meta"
-      >
-
-      <div class="dark-mode-row">
-
-        <span>
-          🌙 Modo escuro
-        </span>
-
-        <label class="theme-switch">
+          <label>
+            Percentual do adiantamento (%)
+          </label>
 
           <input
-            type="checkbox"
-            id="darkModeToggle"
+            id="sPercent"
+            type="number"
+            min="0"
+            max="100"
+            value="${state.settings.advancePercent}"
           >
 
-          <span class="theme-slider">
-            <span class="theme-dot"></span>
-          </span>
+          <label>
+            Dia do adiantamento
+          </label>
 
+          <input
+            id="sDay"
+            type="number"
+            min="1"
+            max="31"
+            value="${state.settings.advanceDay}"
+          >
+
+          <label>
+            Texto do pagamento principal
+          </label>
+
+          <input
+            id="sMain"
+            value="${escapeHtml(
+              state.settings.mainPaymentLabel
+            )}"
+          >
+
+        </div>
+
+        <label>
+          Meta da reserva (opcional)
         </label>
 
+        <input
+          id="sGoal"
+          inputmode="decimal"
+          value="${
+            state.settings.reserveGoal > 0
+              ? (
+                  state.settings.reserveGoal /
+                  100
+                ).toFixed(2)
+              : ""
+          }"
+          placeholder="Deixe vazio se não quiser uma meta"
+        >
+
+        <div class="dark-mode-row">
+
+          <span>
+            🌙 Modo escuro
+          </span>
+
+          <label class="theme-switch">
+
+            <input
+              type="checkbox"
+              id="darkModeToggle"
+            >
+
+            <span class="theme-slider">
+              <span class="theme-dot"></span>
+            </span>
+
+          </label>
+
+        </div>
+
+        <button type="submit">
+          Salvar
+        </button>
+
+      </form>
+
+      <div
+        class="notice"
+        style="margin-top:12px"
+      >
+        Os dados ficam somente neste aparelho.
+        Use a opção de exportação antes de limpar
+        os dados do navegador.
       </div>
 
-      <button type="submit">
-        Salvar
+      <button
+        class="secondary"
+        style="
+          width:100%;
+          margin-top:10px;
+          padding:13px;
+          border-radius:12px
+        "
+        id="exportBtn"
+        type="button"
+      >
+        Exportar backup JSON
       </button>
 
-    </form>
-
-    <div
-      class="notice"
-      style="margin-top:12px"
-    >
-      Os dados ficam somente neste aparelho.
-      Faça backups regularmente para evitar
-      perda de dados.
-    </div>
-
-    <button
-      class="secondary"
-      style="
-        width:100%;
-        margin-top:10px;
-        padding:13px;
-        border-radius:12px
-      "
-      id="exportBtn"
-      type="button"
-    >
-      Exportar backup JSON
-    </button>
-
-    <label
-      class="secondary"
-      style="
-        display:block;
-        width:100%;
-        margin-top:10px;
-        padding:13px;
-        border-radius:12px;
-        text-align:center;
-        cursor:pointer;
-        box-sizing:border-box
-      "
-    >
-      Importar backup JSON
-
-      <input
-        id="importFile"
-        type="file"
-        accept=".json,application/json"
-        style="display:none"
+      <button
+        class="danger"
+        style="
+          width:100%;
+          margin-top:10px;
+          padding:13px;
+          border-radius:12px
+        "
+        id="resetBtn"
+        type="button"
       >
-    </label>
-
-    <button
-      class="danger"
-      style="
-        width:100%;
-        margin-top:10px;
-        padding:13px;
-        border-radius:12px
-      "
-      id="resetBtn"
-      type="button"
-    >
-      Apagar todos os dados
-    </button>
+        Apagar todos os dados
+      </button>
     `
   );
 
@@ -2769,7 +2723,7 @@ function openSettings() {
 
   darkToggle.checked =
     localStorage.getItem(
-      DARK_KEY
+      "fxDarkMode"
     ) === "true";
 
   const salarySplitToggle =
@@ -2783,8 +2737,7 @@ function openSettings() {
     );
 
   salarySplitToggle.checked =
-    !!state.settings
-      .salarySplitEnabled;
+    !!state.settings.salarySplitEnabled;
 
   function updateSalarySplitOptions() {
     salarySplitOptions.classList.toggle(
@@ -2798,143 +2751,135 @@ function openSettings() {
   salarySplitToggle.onchange =
     updateSalarySplitOptions;
 
-  document
-    .getElementById(
-      "settingsForm"
-    )
-    .addEventListener(
-      "submit",
-      event => {
-        event.preventDefault();
+  document.getElementById(
+    "settingsForm"
+  ).onsubmit = event => {
 
-        const newSalary =
-          numCents(
-            "sSalary"
-          );
+    event.preventDefault();
 
-        month.salaryReceived =
-          Math.max(
-            0,
-            newSalary
-          );
+    const newSalary =
+      numCents("sSalary");
 
-        state.settings.plannedSalary =
-          month.salaryReceived;
-
-        state.settings
-          .salarySplitEnabled =
-          salarySplitToggle.checked;
-
-        state.settings
-          .advancePercent =
-          Math.min(
-            100,
-            Math.max(
-              0,
-              Number(
-                document.getElementById(
-                  "sPercent"
-                ).value
-              ) || 40
-            )
-          );
-
-        state.settings
-          .advanceDay =
-          Math.min(
-            31,
-            Math.max(
-              1,
-              Number(
-                document.getElementById(
-                  "sDay"
-                ).value
-              ) || 20
-            )
-          );
-
-        state.settings
-          .reserveGoal =
-          Math.max(
-            0,
-            numCents(
-              "sGoal"
-            )
-          );
-
-        const dark =
-          darkToggle.checked;
-
-        document.body.classList.toggle(
-          "dark",
-          dark
-        );
-
-        localStorage.setItem(
-          DARK_KEY,
-          dark
-        );
-
-        save();
-        closeModal();
-        render();
-      }
-    );
-
-  document
-    .getElementById(
-      "exportBtn"
-    )
-    .onclick =
-    exportData;
-
-  document
-    .getElementById(
-      "importFile"
-    )
-    .addEventListener(
-      "change",
-      event => {
-        const file =
-          event.target.files?.[0];
-
-        if (!file) return;
-
-        importData(file);
-
-        event.target.value =
-          "";
-      }
-    );
-
-  document
-    .getElementById(
-      "resetBtn"
-    )
-    .onclick = () => {
-
-      if (
-        !confirm(
-          "Apagar todos os dados do FX? Esta ação não pode ser desfeita."
-        )
-      ) {
-        return;
-      }
-
-      localStorage.removeItem(
-        KEY
+    const committedSalary =
+      totalSalarySpent(month) +
+      (
+        month.reserveContribution ||
+        0
+      ) -
+      (
+        month.salaryReserveReturn ||
+        0
       );
 
+    if (
+      newSalary <
+      committedSalary
+    ) {
+
+      alert(
+        `O salário não pode ser reduzido para ${money(
+          newSalary
+        )}.\n\nJá existem ${money(
+          committedSalary
+        )} comprometidos neste mês.`
+      );
+
+      return;
+    }
+
+    month.salaryReceived =
+      newSalary;
+
+    state.settings.plannedSalary =
+      newSalary;
+
+    state.settings.salarySplitEnabled =
+      salarySplitToggle.checked;
+
+    state.settings.advancePercent =
+      Math.min(
+        100,
+        Math.max(
+          0,
+          Number(
+            document.getElementById(
+              "sPercent"
+            ).value
+          ) || 0
+        )
+      );
+
+    state.settings.advanceDay =
+      Math.min(
+        31,
+        Math.max(
+          1,
+          Number(
+            document.getElementById(
+              "sDay"
+            ).value
+          ) || 20
+        )
+      );
+
+    state.settings.mainPaymentLabel =
+      document.getElementById(
+        "sMain"
+      ).value.trim() ||
+      "5º dia útil";
+
+    state.settings.reserveGoal =
+      Math.max(
+        0,
+        numCents("sGoal")
+      );
+
+    const dark =
+      darkToggle.checked;
+
+    document.body.classList.toggle(
+      "dark",
+      dark
+    );
+
+    localStorage.setItem(
+      "fxDarkMode",
+      dark
+    );
+
+    save();
+
+    closeModal();
+
+    render();
+  };
+
+  document.getElementById(
+    "exportBtn"
+  ).onclick =
+    exportData;
+
+  document.getElementById(
+    "resetBtn"
+  ).onclick = () => {
+
+    if (
+      confirm(
+        "Apagar todos os dados do FX?"
+      )
+    ) {
+
+      localStorage.removeItem(KEY);
       localStorage.removeItem(
         ACCOUNT_KEY
       );
-
       localStorage.removeItem(
         SESSION_KEY
       );
 
       location.reload();
-    };
+    }
+  };
 }
 
 /* =====================================================
@@ -2946,37 +2891,36 @@ function openPayments() {
     getMonth();
 
   if (
-    !state.settings
-      .salarySplitEnabled
+    !state.settings.salarySplitEnabled
   ) {
+
     openModal(
       "Pagamentos",
       `
-      <div class="notice">
+        <div class="notice">
 
-        A divisão do salário está
-        <strong>desativada</strong>.
+          A divisão do salário está
+          <strong>desativada</strong>.
 
-        <br><br>
+          <br><br>
 
-        O salário deste mês é:
+          O salário deste mês é:
 
-        <br>
+          <br>
 
-        <strong>
-          ${money(
-            month.salaryReceived
-          )}
-        </strong>
+          <strong>
+            ${money(
+              month.salaryReceived
+            )}
+          </strong>
 
-        <br><br>
+          <br><br>
 
-        Se quiser dividir o salário entre
-        adiantamento e pagamento principal,
-        ative essa opção em
-        ⚙️ Configurações.
+          Se quiser dividir o salário entre
+          adiantamento e pagamento principal,
+          ative essa opção em ⚙️ Configurações.
 
-      </div>
+        </div>
       `
     );
 
@@ -2984,67 +2928,58 @@ function openPayments() {
   }
 
   const split =
-    getSalarySplit(
-      month
-    );
+    getSalarySplit(month);
 
   openModal(
     "Pagamentos",
     `
-    <div class="notice">
+      <div class="notice">
 
-      <strong>
-        Adiantamento
-      </strong>
+        <strong>
+          Adiantamento
+        </strong>
 
-      <br>
+        <br>
 
-      ${money(
-        split.advance
-      )}
-      —
-      dia
-      ${state.settings.advanceDay}
+        ${money(
+          split.advance
+        )}
 
-      <br><br>
+        — dia
+        ${state.settings.advanceDay}
 
-      <strong>
-        Pagamento principal
-      </strong>
+        <br><br>
 
-      <br>
+        <strong>
+          Pagamento principal
+        </strong>
 
-      ${money(
-        split.main
-      )}
-      —
-      5º dia útil
+        <br>
 
-    </div>
+        ${money(
+          split.main
+        )}
+
+        —
+        ${escapeHtml(
+          state.settings.mainPaymentLabel
+        )}
+
+      </div>
     `
   );
 }
 
 /* =====================================================
-   BACKUP — EXPORTAR
+   BACKUP
 ===================================================== */
 
 function exportData() {
-  save();
-
-  const backup = {
-    app: "FX",
-    version: "1.1.0",
-    exportedAt:
-      new Date().toISOString(),
-    data: state
-  };
-
   const blob =
     new Blob(
       [
         JSON.stringify(
-          backup,
+          state,
           null,
           2
         )
@@ -3070,9 +3005,7 @@ function exportData() {
   a.download =
     `fx-backup-${state.currentMonth}.json`;
 
-  document.body.appendChild(
-    a
-  );
+  document.body.appendChild(a);
 
   a.click();
 
@@ -3088,112 +3021,33 @@ function exportData() {
 }
 
 /* =====================================================
-   BACKUP — IMPORTAR
-===================================================== */
-
-function importData(file) {
-  const reader =
-    new FileReader();
-
-  reader.onload = () => {
-    try {
-      const parsed =
-        JSON.parse(
-          reader.result
-        );
-
-      const imported =
-        parsed &&
-        parsed.data &&
-        typeof parsed.data ===
-          "object"
-          ? parsed.data
-          : parsed;
-
-      const normalized =
-        normalizeState(
-          imported
-        );
-
-      if (!normalized) {
-        throw new Error(
-          "Backup inválido."
-        );
-      }
-
-      /*
-        Mantém a conta/login atual.
-        O backup restaura somente
-        os dados financeiros.
-      */
-
-      localStorage.setItem(
-        KEY,
-        JSON.stringify(
-          normalized
-        )
-      );
-
-      alert(
-        "Backup importado com sucesso."
-      );
-
-      location.reload();
-
-    } catch (error) {
-      console.error(
-        error
-      );
-
-      alert(
-        "Não foi possível importar este backup. Verifique se o arquivo é um backup válido do FX."
-      );
-    }
-  };
-
-  reader.onerror = () => {
-    alert(
-      "Não foi possível ler o arquivo."
-    );
-  };
-
-  reader.readAsText(
-    file
-  );
-}
-
-/* =====================================================
    UTILITÁRIOS
 ===================================================== */
 
-function escapeHtml(value) {
-  return String(
-    value
-  ).replace(
+function escapeHtml(s) {
+  return String(s).replace(
     /[&<>"']/g,
-    char =>
-      ({
-        "&": "&amp;",
-        "<": "&lt;",
-        ">": "&gt;",
-        '"': "&quot;",
-        "'": "&#039;"
-      }[char])
+    x => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#039;"
+    }[x])
   );
 }
 
 function createId() {
   if (
-    typeof crypto !==
-      "undefined" &&
+    typeof crypto !== "undefined" &&
     typeof crypto.randomUUID ===
       "function"
   ) {
     return crypto.randomUUID();
   }
 
-  return (
-    String(Date.now()) +
+  return String(
+    Date.now() +
     Math.random()
   );
 }
@@ -3213,7 +3067,9 @@ function monthDateKey(date) {
 }
 
 function formatDate(date) {
-  if (!date) return "";
+  if (!date) {
+    return "";
+  }
 
   const parts =
     String(date).split("-");
@@ -3237,11 +3093,13 @@ function openModal(
 ) {
   document.getElementById(
     "modalTitle"
-  ).textContent = title;
+  ).textContent =
+    title;
 
   document.getElementById(
     "modalBody"
-  ).innerHTML = html;
+  ).innerHTML =
+    html;
 
   document.getElementById(
     "modal"
@@ -3313,6 +3171,7 @@ document.getElementById(
     );
 
   save();
+
   render();
 };
 
@@ -3327,13 +3186,15 @@ document.getElementById(
     );
 
   save();
+
   render();
 };
 
 document.getElementById(
   "addExpenseBtn"
 ).onclick =
-  () => openExpense();
+  () =>
+    openExpense();
 
 document.getElementById(
   "addCategoryBtn"
@@ -3380,12 +3241,14 @@ document.getElementById(
 ).addEventListener(
   "click",
   event => {
+
     if (
       event.target.id ===
       "modal"
     ) {
       closeModal();
     }
+
   }
 );
 
@@ -3394,10 +3257,11 @@ document.getElementById(
 ===================================================== */
 
 function initFinance() {
+
   document.body.classList.toggle(
     "dark",
     localStorage.getItem(
-      DARK_KEY
+      "fxDarkMode"
     ) === "true"
   );
 
@@ -3413,21 +3277,20 @@ function initFinance() {
 }
 
 if (isLogged()) {
-  showApp();
-} else {
-  document
-    .getElementById(
-      "loginScreen"
-    )
-    .classList.remove(
-      "hidden"
-    );
 
-  document
-    .getElementById(
-      "appScreen"
-    )
-    .classList.add(
-      "hidden"
-    );
+  showApp();
+
+} else {
+
+  document.getElementById(
+    "loginScreen"
+  ).classList.remove(
+    "hidden"
+  );
+
+  document.getElementById(
+    "appScreen"
+  ).classList.add(
+    "hidden"
+  );
 }
