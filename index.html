@@ -1,217 +1,26 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="theme-color" content="#050505">
-  <title>FX — Seu Dinheiro. Suas Regras.</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#080808">
+  <meta name="description" content="FX — Seu dinheiro. Suas regras.">
 
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="style.css?v=1.5.0">
+  <link rel="stylesheet" href="style.css">
+
+  <title>FX — Seu dinheiro. Suas regras.</title>
 </head>
+
 <body>
 
-  <!-- TELA DE LOGIN -->
-  <div id="loginScreen" class="login-screen hidden">
-    <div class="login-card">
-      <div class="login-brand">FX</div>
-      <div class="login-title">Alisson Finance</div>
-      <div class="login-subtitle">Seu dinheiro. Suas regras.</div>
+  <div id="app"></div>
 
-      <!-- FORM LOGIN -->
-      <form id="loginForm" onsubmit="return false;">
-        <label for="loginUsername">Usuário</label>
-        <input id="loginUsername" placeholder="Seu usuário" required autocomplete="username">
-
-        <label for="loginPassword">Senha</label>
-        <input id="loginPassword" type="password" placeholder="Sua senha" required autocomplete="current-password">
-
-        <div class="dark-mode-row" style="margin: 10px 0 15px 0;">
-          <span style="font-size: 13px; color: #aaa;">Lembrar usuário</span>
-          <label class="theme-switch">
-            <input type="checkbox" id="rememberUserToggle">
-            <span class="theme-slider"><span class="theme-dot"></span></span>
-          </label>
-        </div>
-
-        <button class="login-button" id="loginBtn" type="button">Entrar</button>
-        <button class="login-link" id="showForgotBtn" type="button">Esqueci minha senha</button>
-        <button class="login-link" id="showCreateBtn" type="button">Criar conta</button>
-      </form>
-
-      <!-- FORM CRIAR CONTA -->
-      <form id="createForm" class="hidden" onsubmit="return false;">
-        <label for="createUsername">Usuário</label>
-        <input id="createUsername" placeholder="3 a 20 caracteres" required>
-
-        <label for="createPassword">Senha</label>
-        <input id="createPassword" type="password" placeholder="8 caracteres" required>
-
-        <label for="createPasswordConfirm">Confirmar senha</label>
-        <input id="createPasswordConfirm" type="password" placeholder="Repita a senha" required>
-
-        <button class="login-button" id="createBtn" type="button">Criar conta</button>
-        <button class="login-link" id="backLoginBtn" type="button">Já tenho uma conta</button>
-      </form>
-
-      <!-- FORM RECUPERAR SENHA -->
-      <form id="forgotForm" class="hidden" onsubmit="return false;">
-        <label for="forgotCode">Código de Recuperação ou Chave Mestra</label>
-        <input id="forgotCode" placeholder="Ex: FX-1234 ou Chave Mestra" required>
-
-        <label for="forgotNewPassword">Nova Senha</label>
-        <input id="forgotNewPassword" type="password" placeholder="8 caracteres" required>
-
-        <button class="login-button" id="resetPasswordBtn" type="button">Redefinir Senha</button>
-        <button class="login-link" id="backLoginFromForgotBtn" type="button">Voltar ao login</button>
-      </form>
-
-      <div id="loginMessage" class="login-message"></div>
-    </div>
+  <!-- Modal global -->
+  <div id="modalLayer" class="modal-layer hidden">
+    <div id="modalBox" class="modal-box"></div>
   </div>
 
-  <!-- TELA PRINCIPAL -->
-  <div id="appScreen" class="hidden">
-    <header class="topbar">
-      <div>
-        <div class="brand">FX</div>
-        <div class="tagline">Seu dinheiro. Suas regras.</div>
-      </div>
-      <div class="top-actions">
-        <button class="icon-btn" id="toggleHideBtn" type="button" title="Ocultar/Mostrar Saldos">👁️</button>
-        <button class="icon-btn" id="historyBtn" type="button" title="Extrato">📜</button>
-        <button class="icon-btn" id="settingsBtn" type="button" title="Configurações">⚙️</button>
-        <button class="icon-btn" id="logoutBtn" type="button" title="Sair">↪</button>
-      </div>
-    </header>
-
-    <main>
-      <div class="month-nav">
-        <button class="icon-btn" id="prevMonth" type="button">‹</button>
-        <div class="month-title" id="monthTitle">--</div>
-        <button class="icon-btn" id="nextMonth" type="button">›</button>
-      </div>
-
-      <!-- CARD PRINCIPAL DE SALDO -->
-      <section class="hero card">
-        <div class="eyebrow">QUANTO POSSO GASTAR?</div>
-        <div class="hero-value" id="availableValue">R$ 0,00</div>
-        <div class="muted" id="availableHint">Depois de considerar salário, reserva e gastos.</div>
-      </section>
-
-      <!-- RESUMO RÁPIDO: GRÁFICO DE BARRAS (ENTRADAS VS GASTOS) -->
-      <section class="card" style="padding: 16px;">
-        <div style="display: flex; justify-content: space-between; font-size: 13px; color: #aaa; margin-bottom: 8px;">
-          <span>Resumo do Mês</span>
-          <span id="spentPercentLabel">0% gasto</span>
-        </div>
-        <div class="progress" style="height: 10px; background: #222; border-radius: 5px; overflow: hidden;">
-          <div id="monthlyBar" style="width: 0%; height: 100%; background: #4f46e5; border-radius: 5px; transition: width 0.3s ease;"></div>
-        </div>
-      </section>
-
-      <!-- RESUMO DOS SALDOS -->
-      <section class="stats card">
-        <div class="stat">
-          <span>Salário</span>
-          <strong id="salaryValue">R$ 0,00</strong>
-        </div>
-        <div class="stat">
-          <span>Extras</span>
-          <strong id="extraValue">R$ 0,00</strong>
-        </div>
-        <div class="stat">
-          <span>Gastos</span>
-          <strong id="spentValue">R$ 0,00</strong>
-        </div>
-      </section>
-
-      <!-- PAGAMENTOS -->
-      <section class="payment card payments-card hidden">
-        <div class="section-head compact">
-          <h2>Pagamentos</h2>
-          <button class="text-btn" id="paymentsSettingsBtn" type="button">Ajustar</button>
-        </div>
-        <div class="payment-grid">
-          <div>
-            <span>Adiantamento</span>
-            <strong id="advanceValue">R$ 0,00</strong>
-            <small id="advanceDate">--</small>
-          </div>
-          <div>
-            <span>Pagamento principal</span>
-            <strong id="mainPayValue">R$ 0,00</strong>
-            <small id="mainPayDate">--</small>
-          </div>
-        </div>
-      </section>
-
-      <!-- CATEGORIAS -->
-      <section>
-        <div class="section-head">
-          <h2>Categorias</h2>
-          <button class="text-btn" id="addCategoryBtn" type="button">+ Nova</button>
-        </div>
-        <div class="categories" id="categories"></div>
-      </section>
-
-      <!-- RESERVA -->
-      <section class="reserve card">
-        <div class="reserve-row">
-          <div>
-            <span>Reserva</span>
-            <strong id="reserveBig">R$ 0,00</strong>
-            <div class="section-description">Acumulada</div>
-          </div>
-          <div id="goalBox" class="goal"></div>
-          <button class="text-btn" id="reserveBtn" type="button">Gerenciar</button>
-        </div>
-      </section>
-
-      <!-- EXTRAS -->
-      <section class="extras card">
-        <div class="section-head compact">
-          <div>
-            <h2>Entradas extras</h2>
-            <div class="section-description">Dinheiro que entrou além do salário</div>
-          </div>
-          <button class="text-btn" id="addExtraBtn" type="button">+ Adicionar</button>
-        </div>
-        <div class="extras-list" id="extrasList"></div>
-      </section>
-
-      <!-- EXTRATO RÁPIDO -->
-      <section class="history-preview card">
-        <div class="section-head compact">
-          <h2>Extrato</h2>
-          <button class="text-btn" id="historyBtn2" type="button">Ver tudo</button>
-        </div>
-        <div class="history-preview-list" id="historyPreview"></div>
-      </section>
-
-      <!-- BOTAO ADICIONAR GASTO -->
-      <div class="actions">
-        <button class="primary" id="addExpenseBtn" type="button">+ Adicionar gasto</button>
-      </div>
-    </main>
-  </div>
-
-  <!-- MODAL GENÉRICO -->
-  <div id="modal" class="modal hidden">
-    <div class="modal-sheet">
-      <div class="modal-head">
-        <h3 id="modalTitle">Título</h3>
-        <button class="icon-btn" id="closeModal" type="button">✕</button>
-      </div>
-      <div id="modalBody"></div>
-    </div>
-  </div>
-
-  <script src="app.js?v=1.5.0"></script>
-  <script>
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("service-worker.js?v=1.5.0");
-    }
-  </script>
+  <script src="app.js"></script>
 </body>
 </html>
