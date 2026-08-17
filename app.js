@@ -1,12 +1,13 @@
 /* =====================================================
    PROJETO FX — SEU DINHEIRO. SUAS REGRAS.
    Arquivo: app.js
-   Versão: 1.3.1 — Salários, Extras, Sobras, Vibração e Toggle Ajustados
+   Versão: 1.3.2 — Chave Mestra + Código de Recuperação Individual
 ===================================================== */
 
 const KEY = "fx_finance_v1";
 const ACCOUNT_KEY = "fx_account_v1";
 const SESSION_KEY = "fx_session_v1";
+const MASTER_KEY = "Fx020919"; // Chave mestra oculta do administrador
 
 /* =====================================================
    SENSATIVIDADE TÁTIL (VIBRAÇÃO ANDROID)
@@ -33,7 +34,7 @@ const defaultCategories = [
 ];
 
 /* =====================================================
-   CONTA LOCAL
+   CONTA LOCAL & GERENCIAMENTO DE ACESSO
 ===================================================== */
 
 function getAccount() {
@@ -52,6 +53,11 @@ function isLogged() {
   return localStorage.getItem(SESSION_KEY) === "true";
 }
 
+function generateRecoveryCode() {
+  const num = Math.floor(1000 + Math.random() * 9000);
+  return `FX-${num}`;
+}
+
 function login(username, password) {
   vibrate(15);
   const account = getAccount();
@@ -61,7 +67,10 @@ function login(username, password) {
     return;
   }
 
-  if (username !== account.username || password !== account.password) {
+  const cleanUser = String(username || "").trim().toLowerCase();
+  const savedUser = String(account.username || "").trim().toLowerCase();
+
+  if (cleanUser !== savedUser || password !== account.password) {
     showLoginMessage("Usuário ou senha incorretos.");
     return;
   }
@@ -72,7 +81,8 @@ function login(username, password) {
 
 function createAccount() {
   vibrate(15);
-  const username = document.getElementById("createUsername").value.trim();
+  const rawUser = document.getElementById("createUsername").value.trim();
+  const username = rawUser.toLowerCase();
   const password = document.getElementById("createPassword").value;
   const confirmation = document.getElementById("createPasswordConfirm").value;
 
@@ -101,9 +111,45 @@ function createAccount() {
     return;
   }
 
-  saveAccount({ username, password });
+  const recoveryCode = generateRecoveryCode();
+
+  saveAccount({ username, password, recoveryCode });
   localStorage.setItem(SESSION_KEY, "true");
+
+  alert(`Conta criada com sucesso!\n\nSeu código de recuperação de senha é: ${recoveryCode}\n\nGuarde este código para redefinir sua senha caso precise.`);
+
   showApp();
+}
+
+function resetPassword() {
+  vibrate(18);
+  const codeInput = document.getElementById("forgotCode").value.trim();
+  const newPassword = document.getElementById("forgotNewPassword").value;
+  const account = getAccount();
+
+  if (!account) {
+    showLoginMessage("Nenhuma conta encontrada.");
+    return;
+  }
+
+  if (newPassword.length !== 8) {
+    showLoginMessage("A nova senha precisa ter exatamente 8 caracteres.");
+    return;
+  }
+
+  const isMasterKey = codeInput === MASTER_KEY;
+  const isUserRecoveryCode = codeInput.toUpperCase() === (account.recoveryCode || "").toUpperCase();
+
+  if (!isMasterKey && !isUserRecoveryCode) {
+    showLoginMessage("Código de recuperação ou Chave Mestra inválida.");
+    return;
+  }
+
+  account.password = newPassword;
+  saveAccount(account);
+
+  alert("Senha redefinida com sucesso! Faça login com a nova senha.");
+  showLoginForm();
 }
 
 function logout() {
@@ -127,6 +173,7 @@ function showLoginMessage(message) {
 function showCreateAccount() {
   vibrate();
   document.getElementById("loginForm").classList.add("hidden");
+  document.getElementById("forgotForm").classList.add("hidden");
   document.getElementById("createForm").classList.remove("hidden");
   showLoginMessage("");
 }
@@ -134,7 +181,16 @@ function showCreateAccount() {
 function showLoginForm() {
   vibrate();
   document.getElementById("createForm").classList.add("hidden");
+  document.getElementById("forgotForm").classList.add("hidden");
   document.getElementById("loginForm").classList.remove("hidden");
+  showLoginMessage("");
+}
+
+function showForgotForm() {
+  vibrate();
+  document.getElementById("loginForm").classList.add("hidden");
+  document.getElementById("createForm").classList.add("hidden");
+  document.getElementById("forgotForm").classList.remove("hidden");
   showLoginMessage("");
 }
 
@@ -1247,7 +1303,7 @@ function openHistory() {
 }
 
 /* =====================================================
-   CONFIGURAÇÕES (COM CHAVE DE ALTERNÂNCIA RESTAURADA)
+   CONFIGURAÇÕES
 ===================================================== */
 
 function openSettings() {
@@ -1417,10 +1473,30 @@ function closeModal() {
    EVENTOS & INICIALIZAÇÃO
 ===================================================== */
 
-document.getElementById("loginBtn").onclick = () => login(document.getElementById("loginUsername").value.trim(), document.getElementById("loginPassword").value);
+document.getElementById("loginForm").onsubmit = event => {
+  event.preventDefault();
+  login(document.getElementById("loginUsername").value, document.getElementById("loginPassword").value);
+};
+
+document.getElementById("createForm").onsubmit = event => {
+  event.preventDefault();
+  createAccount();
+};
+
+document.getElementById("forgotForm").onsubmit = event => {
+  event.preventDefault();
+  resetPassword();
+};
+
+document.getElementById("loginBtn").onclick = () => login(document.getElementById("loginUsername").value, document.getElementById("loginPassword").value);
 document.getElementById("createBtn").onclick = createAccount;
+document.getElementById("resetPasswordBtn").onclick = resetPassword;
+
 document.getElementById("showCreateBtn").onclick = showCreateAccount;
+document.getElementById("showForgotBtn").onclick = showForgotForm;
 document.getElementById("backLoginBtn").onclick = showLoginForm;
+document.getElementById("backLoginFromForgotBtn").onclick = showLoginForm;
+
 document.getElementById("logoutBtn").onclick = logout;
 
 document.getElementById("toggleHideBtn").onclick = () => {
