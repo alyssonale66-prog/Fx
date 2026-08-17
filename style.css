@@ -1,4 +1,101 @@
 /* =====================================================
+   PROJETO FX — SEU DINHEIRO. SUAS REGRAS.
+   Arquivo: style.css
+   Versão: 1.2.7 — Black & Gold Login + App Styling Corrigido
+===================================================== */
+
+:root {
+  --bg: #0a0a0c;
+  --card: #121216;
+
+  --text: #f3f4f6;
+  --muted: #9ca3af;
+
+  --line: #22222a;
+
+  --accent: #d4af37;
+  --accent-gradient: linear-gradient(135deg, #f5d77f 0%, #d4af37 50%, #996c13 100%);
+
+  --success: #2ecc71;
+  --danger: #ff5c5c;
+
+  --radius: 18px;
+}
+
+body.dark {
+  --bg: #050507;
+  --card: #0f0f13;
+
+  --text: #f5f5f5;
+  --muted: #888888;
+
+  --line: #1c1c24;
+
+  --accent: #ffe082;
+
+  --success: #2ecc71;
+  --danger: #ff5c5c;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+
+  min-height: 100%;
+
+  background: var(--bg);
+
+  color: var(--text);
+
+  font-family:
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+
+  overscroll-behavior-y: contain;
+}
+
+body {
+  min-height: 100vh;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+button {
+  border: 0;
+  cursor: pointer;
+}
+
+/* REGRA CRÍTICA PARA OCULTAR TELAS E FORMS */
+.hidden {
+  display: none !important;
+}
+
+/* Otimizações táteis Android */
+button,
+.card,
+.category,
+.icon-btn,
+.login-link,
+.extra-item,
+.history-item {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  user-select: none;
+}
+
+/* =====================================================
    LOGIN (BLACK & GOLD ELEGANT)
 ===================================================== */
 
@@ -20,7 +117,6 @@
   width: 100%;
   max-width: 380px;
   background: #0f0f0f;
-  /* Linha fina dourada para contorno do card */
   border: 1px solid rgba(212, 175, 55, 0.35);
   border-radius: 28px;
   padding: 38px 28px;
@@ -34,7 +130,6 @@
   font-size: 54px;
   font-weight: 950;
   letter-spacing: -3px;
-  /* Efeito de texto dourado metálico */
   background: linear-gradient(135deg, #ffe082 0%, #d4af37 50%, #aa771c 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -66,7 +161,7 @@
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 1px;
-  color: #d4af37; /* Rótulo em tom dourado */
+  color: #d4af37;
 }
 
 .login-card input {
@@ -81,7 +176,6 @@
 }
 
 .login-card input:focus {
-  /* Linha dourada acesa ao selecionar o campo */
   border-color: #d4af37 !important;
   box-shadow: 0 0 12px rgba(212, 175, 55, 0.25);
 }
@@ -92,7 +186,6 @@
 
 .login-button {
   margin-top: 24px;
-  /* Botão em Gradiente Dourado Metálico */
   background: linear-gradient(135deg, #f5d77f 0%, #d4af37 50%, #996c13 100%) !important;
   color: #000000 !important;
   font-weight: 900;
@@ -129,4 +222,720 @@
   color: #ff5c5c;
   font-size: 12px;
   font-weight: 700;
+}
+
+/* =====================================================
+   TOPO
+===================================================== */
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: calc(22px + env(safe-area-inset-top, 0px)) 18px 8px;
+  max-width: 720px;
+  margin: auto;
+}
+
+.top-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.brand {
+  font-size: 30px;
+  font-weight: 900;
+  letter-spacing: -1.5px;
+  background: linear-gradient(135deg, #ffe082 0%, #d4af37 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.tagline {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: -3px;
+}
+
+/* =====================================================
+   PRINCIPAL
+===================================================== */
+
+main {
+  max-width: 720px;
+  margin: auto;
+  padding: 8px 16px calc(36px + env(safe-area-inset-bottom, 0px));
+}
+
+.month-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 8px 0 14px;
+}
+
+.month-title {
+  font-weight: 800;
+  text-transform: capitalize;
+}
+
+.icon-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text);
+  font-size: 21px;
+}
+
+.icon-btn:active {
+  background: var(--line);
+}
+
+/* =====================================================
+   CARDS
+===================================================== */
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+.hero {
+  padding: 24px 20px;
+  text-align: center;
+  border: 1px solid rgba(212, 175, 55, 0.25);
+}
+
+.eyebrow {
+  font-size: 12px;
+  letter-spacing: 1.2px;
+  font-weight: 800;
+  color: var(--accent);
+}
+
+.hero-value {
+  font-size: 40px;
+  font-weight: 900;
+  letter-spacing: -1.5px;
+  margin: 5px 0;
+  color: #ffffff;
+}
+
+.muted,
+small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* =====================================================
+   ESTATÍSTICAS
+===================================================== */
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin: 10px 0 20px;
+}
+
+.stat {
+  padding: 14px 12px;
+  min-width: 0;
+}
+
+.stat span {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  margin-bottom: 5px;
+}
+
+.stat strong {
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+/* =====================================================
+   SEÇÕES
+===================================================== */
+
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 18px 2px 10px;
+}
+
+.section-head h2 {
+  font-size: 17px;
+  margin: 0;
+}
+
+.section-head.compact {
+  margin: 0 0 12px;
+}
+
+.section-description {
+  color: var(--muted);
+  font-size: 10px;
+  margin-top: 3px;
+}
+
+.text-btn {
+  background: transparent;
+  color: var(--accent);
+  font-weight: 800;
+  padding: 7px 2px;
+  white-space: nowrap;
+}
+
+.text-btn:active {
+  opacity: 0.6;
+}
+
+/* =====================================================
+   CATEGORIAS
+===================================================== */
+
+.categories {
+  display: grid;
+  gap: 8px;
+}
+
+.category {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 14px;
+}
+
+.cat-icon {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  background: var(--line);
+  border-radius: 12px;
+  font-size: 20px;
+}
+
+.cat-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.cat-name {
+  font-weight: 800;
+}
+
+.cat-sub {
+  color: var(--muted);
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+.cat-value {
+  text-align: right;
+}
+
+.cat-value strong {
+  display: block;
+  font-size: 14px;
+}
+
+.cat-actions {
+  display: flex;
+  gap: 3px;
+}
+
+.cat-edit {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: var(--line);
+  color: var(--text);
+}
+
+.cat-edit:active {
+  opacity: 0.7;
+}
+
+/* =====================================================
+   BARRA DE PROGRESSO
+===================================================== */
+
+.progress {
+  height: 5px;
+  background: var(--line);
+  border-radius: 9px;
+  overflow: hidden;
+  margin-top: 7px;
+}
+
+.progress > div {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 9px;
+}
+
+.category.reserve-cat .progress > div {
+  background: var(--success);
+}
+
+/* =====================================================
+   PAGAMENTOS, RESERVA, EXTRAS
+===================================================== */
+
+.payment,
+.reserve,
+.extras {
+  padding: 16px;
+  margin-top: 12px;
+}
+
+.payment-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.payment-grid > div {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+
+.payment span,
+.reserve span {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  margin-bottom: 5px;
+}
+
+.payment strong {
+  display: block;
+  font-size: 19px;
+  margin-bottom: 2px;
+}
+
+.reserve-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.reserve strong {
+  font-size: 25px;
+}
+
+.goal {
+  text-align: right;
+  font-size: 11px;
+  color: var(--muted);
+  max-width: 150px;
+}
+
+.extras-list {
+  display: grid;
+  gap: 7px;
+}
+
+.extra-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+}
+
+.extra-icon {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  background: var(--line);
+  border-radius: 10px;
+  font-size: 18px;
+}
+
+.extra-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.extra-name {
+  font-weight: 800;
+  font-size: 13px;
+}
+
+.extra-date {
+  color: var(--muted);
+  font-size: 10px;
+  margin-top: 2px;
+}
+
+.extra-value {
+  color: var(--success);
+  font-weight: 900;
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+.extra-delete {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: var(--line);
+  color: var(--danger);
+}
+
+.extra-delete:active {
+  opacity: 0.7;
+}
+
+/* =====================================================
+   HISTÓRICO
+===================================================== */
+
+.history-preview {
+  padding: 16px;
+  margin-top: 12px;
+}
+
+.history-preview-list {
+  display: grid;
+  gap: 7px;
+}
+
+.empty-history {
+  padding: 14px;
+  border-radius: 12px;
+  background: var(--line);
+  color: var(--muted);
+  text-align: center;
+  font-size: 12px;
+}
+
+.history-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+}
+
+.history-icon {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  background: var(--line);
+  border-radius: 10px;
+  font-size: 18px;
+}
+
+.history-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.history-name {
+  font-weight: 800;
+  font-size: 13px;
+}
+
+.history-date {
+  color: var(--muted);
+  font-size: 10px;
+  margin-top: 2px;
+}
+
+.history-value {
+  font-weight: 900;
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+.history-value.expense {
+  color: var(--danger);
+}
+
+.history-value.extra-in,
+.history-value.reserve-in {
+  color: var(--success);
+}
+
+.history-value.reserve-out {
+  color: var(--danger);
+}
+
+.history-note {
+  color: var(--muted);
+  font-size: 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* =====================================================
+   BOTÃO PRINCIPAL
+===================================================== */
+
+.actions {
+  margin-top: 16px;
+}
+
+.primary {
+  width: 100%;
+  padding: 15px;
+  border-radius: 15px;
+  background: var(--accent-gradient);
+  color: #000000;
+  font-weight: 900;
+  font-size: 15px;
+}
+
+.primary:active,
+.form button:active {
+  opacity: 0.85;
+  transform: scale(0.98);
+  transition: transform 0.08s ease;
+}
+
+/* =====================================================
+   MODAL
+===================================================== */
+
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 10;
+}
+
+.modal.hidden {
+  display: none !important;
+}
+
+.modal-sheet {
+  background: var(--card);
+  width: 100%;
+  max-width: 720px;
+  border-radius: 22px 22px 0 0;
+  border-top: 1px solid rgba(212, 175, 55, 0.3);
+  padding: 18px 16px calc(28px + env(safe-area-inset-bottom, 0px));
+  max-height: 90vh;
+  overflow: auto;
+}
+
+.modal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-head h3 {
+  margin: 0 0 12px;
+  color: #ffffff;
+}
+
+/* =====================================================
+   FORMULÁRIOS
+===================================================== */
+
+.form {
+  display: grid;
+  gap: 11px;
+}
+
+label {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--muted);
+}
+
+input,
+select {
+  width: 100%;
+  padding: 13px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #18181f;
+  color: var(--text);
+  outline: none;
+  font-size: 16px;
+  user-select: text;
+}
+
+input:focus,
+select:focus {
+  border-color: var(--accent);
+}
+
+.form button {
+  padding: 13px;
+  border-radius: 12px;
+  background: var(--accent-gradient);
+  color: #000000;
+  font-weight: 900;
+}
+
+/* =====================================================
+   HISTÓRICO COMPLETO
+===================================================== */
+
+.full-history {
+  display: grid;
+  gap: 8px;
+}
+
+.history-filter {
+  margin-bottom: 12px;
+}
+
+.history-total {
+  padding: 13px;
+  border-radius: 13px;
+  background: var(--line);
+  margin-bottom: 12px;
+  font-size: 12px;
+}
+
+.history-total strong {
+  display: block;
+  font-size: 18px;
+  margin-top: 3px;
+}
+
+/* =====================================================
+   MODO ESCURO TOGGLE
+===================================================== */
+
+.dark-mode-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 0;
+}
+
+.theme-switch {
+  position: relative;
+  display: block;
+  width: 52px;
+  height: 30px;
+  margin: 0;
+  cursor: pointer;
+}
+
+.theme-switch input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.theme-slider {
+  position: absolute;
+  inset: 0;
+  background: var(--line);
+  border-radius: 30px;
+  transition: 0.2s;
+}
+
+.theme-dot {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  left: 4px;
+  top: 4px;
+  border-radius: 50%;
+  background: var(--muted);
+  transition: 0.2s;
+}
+
+.theme-switch input:checked + .theme-slider {
+  background: var(--accent);
+}
+
+.theme-switch input:checked + .theme-slider .theme-dot {
+  transform: translateX(22px);
+  background: #000;
+}
+
+/* =====================================================
+   OUTROS BOTÕES
+===================================================== */
+
+.secondary {
+  background: var(--line) !important;
+  color: var(--text) !important;
+}
+
+.danger {
+  background: #3a1a1a !important;
+  color: #ff5c5c !important;
+}
+
+.notice {
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--line);
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* =====================================================
+   CELULAR
+===================================================== */
+
+@media (max-width: 430px) {
+  .hero-value {
+    font-size: 35px;
+  }
+
+  .stats {
+    gap: 6px;
+  }
+
+  .stat {
+    padding: 12px 9px;
+  }
+
+  .stat strong {
+    font-size: 12px;
+  }
+
+  .top-actions {
+    gap: 0;
+  }
+
+  .top-actions .icon-btn {
+    width: 37px;
+  }
+
+  .cat-value strong {
+    font-size: 12px;
+  }
+
+  .cat-actions {
+    flex-shrink: 0;
+  }
 }
