@@ -1,7 +1,7 @@
 /* =====================================================
    PROJETO FX — SEU DINHEIRO. SUAS REGRAS.
    Arquivo: app.js
-   Versão: 1.2.8 — Metas opcionais e sem valores forçados
+   Versão: 1.2.9 — Acúmulo de Sobras do Mês Anterior (Salário e Extra)
 ===================================================== */
 
 const KEY = "fx_finance_v1";
@@ -193,7 +193,7 @@ function numCents(id) {
 }
 
 /* =====================================================
-   NORMALIZAÇÃO (SEM SOBRESCREVER DADOS SALVOS)
+   NORMALIZAÇÃO
 ===================================================== */
 
 function normalizeState(data) {
@@ -375,7 +375,46 @@ function totalExtras(month) {
 }
 
 /* =====================================================
-   RESERVA E CARTEIRAS ISOLADAS
+   CÁLCULO DE SOBRAS DE MESES ANTERIORES
+===================================================== */
+
+function getPreviousSalaryCarryover(currentMonthKey) {
+  let carryover = 0;
+  const sortedKeys = Object.keys(state.months).sort();
+
+  for (const key of sortedKeys) {
+    if (key >= currentMonthKey) break;
+    const m = state.months[key];
+    const sal = m.salaryReceived || 0;
+    const sp = totalSalarySpent(m);
+    const resSaved = m.reserveContribution || 0;
+    const resRet = m.salaryReserveReturn || 0;
+
+    carryover += (sal + resRet - sp - resSaved);
+  }
+
+  return Math.max(0, carryover);
+}
+
+function getPreviousExtraCarryover(currentMonthKey) {
+  let carryover = 0;
+  const sortedKeys = Object.keys(state.months).sort();
+
+  for (const key of sortedKeys) {
+    if (key >= currentMonthKey) break;
+    const m = state.months[key];
+    const ext = totalExtras(m);
+    const sp = totalExtraSpent(m);
+    const resSaved = m.extraReserveContribution || 0;
+
+    carryover += (ext - sp - resSaved);
+  }
+
+  return Math.max(0, carryover);
+}
+
+/* =====================================================
+   RESERVA E CARTEIRAS ISOLADAS (COM ACÚMULO)
 ===================================================== */
 
 function getReserveBalanceUntil(monthKeyLimit) {
@@ -402,20 +441,22 @@ function syncReserve() {
 }
 
 function getSalaryAvailable(month) {
+  const carryover = getPreviousSalaryCarryover(state.currentMonth);
   const salary = month.salaryReceived || 0;
   const spent = totalSalarySpent(month);
   const reserveSaved = month.reserveContribution || 0;
   const reserveReturned = month.salaryReserveReturn || 0;
 
-  return Math.max(0, salary + reserveReturned - spent - reserveSaved);
+  return Math.max(0, carryover + salary + reserveReturned - spent - reserveSaved);
 }
 
 function getExtraAvailable(month) {
+  const carryover = getPreviousExtraCarryover(state.currentMonth);
   const extras = totalExtras(month);
   const spent = totalExtraSpent(month);
   const reserveSaved = month.extraReserveContribution || 0;
 
-  return Math.max(0, extras - spent - reserveSaved);
+  return Math.max(0, carryover + extras - spent - reserveSaved);
 }
 
 function available(month) {
@@ -500,7 +541,7 @@ function render() {
 }
 
 /* =====================================================
-   CATEGORIAS (LÓGICA DE META OPCIONAL/FIXA)
+   CATEGORIAS
 ===================================================== */
 
 function renderCategories() {
@@ -1026,7 +1067,7 @@ function openReserve() {
 }
 
 /* =====================================================
-   HISTÓRICO
+   HISTÓRICO & EXTRATO
 ===================================================== */
 
 function getHistory(month) {
@@ -1121,6 +1162,9 @@ function openHistory() {
   const month = getMonth();
   const items = getHistory(month);
 
+  const prevSalCarry = getPreviousSalaryCarryover(state.currentMonth);
+  const prevExtCarry = getPreviousExtraCarryover(state.currentMonth);
+
   const content = items.length === 0
     ? `<div class="empty-history">Nenhum lançamento neste mês.</div>`
     : items.map(item => historyItemHtml(item)).join("");
@@ -1129,15 +1173,23 @@ function openHistory() {
     "Extrato — " + monthLabel(state.currentMonth),
     `
       <div class="history-total">
-        <span>Salário Livre</span>
+        <span>Sobra de Salário Anterior</span>
+        <strong>${money(prevSalCarry)}</strong>
+      </div>
+      <div class="history-total">
+        <span>Sobra de Extra Anterior</span>
+        <strong>${money(prevExtCarry)}</strong>
+      </div>
+      <div class="history-total">
+        <span>Salário Livre Total</span>
         <strong>${money(getSalaryAvailable(month))}</strong>
       </div>
       <div class="history-total">
-        <span>Extras Livres</span>
+        <span>Extras Livres Totais</span>
         <strong>${money(getExtraAvailable(month))}</strong>
       </div>
       <div class="history-total">
-        <span>Total de gastos</span>
+        <span>Total de gastos no mês</span>
         <strong>${money(totalSpent(month))}</strong>
       </div>
       <div class="full-history">
