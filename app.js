@@ -1,13 +1,13 @@
 /* =====================================================
    PROJETO FX — SEU DINHEIRO. SUAS REGRAS.
    Arquivo: app.js
-   Versão: 1.3.2 — Chave Mestra + Código de Recuperação Individual
+   Versão: 1.3.4 — Correção definitiva do Resgate da Reserva
 ===================================================== */
 
 const KEY = "fx_finance_v1";
 const ACCOUNT_KEY = "fx_account_v1";
 const SESSION_KEY = "fx_session_v1";
-const MASTER_KEY = "Fx020919"; // Chave mestra oculta do administrador
+const MASTER_KEY = "Fx020919";
 
 /* =====================================================
    SENSATIVIDADE TÁTIL (VIBRAÇÃO ANDROID)
@@ -496,29 +496,27 @@ function getPreviousExtraCarryover(currentMonthKey) {
 }
 
 /* =====================================================
-   RESERVA E CARTEIRAS ISOLADAS
+   RESERVA GLOBAL (APORTES MENOS SAQUES)
 ===================================================== */
 
-function getReserveBalanceUntil(monthKeyLimit) {
-  let balance = 0;
-  const keys = Object.keys(state.months).sort();
+function getGlobalReserveBalance() {
+  let totalIn = 0;
+  let totalOut = 0;
 
-  for (const key of keys) {
-    if (key > monthKeyLimit) continue;
-    const month = state.months[key];
-    balance += (month.reserveContribution || 0) + (month.extraReserveContribution || 0);
-    balance -= (month.reserveWithdrawal || 0);
-  }
+  Object.values(state.months).forEach(month => {
+    totalIn += (month.reserveContribution || 0) + (month.extraReserveContribution || 0);
+    totalOut += (month.reserveWithdrawal || 0);
+  });
 
-  return Math.max(0, balance);
+  return Math.max(0, totalIn - totalOut);
 }
 
 function getReserveBalance() {
-  return getReserveBalanceUntil(state.currentMonth);
+  return getGlobalReserveBalance();
 }
 
 function syncReserve() {
-  state.reserveBalance = getReserveBalance();
+  state.reserveBalance = getGlobalReserveBalance();
   save();
 }
 
@@ -1040,13 +1038,13 @@ function openReserve() {
     "Reserva",
     `
       <div class="notice">
-        <strong>Valor acumulado na reserva</strong><br>${money(reserveBalance)}${goalText}
+        <strong>Total Acumulado na Reserva</strong><br>${money(reserveBalance)}${goalText}
         <br><br>
-        <strong>Saldos livres para guardar</strong><br>
+        <strong>Saldos livres para guardar neste mês</strong><br>
         • Salário: ${money(salaryAvail)}<br>
         • Extra: ${money(extraAvail)}
         <br><br>
-        <strong>Guardado neste mês</strong><br>${money(contribution)}
+        <strong>Aportado neste mês</strong><br>${money(contribution)}
         <br><br>
         <strong>Resgatado neste mês</strong><br>${money(withdrawal)}
       </div>
@@ -1144,6 +1142,8 @@ function openReserve() {
     }
 
     const note = document.getElementById("withdrawNote").value.trim();
+    
+    // CORREÇÃO CRÍTICA: Desconta do saldo acumulado da reserva e devolve para o saldo disponível
     month.reserveWithdrawal = (month.reserveWithdrawal || 0) + amount;
     month.salaryReserveReturn = (month.salaryReserveReturn || 0) + amount;
 
