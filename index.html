@@ -1,633 +1,185 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="pt-BR">
-
 <head>
-
-  <meta charset="utf-8">
-
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1, viewport-fit=cover"
-  >
-
-  <meta
-    name="theme-color"
-    content="#111827"
-  >
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#050505">
+  <title>FX — Seu Dinheiro. Suas Regras.</title>
 
   <link rel="manifest" href="manifest.json">
-
-  <link
-    rel="stylesheet"
-    href="style.css"
-  >
-
-  <title>Alisson Finance — FX</title>
-
+  <link rel="stylesheet" href="style.css?v=1.3.0">
 </head>
-
 <body>
 
+  <!-- TELA DE LOGIN -->
+  <div id="loginScreen" class="login-screen hidden">
+    <div class="login-card">
+      <div class="login-brand">FX</div>
+      <div class="login-title">Alisson Finance</div>
+      <div class="login-subtitle">Seu dinheiro. Suas regras.</div>
 
-<!-- =====================================================
-     LOGIN
-===================================================== -->
+      <!-- FORM LOGIN -->
+      <form id="loginForm" onsubmit="return false;">
+        <label for="loginUsername">Usuário</label>
+        <input id="loginUsername" placeholder="Seu usuário" required autocomplete="username">
 
-<section
-  id="loginScreen"
-  class="login-screen"
->
+        <label for="loginPassword">Senha</label>
+        <input id="loginPassword" type="password" placeholder="Sua senha" required autocomplete="current-password">
 
-  <div class="login-card">
+        <button class="login-button" id="loginBtn" type="button">Entrar</button>
+        <button class="login-link" id="showCreateBtn" type="button">Criar conta</button>
+      </form>
 
-    <div class="login-brand">
-      FX
+      <!-- FORM CRIAR CONTA -->
+      <form id="createForm" class="hidden" onsubmit="return false;">
+        <label for="createUsername">Usuário</label>
+        <input id="createUsername" placeholder="3 a 20 caracteres" required>
+
+        <label for="createPassword">Senha</label>
+        <input id="createPassword" type="password" placeholder="8 caracteres" required>
+
+        <label for="createPasswordConfirm">Confirmar senha</label>
+        <input id="createPasswordConfirm" type="password" placeholder="Repita a senha" required>
+
+        <button class="login-button" id="createBtn" type="button">Criar conta</button>
+        <button class="login-link" id="backLoginBtn" type="button">Já tenho uma conta</button>
+      </form>
+
+      <div id="loginMessage" class="login-message"></div>
     </div>
-
-    <div class="login-title">
-      Alisson Finance
-    </div>
-
-    <div class="login-subtitle">
-      Seu dinheiro. Suas regras.
-    </div>
-
-
-    <div id="loginForm">
-
-      <label>
-        Usuário
-      </label>
-
-      <input
-        id="loginUsername"
-        type="text"
-        maxlength="20"
-        autocomplete="username"
-        placeholder="Seu usuário"
-      >
-
-
-      <label>
-        Senha
-      </label>
-
-      <input
-        id="loginPassword"
-        type="password"
-        maxlength="8"
-        autocomplete="current-password"
-        placeholder="Sua senha"
-      >
-
-
-      <button
-        class="primary login-button"
-        id="loginBtn"
-      >
-        Entrar
-      </button>
-
-
-      <button
-        class="login-link"
-        id="showCreateBtn"
-        type="button"
-      >
-        Criar conta
-      </button>
-
-    </div>
-
-
-    <div
-      id="createForm"
-      class="hidden"
-    >
-
-      <label>
-        Usuário
-      </label>
-
-      <input
-        id="createUsername"
-        type="text"
-        minlength="3"
-        maxlength="20"
-        autocomplete="username"
-        placeholder="3 a 20 caracteres"
-      >
-
-
-      <label>
-        Senha
-      </label>
-
-      <input
-        id="createPassword"
-        type="password"
-        minlength="8"
-        maxlength="8"
-        autocomplete="new-password"
-        placeholder="8 caracteres"
-      >
-
-
-      <label>
-        Confirmar senha
-      </label>
-
-      <input
-        id="createPasswordConfirm"
-        type="password"
-        minlength="8"
-        maxlength="8"
-        autocomplete="new-password"
-        placeholder="Repita a senha"
-      >
-
-
-      <button
-        class="primary login-button"
-        id="createBtn"
-        type="button"
-      >
-        Criar conta
-      </button>
-
-
-      <button
-        class="login-link"
-        id="backLoginBtn"
-        type="button"
-      >
-        Já tenho uma conta
-      </button>
-
-    </div>
-
-
-    <div
-      id="loginMessage"
-      class="login-message"
-    ></div>
-
   </div>
 
-</section>
+  <!-- TELA PRINCIPAL -->
+  <div id="appScreen" class="hidden">
+    <header class="topbar">
+      <div>
+        <div class="brand">FX</div>
+        <div class="tagline">Seu dinheiro. Suas regras.</div>
+      </div>
+      <div class="top-actions">
+        <button class="icon-btn" id="toggleHideBtn" type="button" title="Ocultar/Mostrar Saldos">👁️</button>
+        <button class="icon-btn" id="historyBtn" type="button" title="Extrato">📜</button>
+        <button class="icon-btn" id="settingsBtn" type="button" title="Configurações">⚙️</button>
+        <button class="icon-btn" id="logoutBtn" type="button" title="Sair">↪</button>
+      </div>
+    </header>
 
-
-
-<!-- =====================================================
-     APP
-===================================================== -->
-
-<section
-  id="appScreen"
-  class="hidden"
->
-
-
-  <header class="topbar">
-
-    <div>
-
-      <div class="brand">
-        FX
+    <main>
+      <div class="month-nav">
+        <button class="icon-btn" id="prevMonth" type="button">‹</button>
+        <div class="month-title" id="monthTitle">--</div>
+        <button class="icon-btn" id="nextMonth" type="button">›</button>
       </div>
 
-      <div class="tagline">
-        Seu dinheiro. Suas regras.
-      </div>
-
-    </div>
-
-
-    <div class="top-actions">
-
-      <button
-        class="icon-btn"
-        id="historyBtn"
-        aria-label="Histórico"
-        type="button"
-      >
-        📜
-      </button>
-
-      <button
-        class="icon-btn"
-        id="settingsBtn"
-        aria-label="Configurações"
-        type="button"
-      >
-        ⚙️
-      </button>
-
-      <button
-        class="icon-btn"
-        id="logoutBtn"
-        aria-label="Sair"
-        type="button"
-      >
-        ↪
-      </button>
-
-    </div>
-
-  </header>
-
-
-
-  <main>
-
-
-    <section class="month-nav">
-
-      <button
-        class="icon-btn"
-        id="prevMonth"
-        type="button"
-      >
-        ‹
-      </button>
-
-
-      <div
-        class="month-title"
-        id="monthTitle"
-      ></div>
-
-
-      <button
-        class="icon-btn"
-        id="nextMonth"
-        type="button"
-      >
-        ›
-      </button>
-
-    </section>
-
-
-
-    <section class="hero card">
-
-      <div class="eyebrow">
-        QUANTO POSSO GASTAR?
-      </div>
-
-
-      <div
-        class="hero-value"
-        id="availableValue"
-      >
-        R$ 0,00
-      </div>
-
-
-      <div
-        class="muted"
-        id="availableHint"
-      >
-        Depois de considerar salário, extras, reserva e gastos.
-      </div>
-
-    </section>
-
-
-
-    <section class="stats">
-
-
-      <div class="stat card">
-
-        <span>
-          Salário
-        </span>
-
-        <strong id="salaryValue">
-          R$ 0,00
-        </strong>
-
-      </div>
-
-
-      <div class="stat card">
-
-        <span>
-          Extras
-        </span>
-
-        <strong id="extraValue">
-          R$ 0,00
-        </strong>
-
-      </div>
-
-
-      <div class="stat card">
-
-        <span>
-          Gastos
-        </span>
-
-        <strong id="spentValue">
-          R$ 0,00
-        </strong>
-
-      </div>
-
-
-    </section>
-
-
-
-    <section class="section-head">
-
-      <h2>
-        Categorias
-      </h2>
-
-      <button
-        class="text-btn"
-        id="addCategoryBtn"
-        type="button"
-      >
-        + Nova
-      </button>
-
-    </section>
-
-
-    <section
-      id="categories"
-      class="categories"
-    ></section>
-
-
-
-    <section class="payment card">
-
-      <div class="section-head compact">
-
-        <h2>
-          Pagamentos
-        </h2>
-
-        <button
-          class="text-btn"
-          id="paymentsSettingsBtn"
-          type="button"
-        >
-          Ajustar
-        </button>
-
-      </div>
-
-
-      <div class="payment-grid">
-
-
-        <div>
-
-          <span>
-            Adiantamento
-          </span>
-
-          <strong id="advanceValue">
-            R$ 0,00
-          </strong>
-
-          <small id="advanceDate">
-            Dia 20
-          </small>
-
+      <!-- CARD PRINCIPAL DE SALDO -->
+      <section class="hero card">
+        <div class="eyebrow">QUANTO POSSO GASTAR?</div>
+        <div class="hero-value" id="availableValue">R$ 0,00</div>
+        <div class="muted" id="availableHint">Depois de considerar salário, reserva e gastos.</div>
+      </section>
+
+      <!-- RESUMO DOS SALDOS -->
+      <section class="stats card">
+        <div class="stat">
+          <span>Salário</span>
+          <strong id="salaryValue">R$ 0,00</strong>
         </div>
-
-
-        <div>
-
-          <span>
-            Pagamento principal
-          </span>
-
-          <strong id="mainPayValue">
-            R$ 0,00
-          </strong>
-
-          <small id="mainPayDate">
-            5º dia útil
-          </small>
-
+        <div class="stat">
+          <span>Extras</span>
+          <strong id="extraValue">R$ 0,00</strong>
         </div>
-
-
-      </div>
-
-    </section>
-
-
-
-    <section class="reserve card">
-
-
-      <div class="section-head compact">
-
-        <h2>
-          Reserva
-        </h2>
-
-        <button
-          class="text-btn"
-          id="reserveBtn"
-          type="button"
-        >
-          Gerenciar
-        </button>
-
-      </div>
-
-
-      <div class="reserve-row">
-
-
-        <div>
-
-          <span>
-            Acumulada
-          </span>
-
-          <strong id="reserveBig">
-            R$ 0,00
-          </strong>
-
+        <div class="stat">
+          <span>Gastos</span>
+          <strong id="spentValue">R$ 0,00</strong>
         </div>
+      </section>
 
-
-        <div
-          class="goal"
-          id="goalBox"
-        ></div>
-
-
-      </div>
-
-
-    </section>
-
-
-
-    <section class="extras card">
-
-      <div class="section-head compact">
-
-        <div>
-
-          <h2>
-            Entradas extras
-          </h2>
-
-          <div class="section-description">
-            Dinheiro que entrou além do salário
+      <!-- PAGAMENTOS -->
+      <section class="payment card payments-card hidden">
+        <div class="section-head compact">
+          <h2>Pagamentos</h2>
+          <button class="text-btn" id="paymentsSettingsBtn" type="button">Ajustar</button>
+        </div>
+        <div class="payment-grid">
+          <div>
+            <span>Adiantamento</span>
+            <strong id="advanceValue">R$ 0,00</strong>
+            <small id="advanceDate">--</small>
           </div>
-
+          <div>
+            <span>Pagamento principal</span>
+            <strong id="mainPayValue">R$ 0,00</strong>
+            <small id="mainPayDate">--</small>
+          </div>
         </div>
+      </section>
 
-        <button
-          class="text-btn"
-          id="addExtraBtn"
-          type="button"
-        >
-          + Adicionar
-        </button>
-
-      </div>
-
-
-      <div
-        id="extrasList"
-        class="extras-list"
-      >
-
-        <div class="empty-history">
-          Nenhuma entrada extra neste mês.
+      <!-- CATEGORIAS -->
+      <section>
+        <div class="section-head">
+          <h2>Categorias</h2>
+          <button class="text-btn" id="addCategoryBtn" type="button">+ Nova</button>
         </div>
+        <div class="categories" id="categories"></div>
+      </section>
 
-      </div>
-
-    </section>
-
-
-
-    <section class="history-preview card">
-
-      <div class="section-head compact">
-
-        <h2>
-          Extrato
-        </h2>
-
-        <button
-          class="text-btn"
-          id="historyBtn2"
-          type="button"
-        >
-          Ver tudo
-        </button>
-
-      </div>
-
-
-      <div
-        id="historyPreview"
-        class="history-preview-list"
-      >
-
-        <div class="empty-history">
-          Nenhum lançamento neste mês.
+      <!-- RESERVA -->
+      <section class="reserve card">
+        <div class="reserve-row">
+          <div>
+            <span>Reserva</span>
+            <strong id="reserveBig">R$ 0,00</strong>
+            <div class="section-description">Acumulada</div>
+          </div>
+          <div id="goalBox" class="goal"></div>
+          <button class="text-btn" id="reserveBtn" type="button">Gerenciar</button>
         </div>
+      </section>
 
+      <!-- EXTRAS -->
+      <section class="extras card">
+        <div class="section-head compact">
+          <div>
+            <h2>Entradas extras</h2>
+            <div class="section-description">Dinheiro que entrou além do salário</div>
+          </div>
+          <button class="text-btn" id="addExtraBtn" type="button">+ Adicionar</button>
+        </div>
+        <div class="extras-list" id="extrasList"></div>
+      </section>
+
+      <!-- EXTRATO RÁPIDO -->
+      <section class="history-preview card">
+        <div class="section-head compact">
+          <h2>Extrato</h2>
+          <button class="text-btn" id="historyBtn2" type="button">Ver tudo</button>
+        </div>
+        <div class="history-preview-list" id="historyPreview"></div>
+      </section>
+
+      <!-- BOTAO ADICIONAR GASTO -->
+      <div class="actions">
+        <button class="primary" id="addExpenseBtn" type="button">+ Adicionar gasto</button>
       </div>
-
-    </section>
-
-
-
-    <section class="actions">
-
-      <button
-        class="primary"
-        id="addExpenseBtn"
-        type="button"
-      >
-        + Adicionar gasto
-      </button>
-
-    </section>
-
-
-  </main>
-
-
-
-  <div
-    class="modal hidden"
-    id="modal"
-  >
-
-    <div class="modal-sheet">
-
-
-      <div class="modal-head">
-
-        <h3 id="modalTitle">
-          Adicionar gasto
-        </h3>
-
-
-        <button
-          class="icon-btn"
-          id="closeModal"
-          type="button"
-        >
-          ✕
-        </button>
-
-      </div>
-
-
-      <div id="modalBody"></div>
-
-
-    </div>
-
+    </main>
   </div>
 
+  <!-- MODAL GENÉRICO -->
+  <div id="modal" class="modal hidden">
+    <div class="modal-sheet">
+      <div class="modal-head">
+        <h3 id="modalTitle">Título</h3>
+        <button class="icon-btn" id="closeModal" type="button">✕</button>
+      </div>
+      <div id="modalBody"></div>
+    </div>
+  </div>
 
-</section>
-
-
-
-<!-- =====================================================
-     APP JS
-===================================================== -->
-
-<script src="app.js?v=20260816-4"></script>
-
-
-<script>
-
-if ("serviceWorker" in navigator) {
-
-  navigator.serviceWorker.register(
-    "service-worker.js?v=20260816-4"
-  );
-
-}
-
-</script>
-
-
+  <script src="app.js?v=1.3.0"></script>
+  <script>
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("service-worker.js?v=1.3.0");
+    }
+  </script>
 </body>
-
 </html>
