@@ -1,7 +1,7 @@
 /* =====================================================
    PROJETO FX — SEU DINHEIRO. SUAS REGRAS.
    Arquivo: app.js
-   Versão: 1.2.6 — Saldo "Quanto posso gastar" isolado no Salário
+   Versão: 1.2.8 — Metas opcionais e sem valores forçados
 ===================================================== */
 
 const KEY = "fx_finance_v1";
@@ -9,45 +9,15 @@ const ACCOUNT_KEY = "fx_account_v1";
 const SESSION_KEY = "fx_session_v1";
 
 /* =====================================================
-   CATEGORIAS PADRÃO
+   CATEGORIAS PADRÃO (TODAS ZERADAS)
 ===================================================== */
 
 const defaultCategories = [
-  {
-    id: "fixed",
-    name: "Gasto fixo",
-    icon: "🏠",
-    type: "expense",
-    budget: 60000
-  },
-  {
-    id: "reserve",
-    name: "Reserva",
-    icon: "🏦",
-    type: "reserve",
-    budget: 0
-  },
-  {
-    id: "meds",
-    name: "Medicamentos",
-    icon: "💊",
-    type: "expense",
-    budget: 20000
-  },
-  {
-    id: "leisure",
-    name: "Lazer",
-    icon: "🎮",
-    type: "expense",
-    budget: 20000
-  },
-  {
-    id: "phone",
-    name: "Celular",
-    icon: "📱",
-    type: "expense",
-    budget: 3500
-  }
+  { id: "fixed", name: "Gasto fixo", icon: "🏠", type: "expense", budget: 0 },
+  { id: "reserve", name: "Reserva", icon: "🏦", type: "reserve", budget: 0 },
+  { id: "meds", name: "Medicamentos", icon: "💊", type: "expense", budget: 0 },
+  { id: "leisure", name: "Lazer", icon: "🎮", type: "expense", budget: 0 },
+  { id: "phone", name: "Celular", icon: "📱", type: "expense", budget: 0 }
 ];
 
 /* =====================================================
@@ -98,9 +68,7 @@ function createAccount() {
   }
 
   if (!/^[a-zA-Z0-9._-]+$/.test(username)) {
-    showLoginMessage(
-      "O usuário pode usar apenas letras, números, ponto, hífen e underline."
-    );
+    showLoginMessage("Apenas letras, números, ponto, hífen e underline.");
     return;
   }
 
@@ -138,10 +106,7 @@ function logout() {
 
 function showLoginMessage(message) {
   const element = document.getElementById("loginMessage");
-
-  if (element) {
-    element.textContent = message;
-  }
+  if (element) element.textContent = message;
 }
 
 function showCreateAccount() {
@@ -159,7 +124,6 @@ function showLoginForm() {
 function showApp() {
   document.getElementById("loginScreen").classList.add("hidden");
   document.getElementById("appScreen").classList.remove("hidden");
-
   initFinance();
 }
 
@@ -176,7 +140,6 @@ const state = load() || {
     mainPaymentLabel: "5º dia útil",
     reserveGoal: 0
   },
-
   categories: defaultCategories.map(cat => ({ ...cat })),
   months: {},
   reserveBalance: 0,
@@ -189,7 +152,6 @@ const state = load() || {
 
 function money(cents) {
   const value = (Number(cents) || 0) / 100;
-
   return new Intl.NumberFormat("pt-BR", {
     style: "currency",
     currency: "BRL"
@@ -204,11 +166,7 @@ function parseToCents(value) {
     return Math.round(value * 100);
   }
 
-  let text = String(value)
-    .trim()
-    .replace(/R\$/gi, "")
-    .replace(/\s/g, "");
-
+  let text = String(value).trim().replace(/R\$/gi, "").replace(/\s/g, "");
   if (!text) return 0;
 
   if (text.includes(",")) {
@@ -235,56 +193,39 @@ function numCents(id) {
 }
 
 /* =====================================================
-   NORMALIZAÇÃO
+   NORMALIZAÇÃO (SEM SOBRESCREVER DADOS SALVOS)
 ===================================================== */
 
 function normalizeState(data) {
   if (!data || typeof data !== "object") return null;
 
   if (!data.settings || typeof data.settings !== "object") data.settings = {};
-
   data.settings.plannedSalary = parseToCents(data.settings.plannedSalary);
 
   if (typeof data.settings.salarySplitEnabled !== "boolean") {
     data.settings.salarySplitEnabled = false;
   }
 
-  data.settings.advancePercent = Math.min(
-    100,
-    Math.max(0, Number(data.settings.advancePercent) || 0)
-  );
-
-  data.settings.advanceDay = Math.min(
-    31,
-    Math.max(1, Number(data.settings.advanceDay) || 20)
-  );
-
-  data.settings.mainPaymentLabel = String(
-    data.settings.mainPaymentLabel || "5º dia útil"
-  ).trim();
-
+  data.settings.advancePercent = Math.min(100, Math.max(0, Number(data.settings.advancePercent) || 0));
+  data.settings.advanceDay = Math.min(31, Math.max(1, Number(data.settings.advanceDay) || 20));
+  data.settings.mainPaymentLabel = String(data.settings.mainPaymentLabel || "5º dia útil").trim();
   data.settings.reserveGoal = parseToCents(data.settings.reserveGoal);
 
   if (!Array.isArray(data.categories) || data.categories.length === 0) {
     data.categories = defaultCategories.map(cat => ({ ...cat }));
+  } else {
+    data.categories = data.categories.map(category => ({
+      id: category.id || "cat_" + createId(),
+      name: String(category.name || "Categoria").trim(),
+      icon: String(category.icon || "💰").trim(),
+      type: category.type === "reserve" ? "reserve" : "expense",
+      budget: parseToCents(category.budget || 0)
+    }));
   }
-
-  data.categories = data.categories.map(category => ({
-    id: category.id || "cat_" + createId(),
-    name: String(category.name || "Categoria").trim(),
-    icon: String(category.icon || "💰").trim(),
-    type: category.type === "reserve" ? "reserve" : "expense",
-    budget: parseToCents(category.budget)
-  }));
-
-  defaultCategories.forEach(defaultCategory => {
-    const exists = data.categories.some(c => c.id === defaultCategory.id);
-    if (!exists) data.categories.unshift({ ...defaultCategory });
-  });
 
   let reserveCategory = data.categories.find(c => c.id === "reserve");
   if (!reserveCategory) {
-    reserveCategory = { ...defaultCategories.find(c => c.id === "reserve") };
+    reserveCategory = { id: "reserve", name: "Reserva", icon: "🏦", type: "reserve", budget: 0 };
     data.categories.unshift(reserveCategory);
   }
 
@@ -477,7 +418,6 @@ function getExtraAvailable(month) {
   return Math.max(0, extras - spent - reserveSaved);
 }
 
-/* O "Quanto posso gastar" do topo é ESTRITAMENTE o Salário Livre */
 function available(month) {
   return getSalaryAvailable(month);
 }
@@ -525,10 +465,7 @@ function render() {
   const extraAvail = getExtraAvailable(month);
 
   document.getElementById("monthTitle").textContent = monthLabel(state.currentMonth);
-
-  /* "QUANTO POSSO GASTAR?" exibe APENAS o saldo de Salário */
   document.getElementById("availableValue").textContent = money(salaryAvail);
-
   document.getElementById("salaryValue").textContent = money(salaryAvail);
   document.getElementById("extraValue").textContent = money(extraAvail);
   document.getElementById("spentValue").textContent = money(totalSpent(month));
@@ -563,7 +500,7 @@ function render() {
 }
 
 /* =====================================================
-   CATEGORIAS
+   CATEGORIAS (LÓGICA DE META OPCIONAL/FIXA)
 ===================================================== */
 
 function renderCategories() {
@@ -600,7 +537,20 @@ function renderCategories() {
     const spent = categorySpent(category.id, month);
     const budget = category.budget || 0;
     const remaining = budget - spent;
-    const percent = budget > 0 ? Math.min(100, Math.max(0, (spent / budget) * 100)) : 0;
+    const hasBudget = budget > 0;
+    const percent = hasBudget ? Math.min(100, Math.max(0, (spent / budget) * 100)) : 0;
+
+    const subText = hasBudget 
+      ? `${money(Math.max(0, remaining))} disponíveis` 
+      : "Sem limite definido";
+
+    const valueText = hasBudget 
+      ? `de ${money(budget)}` 
+      : "acumulado";
+
+    const progressHtml = hasBudget 
+      ? `<div class="progress"><div style="width:${percent}%"></div></div>` 
+      : "";
 
     const element = document.createElement("div");
     element.className = "category";
@@ -608,12 +558,12 @@ function renderCategories() {
       <div class="cat-icon">${escapeHtml(category.icon)}</div>
       <div class="cat-main">
         <div class="cat-name">${escapeHtml(category.name)}</div>
-        <div class="cat-sub">${money(Math.max(0, remaining))} disponíveis</div>
-        <div class="progress"><div style="width:${percent}%"></div></div>
+        <div class="cat-sub">${subText}</div>
+        ${progressHtml}
       </div>
       <div class="cat-value">
         <strong>${money(spent)}</strong>
-        <small>de ${money(budget)}</small>
+        <small>${valueText}</small>
       </div>
       <div class="cat-actions">
         <button class="cat-edit" type="button" title="Editar categoria">✎</button>
@@ -647,8 +597,8 @@ function openCategory() {
         <input id="catName" required placeholder="Ex.: Alimentação">
         <label>Ícone</label>
         <input id="catIcon" value="💰" maxlength="2">
-        <label>Valor mensal</label>
-        <input id="catBudget" inputmode="decimal" placeholder="R$ 0,00" required>
+        <label>Limite mensal (opcional)</label>
+        <input id="catBudget" inputmode="decimal" placeholder="R$ 0,00 (deixe em branco se não houver meta)">
         <button type="submit">Criar categoria</button>
       </form>
     `
@@ -659,8 +609,8 @@ function openCategory() {
     const name = document.getElementById("catName").value.trim();
     const amount = numCents("catBudget");
 
-    if (!name || amount < 0) {
-      alert("Digite um nome e um valor válido.");
+    if (!name) {
+      alert("Digite um nome para a categoria.");
       return;
     }
 
@@ -690,6 +640,8 @@ function openEditCategory(id) {
     return;
   }
 
+  const currentBudgetVal = category.budget > 0 ? (category.budget / 100).toFixed(2) : "";
+
   openModal(
     "Editar categoria",
     `
@@ -698,8 +650,8 @@ function openEditCategory(id) {
         <input id="editCatName" value="${escapeHtml(category.name)}" required>
         <label>Ícone</label>
         <input id="editCatIcon" value="${escapeHtml(category.icon)}" maxlength="2">
-        <label>Valor mensal</label>
-        <input id="editCatBudget" inputmode="decimal" value="${(category.budget / 100).toFixed(2)}" required>
+        <label>Limite mensal (opcional)</label>
+        <input id="editCatBudget" inputmode="decimal" value="${currentBudgetVal}" placeholder="R$ 0,00 (sem limite)">
         <button type="submit">Salvar alterações</button>
       </form>
       <button class="danger" id="deleteCategoryBtn" type="button" style="width:100%;padding:13px;border-radius:12px;margin-top:10px">
