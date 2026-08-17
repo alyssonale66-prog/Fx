@@ -1,5 +1,10 @@
-:root {
+/* =====================================================
+   PROJETO FX — SEU DINHEIRO. SUAS REGRAS.
+   Arquivo: style.css
+   Versão: 1.2.4 — Otimizado para Android PWA
+===================================================== */
 
+:root {
   --bg: #f5f6f8;
   --card: #ffffff;
 
@@ -15,12 +20,9 @@
   --danger: #c0392b;
 
   --radius: 18px;
-
 }
 
-
 body.dark {
-
   --bg: #121212;
   --card: #1e1e1e;
 
@@ -34,20 +36,14 @@ body.dark {
   --success: #2ecc71;
 
   --danger: #ff5c5c;
-
 }
-
 
 * {
-
   box-sizing: border-box;
-
 }
-
 
 html,
 body {
-
   margin: 0;
   padding: 0;
 
@@ -64,48 +60,52 @@ body {
     "Segoe UI",
     sans-serif;
 
+  /* Impede o pull-to-refresh do Chrome Android de recarregar a página */
+  overscroll-behavior-y: contain;
 }
-
 
 body {
-
   min-height: 100vh;
-
 }
-
 
 button,
 input,
 select {
-
   font: inherit;
-
 }
-
 
 button {
-
   border: 0;
-
   cursor: pointer;
-
 }
 
+/* Otimizações táteis nativas Android */
+button,
+.card,
+.category,
+.icon-btn,
+.login-link,
+.extra-item,
+.history-item {
+  /* Remove a caixa cinza ao clicar no Chrome Android */
+  -webkit-tap-highlight-color: transparent;
+
+  /* Remove o atraso de 300ms para clique duplo */
+  touch-action: manipulation;
+
+  /* Impede seleção acidental de texto durante toques rápidos */
+  user-select: none;
+}
 
 .hidden {
-
   display: none !important;
-
 }
-
-
 
 /* =====================================================
    LOGIN
 ===================================================== */
 
 .login-screen {
-
   min-height: 100vh;
   min-height: 100dvh;
 
@@ -118,12 +118,9 @@ button {
   padding: 24px;
 
   background: var(--bg);
-
 }
 
-
 .login-card {
-
   width: 100%;
 
   max-width: 380px;
@@ -136,38 +133,28 @@ button {
 
   padding: 30px 24px;
 
-  box-shadow:
-    0 10px 40px rgba(0,0,0,.08);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
 
   text-align: center;
-
 }
 
-
 .login-brand {
-
   font-size: 48px;
 
   font-weight: 950;
 
   letter-spacing: -3px;
-
 }
 
-
 .login-title {
-
   margin-top: 2px;
 
   font-size: 22px;
 
   font-weight: 900;
-
 }
 
-
 .login-subtitle {
-
   margin-top: 4px;
 
   margin-bottom: 28px;
@@ -175,12 +162,9 @@ button {
   color: var(--muted);
 
   font-size: 13px;
-
 }
 
-
 .login-card label {
-
   display: block;
 
   text-align: left;
@@ -188,26 +172,17 @@ button {
   margin-top: 12px;
 
   margin-bottom: 6px;
-
 }
-
 
 .login-card input {
-
   text-align: left;
-
 }
-
 
 .login-button {
-
   margin-top: 16px;
-
 }
 
-
 .login-link {
-
   width: 100%;
 
   margin-top: 12px;
@@ -219,19 +194,13 @@ button {
   color: var(--text);
 
   font-weight: 800;
-
 }
-
 
 .login-link:active {
-
-  opacity: .6;
-
+  opacity: 0.6;
 }
 
-
 .login-message {
-
   min-height: 20px;
 
   margin-top: 14px;
@@ -241,83 +210,65 @@ button {
   font-size: 12px;
 
   font-weight: 700;
-
 }
-
-
 
 /* =====================================================
    TOPO
 ===================================================== */
 
 .topbar {
-
   display: flex;
 
   align-items: center;
 
   justify-content: space-between;
 
-  padding: 22px 18px 8px;
+  /* Respeita a barra de status/câmera do Android */
+  padding: calc(22px + env(safe-area-inset-top, 0px)) 18px 8px;
 
   max-width: 720px;
 
   margin: auto;
-
 }
 
-
 .top-actions {
-
   display: flex;
 
   align-items: center;
 
   gap: 2px;
-
 }
 
-
 .brand {
-
   font-size: 30px;
 
   font-weight: 900;
 
   letter-spacing: -1.5px;
-
 }
 
-
 .tagline {
-
   font-size: 12px;
 
   color: var(--muted);
 
   margin-top: -3px;
-
 }
-
-
 
 /* =====================================================
    PRINCIPAL
 ===================================================== */
 
 main {
-
   max-width: 720px;
 
   margin: auto;
 
-  padding: 8px 16px 36px;
-
+  /* Respeita a barra de gestos inferior do Android */
+  padding: 8px 16px calc(36px + env(safe-area-inset-bottom, 0px));
 }
 
-
 .month-nav {
-
   display: flex;
 
   justify-content: space-between;
@@ -325,21 +276,15 @@ main {
   align-items: center;
 
   margin: 8px 0 14px;
-
 }
 
-
 .month-title {
-
   font-weight: 800;
 
   text-transform: capitalize;
-
 }
 
-
 .icon-btn {
-
   width: 40px;
 
   height: 40px;
@@ -351,47 +296,33 @@ main {
   color: var(--text);
 
   font-size: 21px;
-
 }
-
 
 .icon-btn:active {
-
   background: var(--line);
-
 }
-
-
 
 /* =====================================================
    CARDS
 ===================================================== */
 
 .card {
-
   background: var(--card);
 
   border: 1px solid var(--line);
 
   border-radius: var(--radius);
 
-  box-shadow:
-    0 2px 10px rgba(0,0,0,.03);
-
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
 }
 
-
 .hero {
-
   padding: 24px 20px;
 
   text-align: center;
-
 }
 
-
 .eyebrow {
-
   font-size: 12px;
 
   letter-spacing: 1.2px;
@@ -399,12 +330,9 @@ main {
   font-weight: 800;
 
   color: var(--muted);
-
 }
 
-
 .hero-value {
-
   font-size: 40px;
 
   font-weight: 900;
@@ -412,50 +340,36 @@ main {
   letter-spacing: -1.5px;
 
   margin: 5px 0;
-
 }
-
 
 .muted,
 small {
-
   color: var(--muted);
 
   font-size: 12px;
-
 }
-
-
 
 /* =====================================================
    ESTATÍSTICAS
 ===================================================== */
 
 .stats {
-
   display: grid;
 
-  grid-template-columns:
-    repeat(3, 1fr);
+  grid-template-columns: repeat(3, 1fr);
 
   gap: 8px;
 
   margin: 10px 0 20px;
-
 }
 
-
 .stat {
-
   padding: 14px 12px;
 
   min-width: 0;
-
 }
 
-
 .stat span {
-
   display: block;
 
   color: var(--muted);
@@ -463,26 +377,19 @@ small {
   font-size: 11px;
 
   margin-bottom: 5px;
-
 }
 
-
 .stat strong {
-
   font-size: 14px;
 
   white-space: nowrap;
-
 }
-
-
 
 /* =====================================================
    SEÇÕES
 ===================================================== */
 
 .section-head {
-
   display: flex;
 
   align-items: center;
@@ -492,39 +399,27 @@ small {
   gap: 10px;
 
   margin: 18px 2px 10px;
-
 }
 
-
 .section-head h2 {
-
   font-size: 17px;
 
   margin: 0;
-
 }
-
 
 .section-head.compact {
-
   margin: 0 0 12px;
-
 }
 
-
 .section-description {
-
   color: var(--muted);
 
   font-size: 10px;
 
   margin-top: 3px;
-
 }
 
-
 .text-btn {
-
   background: transparent;
 
   color: var(--text);
@@ -534,26 +429,23 @@ small {
   padding: 7px 2px;
 
   white-space: nowrap;
-
 }
 
-
+.text-btn:active {
+  opacity: 0.6;
+}
 
 /* =====================================================
    CATEGORIAS
 ===================================================== */
 
 .categories {
-
   display: grid;
 
   gap: 8px;
-
 }
 
-
 .category {
-
   display: flex;
 
   align-items: center;
@@ -567,12 +459,9 @@ small {
   border-radius: 16px;
 
   padding: 14px;
-
 }
 
-
 .cat-icon {
-
   width: 40px;
 
   height: 40px;
@@ -588,64 +477,43 @@ small {
   border-radius: 12px;
 
   font-size: 20px;
-
 }
 
-
 .cat-main {
-
   flex: 1;
 
   min-width: 0;
-
 }
-
 
 .cat-name {
-
   font-weight: 800;
-
 }
 
-
 .cat-sub {
-
   color: var(--muted);
 
   font-size: 11px;
 
   margin-top: 2px;
-
 }
-
 
 .cat-value {
-
   text-align: right;
-
 }
 
-
 .cat-value strong {
-
   display: block;
 
   font-size: 14px;
-
 }
 
-
 .cat-actions {
-
   display: flex;
 
   gap: 3px;
-
 }
 
-
 .cat-edit {
-
   width: 32px;
 
   height: 32px;
@@ -655,17 +523,17 @@ small {
   background: var(--line);
 
   color: var(--text);
-
 }
 
-
+.cat-edit:active {
+  opacity: 0.7;
+}
 
 /* =====================================================
-   BARRA
+   BARRA DE PROGRESSO
 ===================================================== */
 
 .progress {
-
   height: 5px;
 
   background: var(--line);
@@ -675,29 +543,19 @@ small {
   overflow: hidden;
 
   margin-top: 7px;
-
 }
 
-
 .progress > div {
-
   height: 100%;
 
   background: var(--accent);
 
   border-radius: 9px;
-
 }
 
-
-.category.reserve-cat
-.progress > div {
-
+.category.reserve-cat .progress > div {
   background: var(--success);
-
 }
-
-
 
 /* =====================================================
    PAGAMENTOS
@@ -706,40 +564,29 @@ small {
 .payment,
 .reserve,
 .extras {
-
   padding: 16px;
 
   margin-top: 12px;
-
 }
-
 
 .payment-grid {
-
   display: grid;
 
-  grid-template-columns:
-    1fr 1fr;
+  grid-template-columns: 1fr 1fr;
 
   gap: 12px;
-
 }
 
-
 .payment-grid > div {
-
   padding: 12px;
 
   border: 1px solid var(--line);
 
   border-radius: 14px;
-
 }
-
 
 .payment span,
 .reserve span {
-
   display: block;
 
   color: var(--muted);
@@ -747,28 +594,21 @@ small {
   font-size: 11px;
 
   margin-bottom: 5px;
-
 }
 
-
 .payment strong {
-
   display: block;
 
   font-size: 19px;
 
   margin-bottom: 2px;
-
 }
-
-
 
 /* =====================================================
    RESERVA
 ===================================================== */
 
 .reserve-row {
-
   display: flex;
 
   align-items: center;
@@ -776,19 +616,13 @@ small {
   justify-content: space-between;
 
   gap: 12px;
-
 }
-
 
 .reserve strong {
-
   font-size: 25px;
-
 }
 
-
 .goal {
-
   text-align: right;
 
   font-size: 11px;
@@ -796,26 +630,19 @@ small {
   color: var(--muted);
 
   max-width: 150px;
-
 }
-
-
 
 /* =====================================================
    EXTRAS
 ===================================================== */
 
 .extras-list {
-
   display: grid;
 
   gap: 7px;
-
 }
 
-
 .extra-item {
-
   display: flex;
 
   align-items: center;
@@ -827,12 +654,9 @@ small {
   border: 1px solid var(--line);
 
   border-radius: 13px;
-
 }
 
-
 .extra-icon {
-
   width: 36px;
 
   height: 36px;
@@ -846,41 +670,29 @@ small {
   border-radius: 10px;
 
   font-size: 18px;
-
 }
 
-
 .extra-main {
-
   flex: 1;
 
   min-width: 0;
-
 }
 
-
 .extra-name {
-
   font-weight: 800;
 
   font-size: 13px;
-
 }
 
-
 .extra-date {
-
   color: var(--muted);
 
   font-size: 10px;
 
   margin-top: 2px;
-
 }
 
-
 .extra-value {
-
   color: var(--success);
 
   font-weight: 900;
@@ -888,12 +700,9 @@ small {
   white-space: nowrap;
 
   font-size: 13px;
-
 }
 
-
 .extra-delete {
-
   width: 32px;
 
   height: 32px;
@@ -903,35 +712,29 @@ small {
   background: var(--line);
 
   color: var(--danger);
-
 }
 
-
+.extra-delete:active {
+  opacity: 0.7;
+}
 
 /* =====================================================
    HISTÓRICO
 ===================================================== */
 
 .history-preview {
-
   padding: 16px;
 
   margin-top: 12px;
-
 }
 
-
 .history-preview-list {
-
   display: grid;
 
   gap: 7px;
-
 }
 
-
 .empty-history {
-
   padding: 14px;
 
   border-radius: 12px;
@@ -943,12 +746,9 @@ small {
   text-align: center;
 
   font-size: 12px;
-
 }
 
-
 .history-item {
-
   display: flex;
 
   align-items: center;
@@ -960,12 +760,9 @@ small {
   border: 1px solid var(--line);
 
   border-radius: 13px;
-
 }
 
-
 .history-icon {
-
   width: 36px;
 
   height: 36px;
@@ -981,74 +778,50 @@ small {
   border-radius: 10px;
 
   font-size: 18px;
-
 }
 
-
 .history-main {
-
   flex: 1;
 
   min-width: 0;
-
 }
 
-
 .history-name {
-
   font-weight: 800;
 
   font-size: 13px;
-
 }
 
-
 .history-date {
-
   color: var(--muted);
 
   font-size: 10px;
 
   margin-top: 2px;
-
 }
 
-
 .history-value {
-
   font-weight: 900;
 
   white-space: nowrap;
 
   font-size: 13px;
-
 }
-
 
 .history-value.expense {
-
   color: var(--danger);
-
 }
-
 
 .history-value.extra-in,
 .history-value.reserve-in {
-
   color: var(--success);
-
 }
-
 
 .history-value.reserve-out {
-
   color: var(--danger);
-
 }
 
-
 .history-note {
-
   color: var(--muted);
 
   font-size: 10px;
@@ -1058,24 +831,17 @@ small {
   text-overflow: ellipsis;
 
   white-space: nowrap;
-
 }
-
-
 
 /* =====================================================
    BOTÃO PRINCIPAL
 ===================================================== */
 
 .actions {
-
   margin-top: 16px;
-
 }
 
-
 .primary {
-
   width: 100%;
 
   padding: 15px;
@@ -1089,23 +855,25 @@ small {
   font-weight: 900;
 
   font-size: 15px;
-
 }
 
-
+.primary:active,
+.form button:active {
+  opacity: 0.85;
+  transform: scale(0.98);
+  transition: transform 0.08s ease;
+}
 
 /* =====================================================
    MODAL
 ===================================================== */
 
 .modal {
-
   position: fixed;
 
   inset: 0;
 
-  background:
-    rgba(0,0,0,.42);
+  background: rgba(0, 0, 0, 0.42);
 
   display: flex;
 
@@ -1114,84 +882,60 @@ small {
   justify-content: center;
 
   z-index: 10;
-
 }
-
 
 .modal.hidden {
-
   display: none;
-
 }
 
-
 .modal-sheet {
-
   background: var(--card);
 
   width: 100%;
 
   max-width: 720px;
 
-  border-radius:
-    22px 22px 0 0;
+  border-radius: 22px 22px 0 0;
 
-  padding:
-    18px 16px 28px;
+  padding: 18px 16px calc(28px + env(safe-area-inset-bottom, 0px));
 
   max-height: 90vh;
 
   overflow: auto;
-
 }
 
-
 .modal-head {
-
   display: flex;
 
   justify-content: space-between;
 
   align-items: center;
-
 }
-
 
 .modal-head h3 {
-
   margin: 0 0 12px;
-
 }
-
-
 
 /* =====================================================
    FORMULÁRIOS
 ===================================================== */
 
 .form {
-
   display: grid;
 
   gap: 11px;
-
 }
 
-
 label {
-
   font-size: 12px;
 
   font-weight: 800;
 
   color: var(--muted);
-
 }
-
 
 input,
 select {
-
   width: 100%;
 
   padding: 13px;
@@ -1206,20 +950,19 @@ select {
 
   outline: none;
 
-}
+  /* Tamanho de fonte exato para evitar zoom automático nos navegadores */
+  font-size: 16px;
 
+  /* Permite copiar e selecionar texto dentro dos campos */
+  user-select: text;
+}
 
 input:focus,
 select:focus {
-
-  border-color:
-    var(--accent);
-
+  border-color: var(--accent);
 }
 
-
 .form button {
-
   padding: 13px;
 
   border-radius: 12px;
@@ -1229,33 +972,23 @@ select:focus {
   color: var(--bg);
 
   font-weight: 800;
-
 }
-
-
 
 /* =====================================================
    HISTÓRICO COMPLETO
 ===================================================== */
 
 .full-history {
-
   display: grid;
 
   gap: 8px;
-
 }
-
 
 .history-filter {
-
   margin-bottom: 12px;
-
 }
 
-
 .history-total {
-
   padding: 13px;
 
   border-radius: 13px;
@@ -1265,28 +998,21 @@ select:focus {
   margin-bottom: 12px;
 
   font-size: 12px;
-
 }
 
-
 .history-total strong {
-
   display: block;
 
   font-size: 18px;
 
   margin-top: 3px;
-
 }
-
-
 
 /* =====================================================
    MODO ESCURO
 ===================================================== */
 
 .dark-mode-row {
-
   display: flex;
 
   align-items: center;
@@ -1294,12 +1020,9 @@ select:focus {
   justify-content: space-between;
 
   padding: 4px 0;
-
 }
 
-
 .theme-switch {
-
   position: relative;
 
   display: block;
@@ -1311,12 +1034,9 @@ select:focus {
   margin: 0;
 
   cursor: pointer;
-
 }
 
-
 .theme-switch input {
-
   position: absolute;
 
   opacity: 0;
@@ -1324,12 +1044,9 @@ select:focus {
   width: 0;
 
   height: 0;
-
 }
 
-
 .theme-slider {
-
   position: absolute;
 
   inset: 0;
@@ -1338,13 +1055,10 @@ select:focus {
 
   border-radius: 30px;
 
-  transition: .2s;
-
+  transition: 0.2s;
 }
 
-
 .theme-dot {
-
   position: absolute;
 
   width: 22px;
@@ -1359,156 +1073,91 @@ select:focus {
 
   background: var(--muted);
 
-  transition: .2s;
-
+  transition: 0.2s;
 }
 
-
-.theme-switch input:checked
-+ .theme-slider {
-
-  background:
-    var(--accent);
-
+.theme-switch input:checked + .theme-slider {
+  background: var(--accent);
 }
 
+.theme-switch input:checked + .theme-slider .theme-dot {
+  transform: translateX(22px);
 
-.theme-switch input:checked
-+ .theme-slider
-.theme-dot {
-
-  transform:
-    translateX(22px);
-
-  background:
-    var(--bg);
-
+  background: var(--bg);
 }
-
-
 
 /* =====================================================
    OUTROS BOTÕES
 ===================================================== */
 
 .secondary {
+  background: var(--line) !important;
 
-  background:
-    var(--line) !important;
-
-  color:
-    var(--text) !important;
-
+  color: var(--text) !important;
 }
-
 
 .danger {
+  background: #fbe9e7 !important;
 
-  background:
-    #fbe9e7 !important;
-
-  color:
-    var(--danger) !important;
-
+  color: var(--danger) !important;
 }
 
-
 .notice {
-
   padding: 12px;
 
   border-radius: 12px;
 
-  background:
-    var(--line);
+  background: var(--line);
 
-  color:
-    var(--text);
+  color: var(--text);
 
   font-size: 12px;
 
   line-height: 1.5;
-
 }
-
 
 body.dark .danger {
-
-  background:
-    #3a2220 !important;
-
+  background: #3a2220 !important;
 }
-
 
 body.dark .modal {
-
-  background:
-    rgba(0,0,0,.65);
-
+  background: rgba(0, 0, 0, 0.65);
 }
-
-
 
 /* =====================================================
    CELULAR
 ===================================================== */
 
 @media (max-width: 430px) {
-
   .hero-value {
-
     font-size: 35px;
-
   }
-
 
   .stats {
-
     gap: 6px;
-
   }
-
 
   .stat {
-
-    padding:
-      12px 9px;
-
+    padding: 12px 9px;
   }
-
 
   .stat strong {
-
     font-size: 12px;
-
   }
-
 
   .top-actions {
-
     gap: 0;
-
   }
-
 
   .top-actions .icon-btn {
-
     width: 37px;
-
   }
-
 
   .cat-value strong {
-
     font-size: 12px;
-
   }
-
 
   .cat-actions {
-
     flex-shrink: 0;
-
   }
-
 }
