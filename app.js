@@ -1,12 +1,14 @@
 /* =====================================================
    PROJETO FX — SEU DINHEIRO. SUAS REGRAS.
    Arquivo: app.js
-   Versão: 1.3.4 — Correção definitiva do Resgate da Reserva
+   Versão: 1.5.0 — Lembrar Usuário, Gráfico de Barras e Virada de Mês
 ===================================================== */
 
 const KEY = "fx_finance_v1";
 const ACCOUNT_KEY = "fx_account_v1";
 const SESSION_KEY = "fx_session_v1";
+const REMEMBER_KEY = "fx_remember_v1";
+const LAST_CHECKED_MONTH_KEY = "fx_last_month_v1";
 const MASTER_KEY = "Fx020919";
 
 /* =====================================================
@@ -75,6 +77,13 @@ function login(username, password) {
     return;
   }
 
+  const remember = document.getElementById("rememberUserToggle")?.checked;
+  if (remember) {
+    localStorage.setItem(REMEMBER_KEY, account.username);
+  } else {
+    localStorage.removeItem(REMEMBER_KEY);
+  }
+
   localStorage.setItem(SESSION_KEY, "true");
   showApp();
 }
@@ -115,6 +124,7 @@ function createAccount() {
 
   saveAccount({ username, password, recoveryCode });
   localStorage.setItem(SESSION_KEY, "true");
+  localStorage.setItem(REMEMBER_KEY, username);
 
   alert(`Conta criada com sucesso!\n\nSeu código de recuperação de senha é: ${recoveryCode}\n\nGuarde este código para redefinir sua senha caso precise.`);
 
@@ -159,7 +169,13 @@ function logout() {
   document.getElementById("appScreen").classList.add("hidden");
   document.getElementById("loginScreen").classList.remove("hidden");
 
-  document.getElementById("loginUsername").value = "";
+  const remembered = localStorage.getItem(REMEMBER_KEY);
+  if (remembered) {
+    document.getElementById("loginUsername").value = remembered;
+    document.getElementById("rememberUserToggle").checked = true;
+  } else {
+    document.getElementById("loginUsername").value = "";
+  }
   document.getElementById("loginPassword").value = "";
 
   showLoginMessage("");
@@ -198,6 +214,55 @@ function showApp() {
   document.getElementById("loginScreen").classList.add("hidden");
   document.getElementById("appScreen").classList.remove("hidden");
   initFinance();
+  checkMonthTransition();
+}
+
+/* =====================================================
+   LEMBRETE DE FECHAMENTO DE MÊS (VIRADA DE MÊS)
+===================================================== */
+
+function checkMonthTransition() {
+  const realCurrentMonth = monthKey(new Date());
+  const lastChecked = localStorage.getItem(LAST_CHECKED_MONTH_KEY);
+
+  if (!lastChecked) {
+    localStorage.setItem(LAST_CHECKED_MONTH_KEY, realCurrentMonth);
+    return;
+  }
+
+  if (realCurrentMonth !== lastChecked) {
+    localStorage.setItem(LAST_CHECKED_MONTH_KEY, realCurrentMonth);
+    state.currentMonth = realCurrentMonth;
+
+    const month = getMonth(realCurrentMonth);
+    const previousMonthKey = monthShift(realCurrentMonth, -1);
+    const prevCarry = getPreviousSalaryCarryover(realCurrentMonth);
+
+    openModal(
+      "Virada de Mês",
+      `
+        <div class="notice">
+          Olá! Parece que entramos em um novo mês. Deseja carregar a sobra do mês anterior (${money(prevCarry)}) para o salário deste mês ou definir um novo valor base?
+        </div>
+        <form class="form" id="transitionForm" style="margin-top:15px">
+          <label>Salário planejado para este mês</label>
+          <input id="transSalary" inputmode="decimal" value="${(month.salaryReceived / 100).toFixed(2)}" required>
+          <button type="submit">Atualizar e continuar</button>
+        </form>
+      `
+    );
+
+    document.getElementById("transitionForm").onsubmit = event => {
+      event.preventDefault();
+      vibrate(15);
+      const newSal = numCents("transSalary");
+      month.salaryReceived = newSal;
+      state.settings.plannedSalary = newSal;
+      save();
+      closeModal();
+      render();
+    };
+  }
 }
 
 /* =====================================================
@@ -496,7 +561,7 @@ function getPreviousExtraCarryover(currentMonthKey) {
 }
 
 /* =====================================================
-   RESERVA GLOBAL (APORTES MENOS SAQUES)
+   RESERVA GLOBAL
 ===================================================== */
 
 function getGlobalReserveBalance() {
@@ -575,7 +640,7 @@ function updatePaymentVisibility() {
 }
 
 /* =====================================================
-   RENDER
+   RENDER (COM ATUALIZAÇÃO DO GRÁFICO DE BARRAS)
 ===================================================== */
 
 function render() {
@@ -594,6 +659,16 @@ function render() {
   document.getElementById("extraValue").textContent = money(extraAvail);
   document.getElementById("spentValue").textContent = money(totalSpent(month));
   document.getElementById("reserveBig").textContent = money(state.reserveBalance);
+
+  // Atualização da barrinha visual de proporção (Gráfico de Barras Simples)
+  const totalIncomes = (month.salaryReceived || 0) + totalExtras(month);
+  const spentTotal = totalSpent(month);
+  const percentSpent = totalIncomes > 0 ? Math.min(100, Math.max(0, (spentTotal / totalIncomes) * 100)) : 0;
+  
+  const monthlyBar = document.getElementById("monthlyBar");
+  const spentPercentLabel = document.getElementById("spentPercentLabel");
+  if (monthlyBar) monthlyBar.style.width = `${percentSpent}%`;
+  if (spentPercentLabel) spentPercentLabel.textContent = `${Math.round(percentSpent)}% gasto`;
 
   const split = getSalarySplit(month);
   document.getElementById("advanceValue").textContent = money(split.advance);
@@ -1142,8 +1217,6 @@ function openReserve() {
     }
 
     const note = document.getElementById("withdrawNote").value.trim();
-    
-    // CORREÇÃO CRÍTICA: Desconta do saldo acumulado da reserva e devolve para o saldo disponível
     month.reserveWithdrawal = (month.reserveWithdrawal || 0) + amount;
     month.salaryReserveReturn = (month.salaryReserveReturn || 0) + amount;
 
@@ -1539,6 +1612,13 @@ function initFinance() {
   getMonth();
   syncReserve();
   render();
+}
+
+// Verifica se existe usuário lembrado ao carregar
+const rememberedUser = localStorage.getItem(REMEMBER_KEY);
+if (rememberedUser) {
+  document.getElementById("loginUsername").value = rememberedUser;
+  document.getElementById("rememberUserToggle").checked = true;
 }
 
 if (isLogged()) {
