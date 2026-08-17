@@ -1,7 +1,7 @@
 /* =====================================================
    PROJETO FX — SEU DINHEIRO. SUAS REGRAS.
    Arquivo: app.js
-   Versão: 1.2.3 — Usuário com validação reforçada
+   Versão: 1.2.4 — Usuário corrigido (3 a 20 caracteres)
 ===================================================== */
 
 const KEY = "fx_finance_v1";
@@ -93,24 +93,17 @@ function createAccount() {
   const confirmation = document.getElementById("createPasswordConfirm").value;
 
   /* =====================================================
-     USUÁRIO — VALIDAÇÃO REFORÇADA
+     USUÁRIO — 3 A 20 CARACTERES
   ===================================================== */
 
-  if (username.length < 6 || username.length > 20) {
-    showLoginMessage("O usuário precisa ter de 6 a 20 caracteres.");
+  if (username.length < 3 || username.length > 20) {
+    showLoginMessage("O usuário precisa ter de 3 a 20 caracteres.");
     return;
   }
 
   if (!/^[a-zA-Z0-9._-]+$/.test(username)) {
     showLoginMessage(
       "O usuário pode usar apenas letras, números, ponto, hífen e underline."
-    );
-    return;
-  }
-
-  if (!/[a-zA-Z]/.test(username)) {
-    showLoginMessage(
-      "O usuário precisa conter pelo menos uma letra."
     );
     return;
   }
