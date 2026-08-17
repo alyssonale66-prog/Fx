@@ -1,19 +1,29 @@
 /* =====================================================
    PROJETO FX — SEU DINHEIRO. SUAS REGRAS.
    Arquivo: app.js
-   Versão: 2.0.0
+   Versão: 3.2.0
 ===================================================== */
 
-const KEY = "fx_finance_v1";
+const KEY = "fx_finance_v3";
 const ACCOUNT_KEY = "fx_account_v1";
 const SESSION_KEY = "fx_session_v1";
 const REMEMBER_KEY = "fx_remember_v1";
 const MASTER_KEY = "Fx020919";
+const APP_VERSION = "3.2.0";
 
-const APP_VERSION = "2.0.0";
+/*
+  DIVISÃO FIXA DO SALÁRIO
+
+  40% = adiantamento
+  60% = pagamento principal
+
+  Esses valores NÃO são editáveis pelo usuário.
+*/
+const ADVANCE_PERCENT = 40;
+const MAIN_PAYMENT_PERCENT = 60;
 
 /* =====================================================
-   VIBRAÇÃO
+   UTILITÁRIOS
 ===================================================== */
 
 function vibrate(ms = 12) {
@@ -22,6 +32,141 @@ function vibrate(ms = 12) {
       navigator.vibrate(ms);
     } catch {}
   }
+}
+
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, char => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;"
+  }[char]));
+}
+
+function createId() {
+  if (
+    typeof crypto !== "undefined" &&
+    typeof crypto.randomUUID === "function"
+  ) {
+    return crypto.randomUUID();
+  }
+
+  return (
+    Date.now().toString(36) +
+    Math.random().toString(36).substring(2, 10)
+  );
+}
+
+function formatDate(date) {
+  if (!date) return "--";
+
+  try {
+    return new Intl.DateTimeFormat("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric"
+    }).format(new Date(date));
+  } catch {
+    return "--";
+  }
+}
+
+function formatInputMoney(cents) {
+  return ((Number(cents) || 0) / 100)
+    .toFixed(2)
+    .replace(".", ",");
+}
+
+/*
+  Todos os valores financeiros internos são CENTAVOS.
+
+  Exemplos:
+  R$ 10,00 = 1000
+  R$ 50,00 = 5000
+*/
+function money(cents) {
+  if (state.settings.hideBalance) {
+    return "R$ ••••";
+  }
+
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL"
+  }).format((Number(cents) || 0) / 100);
+}
+
+function parseToCents(value) {
+  if (value === null || value === undefined || value === "") {
+    return 0;
+  }
+
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) return 0;
+
+    /*
+      Números vindos do estado já estão em centavos.
+    */
+    return Math.round(value);
+  }
+
+  let text = String(value)
+    .trim()
+    .replace(/R\$/gi, "")
+    .replace(/\s/g, "");
+
+  if (!text) return 0;
+
+  /*
+    Formato brasileiro:
+    1.234,56
+  */
+  if (text.includes(",")) {
+    text = text.replace(/\./g, "").replace(",", ".");
+
+    const parts = text.split(".");
+
+    const integerPart =
+      parseInt(
+        (parts[0] || "0").replace(/\D/g, ""),
+        10
+      ) || 0;
+
+    const decimalPart = (parts[1] || "")
+      .replace(/\D/g, "")
+      .padEnd(2, "0")
+      .slice(0, 2);
+
+    return (
+      integerPart * 100 +
+      (parseInt(decimalPart, 10) || 0)
+    );
+  }
+
+  /*
+    Formato sem vírgula:
+    1234 = R$ 1.234,00
+    1234.50 = R$ 1.234,50
+  */
+  const cleaned = text.replace(/[^0-9.-]/g, "");
+
+  if (!cleaned) return 0;
+
+  const parsed = Number(cleaned);
+
+  if (!Number.isFinite(parsed)) {
+    return 0;
+  }
+
+  return Math.round(parsed * 100);
+}
+
+function safeNumber(value, fallback = 0) {
+  const number = Number(value);
+
+  return Number.isFinite(number)
+    ? number
+    : fallback;
 }
 
 /* =====================================================
@@ -79,8 +224,12 @@ function createInitialState() {
     settings: {
       plannedSalary: 0,
 
+      /*
+        Apenas SIM ou NÃO.
+        A divisão sempre será 40/60.
+      */
       salarySplitEnabled: false,
-      advancePercent: 40,
+
       advanceDay: 20,
       mainPaymentLabel: "5º dia útil",
 
@@ -101,193 +250,56 @@ function createInitialState() {
 }
 
 /* =====================================================
-   CONTA
+   CARREGAMENTO / PERSISTÊNCIA
 ===================================================== */
 
-function getAccount() {
+function load() {
   try {
-    return JSON.parse(
-      localStorage.getItem(ACCOUNT_KEY)
+    const raw = localStorage.getItem(KEY);
+
+    if (!raw) {
+      return null;
+    }
+
+    const parsed = JSON.parse(raw);
+
+    return normalizeState(parsed);
+  } catch (error) {
+    console.error(
+      "FX: erro ao carregar dados:",
+      error
     );
-  } catch {
+
     return null;
   }
 }
 
-function saveAccount(account) {
-  localStorage.setItem(
-    ACCOUNT_KEY,
-    JSON.stringify(account)
-  );
-}
-
-function isLogged() {
-  return localStorage.getItem(SESSION_KEY) === "true";
-}
-
-/* =====================================================
-   LOGIN
-===================================================== */
-
-function login(username, password) {
-  vibrate(15);
-
-  const account = getAccount();
-
-  if (!account) {
-    showLoginMessage("Nenhuma conta criada ainda.");
-    return;
-  }
-
-  const cleanUser = String(username || "")
-    .trim()
-    .toLowerCase();
-
-  const savedUser = String(account.username || "")
-    .trim()
-    .toLowerCase();
-
-  if (
-    cleanUser !== savedUser ||
-    password !== account.password
-  ) {
-    showLoginMessage("Usuário ou senha incorretos.");
-    return;
-  }
-
-  const remember =
-    document.getElementById("rememberUserToggle")?.checked;
-
-  if (remember) {
+function save() {
+  try {
     localStorage.setItem(
-      REMEMBER_KEY,
-      account.username
+      KEY,
+      JSON.stringify(state)
     );
-  } else {
-    localStorage.removeItem(REMEMBER_KEY);
-  }
-
-  localStorage.setItem(SESSION_KEY, "true");
-
-  showApp();
-}
-
-function createAccount() {
-  vibrate(15);
-
-  const username =
-    document.getElementById("createUsername")?.value
-      .trim()
-      .toLowerCase() || "";
-
-  const password =
-    document.getElementById("createPassword")?.value || "";
-
-  const confirmation =
-    document.getElementById("createPasswordConfirm")?.value || "";
-
-  if (username.length < 3 || username.length > 20) {
-    showLoginMessage(
-      "Usuário de 3 a 20 caracteres."
+  } catch (error) {
+    console.error(
+      "FX: erro ao salvar dados:",
+      error
     );
-    return;
-  }
 
-  if (password.length !== 8) {
-    showLoginMessage(
-      "Senha deve ter 8 caracteres."
+    alert(
+      "Não foi possível salvar os dados do FX neste dispositivo."
     );
-    return;
   }
-
-  if (password !== confirmation) {
-    showLoginMessage(
-      "As senhas não conferem."
-    );
-    return;
-  }
-
-  if (getAccount()) {
-    showLoginMessage(
-      "Já existe uma conta."
-    );
-    return;
-  }
-
-  const recoveryCode =
-    `FX-${Math.floor(1000 + Math.random() * 9000)}`;
-
-  saveAccount({
-    username,
-    password,
-    recoveryCode
-  });
-
-  localStorage.setItem(SESSION_KEY, "true");
-  localStorage.setItem(REMEMBER_KEY, username);
-
-  alert(
-    `Conta criada!\n\nCódigo de recuperação: ${recoveryCode}`
-  );
-
-  showApp();
-}
-
-function resetPassword() {
-  const code =
-    document.getElementById("forgotCode")?.value
-      .trim() || "";
-
-  const newPass =
-    document.getElementById("forgotNewPassword")?.value || "";
-
-  const account = getAccount();
-
-  if (
-    !account ||
-    (
-      code !== MASTER_KEY &&
-      code.toUpperCase() !==
-        String(account.recoveryCode || "").toUpperCase()
-    )
-  ) {
-    showLoginMessage("Código inválido.");
-    return;
-  }
-
-  if (newPass.length !== 8) {
-    showLoginMessage(
-      "Senha deve ter 8 caracteres."
-    );
-    return;
-  }
-
-  account.password = newPass;
-
-  saveAccount(account);
-
-  alert("Senha redefinida!");
-
-  showLoginForm();
-}
-
-function logout() {
-  localStorage.removeItem(SESSION_KEY);
-  location.reload();
 }
 
 /* =====================================================
-   NORMALIZAÇÃO
+   NORMALIZAÇÃO DO ESTADO
 ===================================================== */
 
 function normalizeState(data) {
   if (!data || typeof data !== "object") {
     return createInitialState();
   }
-
-  data.version = APP_VERSION;
-
-  /* SETTINGS */
 
   if (
     !data.settings ||
@@ -296,25 +308,26 @@ function normalizeState(data) {
     data.settings = {};
   }
 
+  data.version = APP_VERSION;
+
   data.settings.plannedSalary =
     parseToCents(
       data.settings.plannedSalary
     );
 
+  data.settings.reserveGoal =
+    parseToCents(
+      data.settings.reserveGoal
+    );
+
+  /*
+    A divisão do salário agora é fixa.
+    Não existe mais percentual configurável.
+  */
+
   data.settings.salarySplitEnabled =
     Boolean(
       data.settings.salarySplitEnabled
-    );
-
-  data.settings.advancePercent =
-    Math.min(
-      100,
-      Math.max(
-        0,
-        Number(
-          data.settings.advancePercent
-        ) || 40
-      )
     );
 
   data.settings.advanceDay =
@@ -322,21 +335,11 @@ function normalizeState(data) {
       31,
       Math.max(
         1,
-        Number(
-          data.settings.advanceDay
-        ) || 20
+        safeNumber(
+          data.settings.advanceDay,
+          20
+        )
       )
-    );
-
-  data.settings.mainPaymentLabel =
-    String(
-      data.settings.mainPaymentLabel ||
-      "5º dia útil"
-    ).trim();
-
-  data.settings.reserveGoal =
-    parseToCents(
-      data.settings.reserveGoal
     );
 
   data.settings.hideBalance =
@@ -344,7 +347,13 @@ function normalizeState(data) {
       data.settings.hideBalance
     );
 
-  /* CATEGORIAS */
+  data.settings.mainPaymentLabel =
+    String(
+      data.settings.mainPaymentLabel ||
+      "5º dia útil"
+    );
+
+  /* Categorias */
 
   if (!Array.isArray(data.categories)) {
     data.categories =
@@ -354,66 +363,62 @@ function normalizeState(data) {
   }
 
   data.categories =
-    data.categories.map(category => ({
-      id:
-        category.id ||
-        "cat_" + createId(),
+    data.categories
+      .filter(
+        cat =>
+          cat &&
+          typeof cat === "object"
+      )
+      .map(cat => ({
+        id:
+          String(
+            cat.id ||
+            createId()
+          ),
 
-      name:
-        String(
-          category.name || "Categoria"
-        ).trim(),
+        name:
+          String(
+            cat.name ||
+            "Categoria"
+          ),
 
-      icon:
-        String(
-          category.icon || "💰"
-        ).trim(),
+        icon:
+          String(
+            cat.icon ||
+            "💰"
+          ),
 
-      type:
-        category.type === "reserve"
-          ? "reserve"
-          : "expense",
+        type:
+          cat.type === "reserve"
+            ? "reserve"
+            : "expense",
 
-      budget:
-        parseToCents(category.budget)
-    }));
+        budget:
+          parseToCents(
+            cat.budget
+          )
+      }));
 
-  defaultCategories.forEach(defaultCategory => {
-    const exists =
-      data.categories.some(
-        category =>
-          category.id === defaultCategory.id
-      );
+  /*
+    Reserva é obrigatória.
+  */
 
-    if (!exists) {
-      data.categories.unshift({
-        ...defaultCategory
-      });
-    }
-  });
-
-  const reserveCategory =
-    data.categories.find(
-      category => category.id === "reserve"
-    );
-
-  if (reserveCategory) {
-    reserveCategory.name = "Reserva";
-    reserveCategory.icon = "🏦";
-    reserveCategory.type = "reserve";
-    reserveCategory.budget = 0;
+  if (
+    !data.categories.some(
+      category =>
+        category.id === "reserve"
+    )
+  ) {
+    data.categories.unshift({
+      id: "reserve",
+      name: "Reserva",
+      icon: "🏦",
+      type: "reserve",
+      budget: 0
+    });
   }
 
-  data.categories.forEach(category => {
-    if (
-      category.id !== "reserve" &&
-      category.type === "reserve"
-    ) {
-      category.type = "expense";
-    }
-  });
-
-  /* MESES */
+  /* Meses */
 
   if (
     !data.months ||
@@ -422,19 +427,24 @@ function normalizeState(data) {
     data.months = {};
   }
 
-  Object.values(data.months).forEach(month => {
-    normalizeMonth(month);
-  });
-
-  data.reserveBalance =
-    parseToCents(data.reserveBalance);
+  Object.values(
+    data.months
+  ).forEach(
+    normalizeMonth
+  );
 
   if (
-    typeof data.currentMonth !== "string"
+    typeof data.currentMonth !== "string" ||
+    !/^\d{4}-\d{2}$/.test(
+      data.currentMonth
+    )
   ) {
     data.currentMonth =
       monthKey(new Date());
   }
+
+  data.reserveBalance =
+    calculateReserveBalance(data);
 
   return data;
 }
@@ -457,11 +467,8 @@ function normalizeMonth(month) {
   }
 
   month.salaryReceived =
-    parseToCents(month.salaryReceived);
-
-  month.salaryReserveReturn =
     parseToCents(
-      month.salaryReserveReturn
+      month.salaryReceived
     );
 
   month.reserveContribution =
@@ -479,236 +486,160 @@ function normalizeMonth(month) {
       month.reserveWithdrawal
     );
 
+  /*
+    Normaliza gastos antigos.
+  */
+
   month.expenses =
-    month.expenses.map(expense => ({
-      ...expense,
+    month.expenses
+      .filter(
+        expense =>
+          expense &&
+          typeof expense === "object"
+      )
+      .map(expense => ({
+        id:
+          String(
+            expense.id ||
+            createId()
+          ),
 
-      id:
-        expense.id ||
-        createId(),
+        amount:
+          Math.max(
+            0,
+            parseToCents(
+              expense.amount
+            )
+          ),
 
-      amount:
-        parseToCents(expense.amount),
+        categoryId:
+          String(
+            expense.categoryId ||
+            "fixed"
+          ),
 
-      categoryId:
-        expense.categoryId || "fixed",
+        source:
+          expense.source === "extra"
+            ? "extra"
+            : "salary",
 
-      source:
-        expense.source === "extra"
-          ? "extra"
-          : "salary",
+        note:
+          String(
+            expense.note ||
+            ""
+          ),
 
-      note:
-        String(
-          expense.note || ""
-        ).trim(),
+        date:
+          expense.date ||
+          new Date().toISOString()
+      }));
 
-      date:
-        expense.date ||
-        new Date().toISOString()
-    }));
+  /*
+    Normaliza entradas extras.
+  */
 
   month.extras =
-    month.extras.map(extra => ({
-      ...extra,
+    month.extras
+      .filter(
+        extra =>
+          extra &&
+          typeof extra === "object"
+      )
+      .map(extra => ({
+        id:
+          String(
+            extra.id ||
+            createId()
+          ),
 
-      id:
-        extra.id ||
-        createId(),
+        name:
+          String(
+            extra.name ||
+            "Entrada extra"
+          ),
 
-      amount:
-        parseToCents(extra.amount),
+        amount:
+          Math.max(
+            0,
+            parseToCents(
+              extra.amount
+            )
+          ),
 
-      name:
-        String(
-          extra.name || "Entrada extra"
-        ).trim(),
+        date:
+          extra.date ||
+          new Date().toISOString()
+      }));
 
-      date:
-        extra.date ||
-        new Date().toISOString()
-    }));
+  /*
+    Normaliza transações da reserva.
+  */
 
   month.reserveTransactions =
-    month.reserveTransactions.map(tx => ({
-      ...tx,
+    month.reserveTransactions
+      .filter(
+        transaction =>
+          transaction &&
+          typeof transaction === "object"
+      )
+      .map(transaction => ({
+        id:
+          String(
+            transaction.id ||
+            createId()
+          ),
 
-      id:
-        tx.id ||
-        createId(),
+        amount:
+          Math.max(
+            0,
+            parseToCents(
+              transaction.amount
+            )
+          ),
 
-      amount:
-        parseToCents(tx.amount),
+        type:
+          transaction.type === "out"
+            ? "out"
+            : "in",
 
-      type:
-        tx.type === "out"
-          ? "out"
-          : "in",
+        source:
+          transaction.source ||
+          "reserve",
 
-      source:
-        tx.source === "extra"
-          ? "extra"
-          : "salary",
+        note:
+          String(
+            transaction.note ||
+            ""
+          ),
 
-      note:
-        String(
-          tx.note || ""
-        ).trim(),
-
-      date:
-        tx.date ||
-        new Date().toISOString()
-    }));
-}
-
-function load() {
-  try {
-    const raw =
-      localStorage.getItem(KEY);
-
-    if (!raw) {
-      return null;
-    }
-
-    return normalizeState(
-      JSON.parse(raw)
-    );
-  } catch {
-    return null;
-  }
-}
-
-function save() {
-  localStorage.setItem(
-    KEY,
-    JSON.stringify(state)
-  );
+        date:
+          transaction.date ||
+          new Date().toISOString()
+      }));
 }
 
 /* =====================================================
-   DINHEIRO
-===================================================== */
-
-function money(cents) {
-  if (state.settings.hideBalance) {
-    return "R$ ••••";
-  }
-
-  return new Intl.NumberFormat(
-    "pt-BR",
-    {
-      style: "currency",
-      currency: "BRL"
-    }
-  ).format(
-    (Number(cents) || 0) / 100
-  );
-}
-
-function parseToCents(value) {
-  if (
-    value === null ||
-    value === undefined ||
-    value === ""
-  ) {
-    return 0;
-  }
-
-  if (typeof value === "number") {
-    if (!Number.isFinite(value)) {
-      return 0;
-    }
-
-    return Math.round(value);
-  }
-
-  let text =
-    String(value)
-      .trim()
-      .replace(/R\$/gi, "")
-      .replace(/\s/g, "");
-
-  if (!text) {
-    return 0;
-  }
-
-  if (text.includes(",")) {
-    text =
-      text
-        .replace(/\./g, "")
-        .replace(",", ".");
-
-    const parts =
-      text.split(".");
-
-    const integerPart =
-      parts[0] || "0";
-
-    const decimalPart =
-      parts[1] || "";
-
-    const integer =
-      parseInt(
-        integerPart.replace(/\D/g, "") || "0",
-        10
-      );
-
-    const decimal =
-      decimalPart
-        .replace(/\D/g, "")
-        .padEnd(2, "0")
-        .slice(0, 2);
-
-    return (
-      integer * 100 +
-      parseInt(decimal || "0", 10)
-    );
-  }
-
-  const cleaned =
-    text.replace(/[^0-9.-]/g, "");
-
-  if (!cleaned) {
-    return 0;
-  }
-
-  const parsed = Number(cleaned);
-
-  if (!Number.isFinite(parsed)) {
-    return 0;
-  }
-
-  return Math.round(parsed * 100);
-}
-
-function numCents(id) {
-  const element =
-    document.getElementById(id);
-
-  if (!element) {
-    return 0;
-  }
-
-  return parseToCents(
-    element.value
-  );
-}
-
-/* =====================================================
-   MESES
+   DATAS / MESES
 ===================================================== */
 
 function monthKey(date) {
-  return `${date.getFullYear()}-${String(
-    date.getMonth() + 1
-  ).padStart(2, "0")}`;
+  return (
+    `${date.getFullYear()}-` +
+    `${String(
+      date.getMonth() + 1
+    ).padStart(2, "0")}`
+  );
 }
 
-function getMonth(key = state.currentMonth) {
+function getMonth(
+  key = state.currentMonth
+) {
   if (!state.months[key]) {
     state.months[key] = {
       salaryReceived:
-        getPlannedSalaryForMonth(key),
+        Number(
+          state.settings.plannedSalary
+        ) || 0,
 
       expenses: [],
 
@@ -720,9 +651,7 @@ function getMonth(key = state.currentMonth) {
 
       reserveWithdrawal: 0,
 
-      reserveTransactions: [],
-
-      salaryReserveReturn: 0
+      reserveTransactions: []
     };
 
     save();
@@ -735,57 +664,31 @@ function getMonth(key = state.currentMonth) {
   return state.months[key];
 }
 
-/* =====================================================
-   SALÁRIO PADRÃO PARA NOVOS MESES
-===================================================== */
+function monthShift(
+  key,
+  delta
+) {
+  const [
+    year,
+    month
+  ] = key
+    .split("-")
+    .map(Number);
 
-function getPlannedSalaryForMonth(key) {
-  const configured =
-    Number(
-      state.settings.plannedSalary
-    ) || 0;
-
-  if (configured <= 0) {
-    return 0;
-  }
-
-  /*
-     O salário definido em configurações
-     passa a ser padrão para meses futuros.
-
-     Não copiamos o salário de um mês
-     para outro depois que o mês já existe.
-  */
-
-  return configured;
-}
-
-/* =====================================================
-   CÁLCULOS BÁSICOS
-===================================================== */
-
-function categorySpent(id, month) {
-  return month.expenses
-    .filter(
-      expense =>
-        expense.categoryId === id
+  return monthKey(
+    new Date(
+      year,
+      month - 1 + delta,
+      1
     )
-    .reduce(
-      (sum, expense) =>
-        sum + (Number(expense.amount) || 0),
-      0
-    );
-}
-
-function totalSpent(month) {
-  return month.expenses.reduce(
-    (sum, expense) =>
-      sum + (Number(expense.amount) || 0),
-    0
   );
 }
 
-function totalSalarySpent(month) {
+/* =====================================================
+   CÁLCULOS FINANCEIROS
+===================================================== */
+
+function salarySpent(month) {
   return month.expenses
     .filter(
       expense =>
@@ -793,12 +696,12 @@ function totalSalarySpent(month) {
     )
     .reduce(
       (sum, expense) =>
-        sum + (Number(expense.amount) || 0),
+        sum + expense.amount,
       0
     );
 }
 
-function totalExtraSpent(month) {
+function extraSpent(month) {
   return month.expenses
     .filter(
       expense =>
@@ -806,7 +709,7 @@ function totalExtraSpent(month) {
     )
     .reduce(
       (sum, expense) =>
-        sum + (Number(expense.amount) || 0),
+        sum + expense.amount,
       0
     );
 }
@@ -814,16 +717,14 @@ function totalExtraSpent(month) {
 function totalExtras(month) {
   return month.extras.reduce(
     (sum, extra) =>
-      sum + (Number(extra.amount) || 0),
+      sum + extra.amount,
     0
   );
 }
 
-/* =====================================================
-   SALDO ANTERIOR DO SALÁRIO
-===================================================== */
-
-function getPreviousSalaryCarryover(currentKey) {
+function getPreviousSalaryCarryover(
+  currentKey
+) {
   let carry = 0;
 
   Object.keys(state.months)
@@ -836,21 +737,20 @@ function getPreviousSalaryCarryover(currentKey) {
       const month =
         state.months[key];
 
-      carry +=
-        (Number(month.salaryReceived) || 0) +
-        (Number(month.salaryReserveReturn) || 0) -
-        totalSalarySpent(month) -
-        (Number(month.reserveContribution) || 0);
+      const remaining =
+        (month.salaryReceived || 0) -
+        salarySpent(month) -
+        (month.reserveContribution || 0);
+
+      carry += remaining;
     });
 
   return carry;
 }
 
-/* =====================================================
-   SALDO ANTERIOR DOS EXTRAS
-===================================================== */
-
-function getPreviousExtraCarryover(currentKey) {
+function getPreviousExtraCarryover(
+  currentKey
+) {
   let carry = 0;
 
   Object.keys(state.months)
@@ -863,129 +763,138 @@ function getPreviousExtraCarryover(currentKey) {
       const month =
         state.months[key];
 
-      carry +=
+      const remaining =
         totalExtras(month) -
-        totalExtraSpent(month) -
-        (Number(month.extraReserveContribution) || 0);
+        extraSpent(month) -
+        (month.extraReserveContribution || 0);
+
+      carry += remaining;
     });
 
   return carry;
 }
 
-/* =====================================================
-   SALDO DO SALÁRIO
-===================================================== */
-
-function getSalaryAvailable(month) {
+function getSalaryAvailable(
+  month,
+  key = state.currentMonth
+) {
   const previous =
     getPreviousSalaryCarryover(
-      state.currentMonth
+      key
     );
 
   const salary =
-    Number(month.salaryReceived) || 0;
-
-  const returned =
-    Number(month.salaryReserveReturn) || 0;
+    month.salaryReceived || 0;
 
   const spent =
-    totalSalarySpent(month);
+    salarySpent(month);
 
   const saved =
-    Number(month.reserveContribution) || 0;
-
-  /*
-     NÃO usamos Math.max(0).
-
-     Se o usuário gastar mais do que possui,
-     o FX mostra o saldo negativo.
-
-     Assim dinheiro nunca desaparece
-     magicamente.
-  */
+    month.reserveContribution || 0;
 
   return (
     previous +
-    salary +
-    returned -
+    salary -
     spent -
     saved
   );
 }
 
-/* =====================================================
-   SALDO DOS EXTRAS
-===================================================== */
-
-function getExtraAvailable(month) {
+function getExtraAvailable(
+  month,
+  key = state.currentMonth
+) {
   const previous =
     getPreviousExtraCarryover(
-      state.currentMonth
+      key
     );
 
   const extras =
     totalExtras(month);
 
   const spent =
-    totalExtraSpent(month);
+    extraSpent(month);
 
-  const reserve =
-    Number(
-      month.extraReserveContribution
-    ) || 0;
+  const saved =
+    month.extraReserveContribution || 0;
 
   return (
     previous +
     extras -
     spent -
-    reserve
+    saved
   );
 }
 
-/* =====================================================
-   RESERVA
-===================================================== */
-
-function getReserveBalance() {
+function calculateReserveBalance(
+  sourceState = state
+) {
   let totalIn = 0;
   let totalOut = 0;
 
-  Object.values(state.months)
-    .forEach(month => {
+  Object.values(
+    sourceState.months || {}
+  ).forEach(month => {
+    totalIn +=
+      Number(
+        month.reserveContribution
+      ) || 0;
 
-      totalIn +=
-        Number(
-          month.reserveContribution
-        ) || 0;
+    totalIn +=
+      Number(
+        month.extraReserveContribution
+      ) || 0;
 
-      totalIn +=
-        Number(
-          month.extraReserveContribution
-        ) || 0;
+    totalOut +=
+      Number(
+        month.reserveWithdrawal
+      ) || 0;
+  });
 
-      totalOut +=
-        Number(
-          month.reserveWithdrawal
-        ) || 0;
-    });
-
-  return totalIn - totalOut;
+  return (
+    totalIn -
+    totalOut
+  );
 }
 
 function syncReserve() {
   state.reserveBalance =
-    getReserveBalance();
+    calculateReserveBalance();
 
   save();
 }
 
+function totalSpent(month) {
+  return month.expenses.reduce(
+    (sum, expense) =>
+      sum + expense.amount,
+    0
+  );
+}
+
+function categorySpent(
+  categoryId,
+  month
+) {
+  return month.expenses
+    .filter(
+      expense =>
+        expense.categoryId ===
+        categoryId
+    )
+    .reduce(
+      (sum, expense) =>
+        sum + expense.amount,
+      0
+    );
+}
+
 /* =====================================================
-   RENDER
+   RENDER PRINCIPAL
 ===================================================== */
 
 function render() {
-  const month =
-    getMonth();
+  const month = getMonth();
 
   syncReserve();
 
@@ -1000,49 +909,56 @@ function render() {
 }
 
 function renderMonthTitle() {
-  const title =
+  const element =
     document.getElementById(
       "monthTitle"
     );
 
-  if (!title) {
-    return;
-  }
+  if (!element) return;
 
-  title.textContent =
+  const date =
+    new Date(
+      `${state.currentMonth}-01T00:00:00`
+    );
+
+  element.textContent =
     new Intl.DateTimeFormat(
       "pt-BR",
       {
         month: "long",
         year: "numeric"
       }
-    ).format(
-      new Date(
-        `${state.currentMonth}-01T00:00:00`
-      )
-    );
+    ).format(date);
 }
 
 function renderMainValues() {
-  const month =
-    getMonth();
+  const month = getMonth();
 
   const salaryAvailable =
-    getSalaryAvailable(month);
+    getSalaryAvailable(
+      month
+    );
 
   const extraAvailable =
-    getExtraAvailable(month);
+    getExtraAvailable(
+      month
+    );
 
-  const available =
+  const spent =
+    totalSpent(month);
+
+  const availableElement =
     document.getElementById(
       "availableValue"
     );
 
-  if (available) {
-    available.textContent =
-      money(salaryAvailable);
+  if (availableElement) {
+    availableElement.textContent =
+      money(
+        salaryAvailable
+      );
 
-    available.style.color =
+    availableElement.style.color =
       salaryAvailable < 0
         ? "var(--danger)"
         : "";
@@ -1054,10 +970,14 @@ function renderMainValues() {
     );
 
   if (hint) {
-    if (salaryAvailable < 0) {
+    if (
+      salaryAvailable < 0
+    ) {
       hint.textContent =
         `Você ultrapassou o saldo do salário em ${money(
-          Math.abs(salaryAvailable)
+          Math.abs(
+            salaryAvailable
+          )
         )}.`;
     } else {
       hint.textContent =
@@ -1065,70 +985,87 @@ function renderMainValues() {
     }
   }
 
-  const salary =
+  const salaryElement =
     document.getElementById(
       "salaryValue"
     );
 
-  if (salary) {
-    salary.textContent =
-      money(salaryAvailable);
+  if (salaryElement) {
+    salaryElement.textContent =
+      money(
+        salaryAvailable
+      );
   }
 
-  const extra =
+  const extraElement =
     document.getElementById(
       "extraValue"
     );
 
-  if (extra) {
-    extra.textContent =
-      money(extraAvailable);
+  if (extraElement) {
+    extraElement.textContent =
+      money(
+        extraAvailable
+      );
 
-    extra.style.color =
+    extraElement.style.color =
       extraAvailable < 0
         ? "var(--danger)"
         : "";
   }
 
-  const spent =
+  const spentElement =
     document.getElementById(
       "spentValue"
     );
 
-  if (spent) {
-    spent.textContent =
-      money(totalSpent(month));
+  if (spentElement) {
+    spentElement.textContent =
+      money(spent);
   }
 
-  const reserve =
+  const reserveElement =
     document.getElementById(
       "reserveBig"
     );
 
-  if (reserve) {
-    reserve.textContent =
-      money(state.reserveBalance);
+  if (reserveElement) {
+    reserveElement.textContent =
+      money(
+        state.reserveBalance
+      );
   }
 }
 
-function renderMonthlyProgress() {
-  const month =
-    getMonth();
+/* =====================================================
+   PROGRESSO DO MÊS
+===================================================== */
 
-  const totalIncomes =
-    (Number(month.salaryReceived) || 0) +
+function renderMonthlyProgress() {
+  const month = getMonth();
+
+  const salary =
+    month.salaryReceived || 0;
+
+  const extras =
     totalExtras(month);
+
+  const totalIncome =
+    salary + extras;
 
   const spent =
     totalSpent(month);
 
   const percent =
-    totalIncomes > 0
+    totalIncome > 0
       ? Math.min(
           100,
           Math.max(
             0,
-            (spent / totalIncomes) * 100
+            (
+              spent /
+              totalIncome
+            ) * 100
           )
         )
       : 0;
@@ -1150,7 +1087,9 @@ function renderMonthlyProgress() {
 
   if (label) {
     label.textContent =
-      `${Math.round(percent)}% gasto`;
+      `${Math.round(
+        percent
+      )}% gasto`;
   }
 }
 
@@ -1159,83 +1098,102 @@ function renderMonthlyProgress() {
 ===================================================== */
 
 function renderCategories() {
-  const wrap =
+  const wrapper =
     document.getElementById(
       "categories"
     );
 
-  if (!wrap) {
-    return;
-  }
+  if (!wrapper) return;
 
-  const month =
-    getMonth();
+  const month = getMonth();
 
-  wrap.innerHTML = "";
+  wrapper.innerHTML = "";
 
-  state.categories.forEach(category => {
-    const element =
-      document.createElement("div");
+  state.categories.forEach(
+    category => {
+      const element =
+        document.createElement(
+          "div"
+        );
 
-    element.className =
-      "category";
+      element.className =
+        "category";
 
-    const value =
-      category.type === "reserve"
-        ? (
-            (Number(
-              month.reserveContribution
-            ) || 0) +
-            (Number(
-              month.extraReserveContribution
-            ) || 0)
-          )
-        : categorySpent(
-            category.id,
-            month
-          );
+      const value =
+        category.id === "reserve"
+          ? (
+              (
+                month.reserveContribution ||
+                0
+              ) +
+              (
+                month.extraReserveContribution ||
+                0
+              )
+            )
+          : categorySpent(
+              category.id,
+              month
+            );
 
-    element.innerHTML = `
-      <div class="cat-icon">
-        ${escapeHtml(category.icon)}
-      </div>
-
-      <div class="cat-main">
-        <div class="cat-name">
-          ${escapeHtml(category.name)}
+      element.innerHTML = `
+        <div class="cat-icon">
+          ${escapeHtml(
+            category.icon
+          )}
         </div>
-      </div>
 
-      <div class="cat-value">
-        <strong>
-          ${money(value)}
-        </strong>
-      </div>
+        <div class="cat-main">
+          <div class="cat-name">
+            ${escapeHtml(
+              category.name
+            )}
+          </div>
 
-      <div class="cat-actions">
-        <button
-          class="cat-edit"
-          type="button"
-          data-category="${escapeHtml(category.id)}"
-        >
-          ⋮
-        </button>
-      </div>
-    `;
+          <div class="cat-sub">
+            Orçamento:
+            ${money(
+              category.budget
+            )}
+          </div>
+        </div>
 
-    wrap.appendChild(element);
-  });
+        <div class="cat-value">
+          <strong>
+            ${money(value)}
+          </strong>
+        </div>
 
-  wrap
-    .querySelectorAll("[data-category]")
+        <div class="cat-actions">
+          <button
+            class="cat-edit"
+            type="button"
+            data-category="${escapeHtml(
+              category.id
+            )}"
+          >
+            ⋮
+          </button>
+        </div>
+      `;
+
+      wrapper.appendChild(
+        element
+      );
+    }
+  );
+
+  wrapper
+    .querySelectorAll(
+      "[data-category]"
+    )
     .forEach(button => {
       button.addEventListener(
         "click",
-        () => {
+        () =>
           openCategoryMenu(
             button.dataset.category
-          );
-        }
+          )
       );
     });
 }
@@ -1243,14 +1201,16 @@ function renderCategories() {
 function openCategoryMenu(id) {
   const category =
     state.categories.find(
-      cat => cat.id === id
+      cat =>
+        cat.id === id
     );
 
-  if (!category) {
-    return;
-  }
+  if (!category) return;
 
-  if (category.id === "reserve") {
+  if (
+    category.id ===
+    "reserve"
+  ) {
     openReserveModal();
     return;
   }
@@ -1280,29 +1240,38 @@ function openCategoryMenu(id) {
   );
 
   document
-    .getElementById("editCategoryAction")
+    .getElementById(
+      "editCategoryAction"
+    )
     ?.addEventListener(
       "click",
-      () => {
-        openCategoryForm(category.id);
-      }
+      () =>
+        openCategoryForm(
+          category.id
+        )
     );
 
   document
-    .getElementById("deleteCategoryAction")
+    .getElementById(
+      "deleteCategoryAction"
+    )
     ?.addEventListener(
       "click",
-      () => {
-        deleteCategory(category.id);
-      }
+      () =>
+        deleteCategory(
+          category.id
+        )
     );
 }
 
-function openCategoryForm(id = null) {
+function openCategoryForm(
+  id = null
+) {
   const category =
     id
       ? state.categories.find(
-          cat => cat.id === id
+          cat =>
+            cat.id === id
         )
       : null;
 
@@ -1315,22 +1284,40 @@ function openCategoryForm(id = null) {
       <div class="form">
 
         <label>Nome</label>
+
         <input
           id="categoryNameInput"
           value="${escapeHtml(
-            category?.name || ""
+            category?.name ||
+            ""
           )}"
           placeholder="Ex: Alimentação"
         >
 
-        <label>Ícone</label>
+        <label>Ícone (Emoji)</label>
+
         <input
           id="categoryIconInput"
           value="${escapeHtml(
-            category?.icon || "💰"
+            category?.icon ||
+            "💰"
           )}"
           maxlength="4"
           placeholder="🍔"
+        >
+
+        <label>
+          Orçamento planejado (Opcional)
+        </label>
+
+        <input
+          id="categoryBudgetInput"
+          inputmode="decimal"
+          value="${formatInputMoney(
+            category?.budget ||
+            0
+          )}"
+          placeholder="R$ 0,00"
         >
 
         <button
@@ -1345,11 +1332,12 @@ function openCategoryForm(id = null) {
   );
 
   document
-    .getElementById("saveCategoryAction")
+    .getElementById(
+      "saveCategoryAction"
+    )
     ?.addEventListener(
       "click",
       () => {
-
         const name =
           document
             .getElementById(
@@ -1366,64 +1354,95 @@ function openCategoryForm(id = null) {
             ?.value
             .trim();
 
+        const budget =
+          parseToCents(
+            document
+              .getElementById(
+                "categoryBudgetInput"
+              )
+              ?.value
+          );
+
         if (!name) {
           alert(
             "Digite o nome da categoria."
           );
+
           return;
         }
 
         if (category) {
-          category.name = name;
-          category.icon = icon || "💰";
+          category.name =
+            name;
+
+          category.icon =
+            icon || "💰";
+
+          category.budget =
+            budget;
         } else {
           state.categories.push({
             id:
-              "cat_" + createId(),
+              "cat_" +
+              createId(),
+
             name,
-            icon: icon || "💰",
-            type: "expense",
-            budget: 0
+
+            icon:
+              icon || "💰",
+
+            type:
+              "expense",
+
+            budget
           });
         }
 
         save();
+
         closeModal();
+
         render();
       }
     );
 }
 
 function deleteCategory(id) {
-  if (id === "reserve") {
+  if (
+    id === "reserve"
+  ) {
     alert(
       "A categoria Reserva não pode ser excluída."
     );
+
     return;
   }
 
   const category =
     state.categories.find(
-      cat => cat.id === id
+      cat =>
+        cat.id === id
     );
 
-  if (!category) {
-    return;
-  }
+  if (!category) return;
 
   const used =
-    Object.values(state.months)
-      .some(month =>
+    Object.values(
+      state.months
+    ).some(
+      month =>
         month.expenses.some(
           expense =>
-            expense.categoryId === id
+            expense.categoryId ===
+            id
         )
-      );
+    );
 
   if (used) {
     alert(
-      "Essa categoria já possui gastos registrados e não pode ser excluída."
+      "Essa categoria possui gastos registrados e não pode ser excluída."
     );
+
     return;
   }
 
@@ -1437,40 +1456,42 @@ function deleteCategory(id) {
 
   state.categories =
     state.categories.filter(
-      cat => cat.id !== id
+      cat =>
+        cat.id !== id
     );
 
   save();
+
   closeModal();
+
   render();
 }
 
 /* =====================================================
-   ADICIONAR GASTO
+   GASTOS
 ===================================================== */
 
 function openExpenseModal() {
-  const month =
-    getMonth();
-
   const options =
     state.categories
       .filter(
         category =>
-          category.type !== "reserve"
+          category.type !==
+          "reserve"
       )
       .map(
         category =>
           `
-            <option value="${escapeHtml(
-              category.id
-            )}">
-              ${escapeHtml(
-                category.icon
-              )} ${escapeHtml(
-                category.name
-              )}
-            </option>
+          <option value="${escapeHtml(
+            category.id
+          )}">
+            ${escapeHtml(
+              category.icon
+            )}
+            ${escapeHtml(
+              category.name
+            )}
+          </option>
           `
       )
       .join("");
@@ -1481,28 +1502,38 @@ function openExpenseModal() {
       <div class="form">
 
         <label>Valor</label>
+
         <input
           id="expenseAmount"
           inputmode="decimal"
           placeholder="R$ 0,00"
+          autofocus
         >
 
         <label>Categoria</label>
+
         <select id="expenseCategory">
           ${options}
         </select>
 
-        <label>Origem do dinheiro</label>
+        <label>
+          Origem do dinheiro
+        </label>
+
         <select id="expenseSource">
+
           <option value="salary">
             Salário
           </option>
+
           <option value="extra">
             Extra
           </option>
+
         </select>
 
         <label>Observação</label>
+
         <input
           id="expenseNote"
           placeholder="Opcional"
@@ -1520,7 +1551,9 @@ function openExpenseModal() {
   );
 
   document
-    .getElementById("saveExpenseAction")
+    .getElementById(
+      "saveExpenseAction"
+    )
     ?.addEventListener(
       "click",
       addExpense
@@ -1530,64 +1563,74 @@ function openExpenseModal() {
 function addExpense() {
   const amount =
     parseToCents(
-      document.getElementById(
-        "expenseAmount"
-      )?.value
+      document
+        .getElementById(
+          "expenseAmount"
+        )
+        ?.value
     );
 
   const categoryId =
-    document.getElementById(
-      "expenseCategory"
-    )?.value;
+    document
+      .getElementById(
+        "expenseCategory"
+      )
+      ?.value ||
+    "fixed";
 
   const source =
-    document.getElementById(
-      "expenseSource"
-    )?.value === "extra"
+    document
+      .getElementById(
+        "expenseSource"
+      )
+      ?.value === "extra"
       ? "extra"
       : "salary";
 
   const note =
-    document.getElementById(
-      "expenseNote"
-    )?.value
+    document
+      .getElementById(
+        "expenseNote"
+      )
+      ?.value
       .trim() || "";
 
   if (amount <= 0) {
     alert(
       "Digite um valor válido."
     );
+
     return;
   }
 
   const month =
     getMonth();
 
-  const salaryAvailable =
-    getSalaryAvailable(month);
-
-  const extraAvailable =
-    getExtraAvailable(month);
-
   const available =
     source === "extra"
-      ? extraAvailable
-      : salaryAvailable;
+      ? getExtraAvailable(
+          month
+        )
+      : getSalaryAvailable(
+          month
+        );
 
   /*
-     AQUI ESTÁ A CORREÇÃO DO
-     DINHEIRO FANTASMA.
-
-     Se não existe dinheiro suficiente,
-     não permitimos criar um gasto
-     que apareça como se tivesse sido pago.
+    O FX não permite gastar
+    dinheiro que não existe
+    naquela origem.
   */
 
-  if (amount > available) {
+  if (
+    amount >
+    available
+  ) {
     alert(
-      `Saldo insuficiente.\n\nDisponível: ${money(
+      `Saldo insuficiente na origem escolhida!\n\n` +
+      `Disponível: ${money(
         available
-      )}\nGasto: ${money(
+      )}\n` +
+      `Gasto: ${money(
         amount
       )}`
     );
@@ -1596,12 +1639,17 @@ function addExpense() {
   }
 
   month.expenses.push({
-    id: createId(),
+    id:
+      createId(),
+
     amount,
-    categoryId:
-      categoryId || "fixed",
+
+    categoryId,
+
     source,
+
     note,
+
     date:
       new Date().toISOString()
   });
@@ -1609,11 +1657,12 @@ function addExpense() {
   save();
 
   closeModal();
+
   render();
 }
 
 /* =====================================================
-   EXTRAS
+   ENTRADAS EXTRAS
 ===================================================== */
 
 function openExtraModal() {
@@ -1622,13 +1671,17 @@ function openExtraModal() {
     `
       <div class="form">
 
-        <label>Nome</label>
+        <label>
+          Nome da entrada
+        </label>
+
         <input
           id="extraName"
-          placeholder="Ex: Freelance"
+          placeholder="Ex: Freelance, Venda"
         >
 
         <label>Valor</label>
+
         <input
           id="extraAmount"
           inputmode="decimal"
@@ -1647,7 +1700,9 @@ function openExtraModal() {
   );
 
   document
-    .getElementById("saveExtraAction")
+    .getElementById(
+      "saveExtraAction"
+    )
     ?.addEventListener(
       "click",
       addExtra
@@ -1656,22 +1711,28 @@ function openExtraModal() {
 
 function addExtra() {
   const name =
-    document.getElementById(
-      "extraName"
-    )?.value
-      .trim() || "Entrada extra";
+    document
+      .getElementById(
+        "extraName"
+      )
+      ?.value
+      .trim() ||
+    "Entrada extra";
 
   const amount =
     parseToCents(
-      document.getElementById(
-        "extraAmount"
-      )?.value
+      document
+        .getElementById(
+          "extraAmount"
+        )
+        ?.value
     );
 
   if (amount <= 0) {
     alert(
       "Digite um valor válido."
     );
+
     return;
   }
 
@@ -1679,9 +1740,13 @@ function addExtra() {
     getMonth();
 
   month.extras.push({
-    id: createId(),
+    id:
+      createId(),
+
     name,
+
     amount,
+
     date:
       new Date().toISOString()
   });
@@ -1689,6 +1754,7 @@ function addExtra() {
   save();
 
   closeModal();
+
   render();
 }
 
@@ -1698,19 +1764,19 @@ function renderExtras() {
       "extrasList"
     );
 
-  if (!list) {
-    return;
-  }
+  if (!list) return;
 
   const month =
     getMonth();
 
   if (!month.extras.length) {
-    list.innerHTML = `
+    list.innerHTML =
+      `
       <div class="empty-history">
         Nenhuma entrada extra neste mês.
       </div>
-    `;
+      `;
+
     return;
   }
 
@@ -1719,7 +1785,8 @@ function renderExtras() {
       .slice()
       .reverse()
       .map(
-        extra => `
+        extra =>
+          `
           <div class="extra-item">
 
             <div class="extra-icon">
@@ -1727,6 +1794,7 @@ function renderExtras() {
             </div>
 
             <div class="extra-main">
+
               <div class="extra-name">
                 ${escapeHtml(
                   extra.name
@@ -1738,6 +1806,7 @@ function renderExtras() {
                   extra.date
                 )}
               </div>
+
             </div>
 
             <div class="extra-value">
@@ -1757,7 +1826,7 @@ function renderExtras() {
             </button>
 
           </div>
-        `
+          `
       )
       .join("");
 
@@ -1768,11 +1837,10 @@ function renderExtras() {
     .forEach(button => {
       button.addEventListener(
         "click",
-        () => {
+        () =>
           deleteExtra(
             button.dataset.extra
-          );
-        }
+          )
       );
     });
 }
@@ -1783,12 +1851,11 @@ function deleteExtra(id) {
 
   const extra =
     month.extras.find(
-      item => item.id === id
+      item =>
+        item.id === id
     );
 
-  if (!extra) {
-    return;
-  }
+  if (!extra) return;
 
   if (
     !confirm(
@@ -1800,10 +1867,12 @@ function deleteExtra(id) {
 
   month.extras =
     month.extras.filter(
-      item => item.id !== id
+      item =>
+        item.id !== id
     );
 
   save();
+
   render();
 }
 
@@ -1812,9 +1881,6 @@ function deleteExtra(id) {
 ===================================================== */
 
 function openReserveModal() {
-  const month =
-    getMonth();
-
   openModal(
     "Gerenciar reserva",
     `
@@ -1830,20 +1896,27 @@ function openReserveModal() {
         </div>
 
         <label>Valor</label>
+
         <input
           id="reserveAmount"
           inputmode="decimal"
           placeholder="R$ 0,00"
         >
 
-        <label>Origem</label>
+        <label>
+          Origem do dinheiro
+        </label>
+
         <select id="reserveSource">
+
           <option value="salary">
             Salário
           </option>
+
           <option value="extra">
             Extra
           </option>
+
         </select>
 
         <button
@@ -1887,15 +1960,19 @@ function openReserveModal() {
 function addReserve() {
   const amount =
     parseToCents(
-      document.getElementById(
-        "reserveAmount"
-      )?.value
+      document
+        .getElementById(
+          "reserveAmount"
+        )
+        ?.value
     );
 
   const source =
-    document.getElementById(
-      "reserveSource"
-    )?.value === "extra"
+    document
+      .getElementById(
+        "reserveSource"
+      )
+      ?.value === "extra"
       ? "extra"
       : "salary";
 
@@ -1903,6 +1980,7 @@ function addReserve() {
     alert(
       "Digite um valor válido."
     );
+
     return;
   }
 
@@ -1911,19 +1989,30 @@ function addReserve() {
 
   const available =
     source === "extra"
-      ? getExtraAvailable(month)
-      : getSalaryAvailable(month);
+      ? getExtraAvailable(
+          month
+        )
+      : getSalaryAvailable(
+          month
+        );
 
-  if (amount > available) {
+  if (
+    amount >
+    available
+  ) {
     alert(
-      `Saldo insuficiente.\n\nDisponível: ${money(
+      `Saldo insuficiente na origem!\n\n` +
+      `Disponível: ${money(
         available
       )}`
     );
+
     return;
   }
 
-  if (source === "extra") {
+  if (
+    source === "extra"
+  ) {
     month.extraReserveContribution +=
       amount;
   } else {
@@ -1932,41 +2021,58 @@ function addReserve() {
   }
 
   month.reserveTransactions.push({
-    id: createId(),
+    id:
+      createId(),
+
     amount,
-    type: "in",
+
+    type:
+      "in",
+
     source,
-    note: "Entrada na reserva",
+
+    note:
+      "Entrada na reserva",
+
     date:
       new Date().toISOString()
   });
 
   save();
+
   closeModal();
+
   render();
 }
 
 function withdrawReserve() {
   const amount =
     parseToCents(
-      document.getElementById(
-        "reserveAmount"
-      )?.value
+      document
+        .getElementById(
+          "reserveAmount"
+        )
+        ?.value
     );
 
   if (amount <= 0) {
     alert(
       "Digite um valor válido."
     );
+
     return;
   }
 
-  if (amount > state.reserveBalance) {
+  if (
+    amount >
+    state.reserveBalance
+  ) {
     alert(
       `A reserva possui apenas ${money(
         state.reserveBalance
       )}.`
     );
+
     return;
   }
 
@@ -1977,23 +2083,30 @@ function withdrawReserve() {
     amount;
 
   month.reserveTransactions.push({
-    id: createId(),
+    id:
+      createId(),
+
     amount,
-    type: "out",
-    source: "reserve",
-    note: "Retirada da reserva",
+
+    type:
+      "out",
+
+    source:
+      "reserve",
+
+    note:
+      "Retirada da reserva",
+
     date:
       new Date().toISOString()
   });
 
   save();
+
   closeModal();
+
   render();
 }
-
-/* =====================================================
-   META DA RESERVA
-===================================================== */
 
 function renderReserveGoal() {
   const box =
@@ -2001,9 +2114,7 @@ function renderReserveGoal() {
       "goalBox"
     );
 
-  if (!box) {
-    return;
-  }
+  if (!box) return;
 
   const goal =
     Number(
@@ -2013,6 +2124,7 @@ function renderReserveGoal() {
   if (goal <= 0) {
     box.textContent =
       "Sem meta definida";
+
     return;
   }
 
@@ -2025,11 +2137,18 @@ function renderReserveGoal() {
   const percent =
     Math.min(
       100,
-      (current / goal) * 100
+      (
+        current /
+        goal
+      ) * 100
     );
 
   box.textContent =
-    `${money(current)} / ${money(goal)} • ${Math.round(
+    `${money(
+      current
+    )} / ${money(
+      goal
+    )} • ${Math.round(
       percent
     )}%`;
 }
@@ -2038,77 +2157,104 @@ function renderReserveGoal() {
    HISTÓRICO
 ===================================================== */
 
-function buildHistory(month) {
+function buildHistory(
+  month
+) {
   const entries = [];
 
-  month.expenses.forEach(expense => {
-    const category =
-      state.categories.find(
-        cat =>
-          cat.id === expense.categoryId
-      );
+  month.expenses.forEach(
+    expense => {
+      const category =
+        state.categories.find(
+          cat =>
+            cat.id ===
+            expense.categoryId
+        );
 
-    entries.push({
-      date:
-        expense.date,
-      name:
-        category?.name ||
-        "Gasto",
-      icon:
-        category?.icon ||
-        "💸",
-      amount:
-        -Math.abs(
-          expense.amount
-        ),
-      className:
-        "expense",
-      note:
-        expense.source === "extra"
-          ? "Pago com extra"
-          : "Pago com salário"
-    });
-  });
+      entries.push({
+        date:
+          expense.date,
 
-  month.extras.forEach(extra => {
-    entries.push({
-      date:
-        extra.date,
-      name:
-        extra.name,
-      icon:
-        "💰",
-      amount:
-        extra.amount,
-      className:
-        "extra-in",
-      note:
-        "Entrada extra"
-    });
-  });
+        name:
+          category?.name ||
+          "Gasto",
 
-  month.reserveTransactions.forEach(tx => {
-    entries.push({
-      date:
-        tx.date,
-      name:
-        tx.type === "in"
-          ? "Reserva"
-          : "Retirada da reserva",
-      icon:
-        "🏦",
-      amount:
-        tx.type === "in"
-          ? tx.amount
-          : -tx.amount,
-      className:
-        tx.type === "in"
-          ? "reserve-in"
-          : "reserve-out",
-      note:
-        tx.note || ""
-    });
-  });
+        icon:
+          category?.icon ||
+          "💸",
+
+        amount:
+          -expense.amount,
+
+        className:
+          "expense",
+
+        note:
+          expense.source ===
+          "extra"
+            ? "Pago com extra"
+            : "Pago com salário"
+      });
+    }
+  );
+
+  month.extras.forEach(
+    extra => {
+      entries.push({
+        date:
+          extra.date,
+
+        name:
+          extra.name,
+
+        icon:
+          "💰",
+
+        amount:
+          extra.amount,
+
+        className:
+          "extra-in",
+
+        note:
+          "Entrada extra"
+      });
+    }
+  );
+
+  month.reserveTransactions.forEach(
+    transaction => {
+      entries.push({
+        date:
+          transaction.date,
+
+        name:
+          transaction.type ===
+          "in"
+            ? "Reserva"
+            : "Retirada da reserva",
+
+        icon:
+          "🏦",
+
+        amount:
+          transaction.type ===
+          "in"
+            ? transaction.amount
+            : -transaction.amount,
+
+        className:
+          transaction.type ===
+          "in"
+            ? "reserve-in"
+            : "reserve-out",
+
+        note:
+          transaction.note ||
+          ""
+      });
+    }
+  );
 
   return entries.sort(
     (a, b) =>
@@ -2118,14 +2264,12 @@ function buildHistory(month) {
 }
 
 function renderHistoryPreview() {
-  const wrap =
+  const wrapper =
     document.getElementById(
       "historyPreview"
     );
 
-  if (!wrap) {
-    return;
-  }
+  if (!wrapper) return;
 
   const history =
     buildHistory(
@@ -2133,18 +2277,21 @@ function renderHistoryPreview() {
     ).slice(0, 5);
 
   if (!history.length) {
-    wrap.innerHTML = `
+    wrapper.innerHTML =
+      `
       <div class="empty-history">
         Nenhuma movimentação neste mês.
       </div>
-    `;
+      `;
+
     return;
   }
 
-  wrap.innerHTML =
+  wrapper.innerHTML =
     history
       .map(
-        item => `
+        item =>
+          `
           <div class="history-item">
 
             <div class="history-icon">
@@ -2190,30 +2337,34 @@ function renderHistoryPreview() {
             </div>
 
           </div>
-        `
+          `
       )
       .join("");
 }
 
 function openHistory() {
+  const month =
+    getMonth();
+
   const history =
     buildHistory(
-      getMonth()
+      month
     );
 
   const total =
-    totalSpent(
-      getMonth()
-    );
+    totalSpent(month);
 
   openModal(
     "Extrato",
     `
       <div class="history-total">
+
         Gastos no mês
+
         <strong>
           ${money(total)}
         </strong>
+
       </div>
 
       <div class="full-history">
@@ -2222,7 +2373,8 @@ function openHistory() {
           history.length
             ? history
                 .map(
-                  item => `
+                  item =>
+                    `
                     <div class="history-item">
 
                       <div class="history-icon">
@@ -2232,6 +2384,7 @@ function openHistory() {
                       </div>
 
                       <div class="history-main">
+
                         <div class="history-name">
                           ${escapeHtml(
                             item.name
@@ -2249,6 +2402,7 @@ function openHistory() {
                             item.note
                           )}
                         </div>
+
                       </div>
 
                       <div
@@ -2266,14 +2420,14 @@ function openHistory() {
                       </div>
 
                     </div>
-                  `
+                    `
                 )
                 .join("")
             : `
-                <div class="empty-history">
-                  Nenhuma movimentação.
-                </div>
-              `
+              <div class="empty-history">
+                Nenhuma movimentação.
+              </div>
+            `
         }
 
       </div>
@@ -2294,7 +2448,10 @@ function openSettings() {
     `
       <div class="form">
 
-        <label>Salário mensal</label>
+        <label>
+          Salário mensal padrão
+        </label>
+
         <input
           id="settingsSalary"
           inputmode="decimal"
@@ -2305,11 +2462,13 @@ function openSettings() {
         >
 
         <div class="dark-mode-row">
+
           <span>
             Dividir salário
           </span>
 
           <label class="theme-switch">
+
             <input
               type="checkbox"
               id="salarySplitToggle"
@@ -2319,11 +2478,20 @@ function openSettings() {
                   : ""
               }
             >
+
             <span class="theme-slider">
               <span class="theme-dot"></span>
             </span>
+
           </label>
+
         </div>
+
+        <!--
+          DIVISÃO FIXA:
+          40% adiantamento
+          60% pagamento principal
+        -->
 
         <div
           id="salarySplitOptions"
@@ -2334,19 +2502,20 @@ function openSettings() {
           }
         >
 
-          <label>
-            Percentual do adiantamento
-          </label>
+          <div class="notice">
+            Salário dividido automaticamente:
+            <br><br>
 
-          <input
-            id="advancePercentInput"
-            type="number"
-            min="0"
-            max="100"
-            value="${
-              settings.advancePercent
-            }"
-          >
+            <strong>
+              40% Adiantamento
+            </strong>
+
+            <br>
+
+            <strong>
+              60% Pagamento principal
+            </strong>
+          </div>
 
           <label>
             Dia do adiantamento
@@ -2357,9 +2526,7 @@ function openSettings() {
             type="number"
             min="1"
             max="31"
-            value="${
-              settings.advanceDay
-            }"
+            value="${settings.advanceDay}"
           >
 
           <label>
@@ -2487,36 +2654,22 @@ function openSettings() {
 }
 
 function saveSettings() {
-  const oldSalary =
-    Number(
-      state.settings.plannedSalary
-    ) || 0;
-
   const salary =
     parseToCents(
-      document.getElementById(
-        "settingsSalary"
-      )?.value
+      document
+        .getElementById(
+          "settingsSalary"
+        )
+        ?.value
     );
 
   const split =
     Boolean(
-      document.getElementById(
-        "salarySplitToggle"
-      )?.checked
-    );
-
-  const percent =
-    Math.min(
-      100,
-      Math.max(
-        0,
-        Number(
-          document.getElementById(
-            "advancePercentInput"
-          )?.value
-        ) || 0
-      )
+      document
+        .getElementById(
+          "salarySplitToggle"
+        )
+        ?.checked
     );
 
   const advanceDay =
@@ -2524,26 +2677,33 @@ function saveSettings() {
       31,
       Math.max(
         1,
-        Number(
-          document.getElementById(
-            "advanceDayInput"
-          )?.value
-        ) || 20
+        safeNumber(
+          document
+            .getElementById(
+              "advanceDayInput"
+            )
+            ?.value,
+          20
+        )
       )
     );
 
   const label =
-    document.getElementById(
-      "mainPaymentLabelInput"
-    )?.value
+    document
+      .getElementById(
+        "mainPaymentLabelInput"
+      )
+      ?.value
       .trim() ||
     "5º dia útil";
 
   const goal =
     parseToCents(
-      document.getElementById(
-        "reserveGoalInput"
-      )?.value
+      document
+        .getElementById(
+          "reserveGoalInput"
+        )
+        ?.value
     );
 
   state.settings.plannedSalary =
@@ -2552,8 +2712,10 @@ function saveSettings() {
   state.settings.salarySplitEnabled =
     split;
 
-  state.settings.advancePercent =
-    percent;
+  /*
+    40%/60% são fixos.
+    Nunca recebem valor vindo do formulário.
+  */
 
   state.settings.advanceDay =
     advanceDay;
@@ -2565,36 +2727,28 @@ function saveSettings() {
     goal;
 
   /*
-     CORREÇÃO IMPORTANTE:
-
-     Ao alterar o salário, o mês atual
-     recebe o novo salário.
-
-     Meses futuros que ainda não possuem
-     salário também recebem a nova
-     configuração quando forem criados.
+    Só aplica o salário padrão
+    ao mês atual se ainda
+    não houver salário registrado.
   */
 
-  const current =
+  const currentMonth =
     getMonth();
 
   if (
-    oldSalary !== salary ||
-    Number(current.salaryReceived) === 0
+    currentMonth.salaryReceived ===
+    0
   ) {
-    current.salaryReceived =
+    currentMonth.salaryReceived =
       salary;
   }
 
   save();
 
   closeModal();
+
   render();
 }
-
-/* =====================================================
-   PAGAMENTOS
-===================================================== */
 
 function renderPayments() {
   const card =
@@ -2602,37 +2756,51 @@ function renderPayments() {
       ".payments-card"
     );
 
-  if (!card) {
-    return;
-  }
+  if (!card) return;
 
   if (
-    !state.settings.salarySplitEnabled
+    !state.settings
+      .salarySplitEnabled
   ) {
-    card.classList.add("hidden");
+    card.classList.add(
+      "hidden"
+    );
+
     return;
   }
 
-  card.classList.remove("hidden");
+  card.classList.remove(
+    "hidden"
+  );
 
   const salary =
     Number(
-      getMonth().salaryReceived
+      getMonth()
+        .salaryReceived
     ) || 0;
+
+  /*
+    DIVISÃO FIXA DO SALÁRIO
+
+    40% = adiantamento
+    60% = pagamento principal
+
+    O pagamento principal é calculado
+    como o restante do salário para
+    garantir que os dois valores nunca
+    criem nem percam dinheiro.
+  */
 
   const advance =
     Math.round(
       salary *
-      (
-        Number(
-          state.settings.advancePercent
-        ) || 0
-      ) /
+      ADVANCE_PERCENT /
       100
     );
 
   const main =
-    salary - advance;
+    salary -
+    advance;
 
   const advanceValue =
     document.getElementById(
@@ -2646,12 +2814,16 @@ function renderPayments() {
 
   if (advanceValue) {
     advanceValue.textContent =
-      money(advance);
+      money(
+        advance
+      );
   }
 
   if (mainValue) {
     mainValue.textContent =
-      money(main);
+      money(
+        main
+      );
   }
 
   const advanceDate =
@@ -2671,7 +2843,8 @@ function renderPayments() {
 
   if (mainDate) {
     mainDate.textContent =
-      state.settings.mainPaymentLabel;
+      state.settings
+        .mainPaymentLabel;
   }
 }
 
@@ -2682,10 +2855,15 @@ function renderPayments() {
 function exportBackup() {
   const backup = {
     app: "FX",
-    version: APP_VERSION,
+
+    version:
+      APP_VERSION,
+
     exportedAt:
       new Date().toISOString(),
-    data: state
+
+    data:
+      state
   };
 
   const blob =
@@ -2716,9 +2894,14 @@ function exportBackup() {
   const date =
     new Date()
       .toISOString()
-      .slice(0, 10);
+      .slice(
+        0,
+        10
+      );
 
-  link.href = url;
+  link.href =
+    url;
+
   link.download =
     `FX-backup-${date}.json`;
 
@@ -2739,9 +2922,7 @@ function importBackup(event) {
   const file =
     event.target.files?.[0];
 
-  if (!file) {
-    return;
-  }
+  if (!file) return;
 
   const reader =
     new FileReader();
@@ -2753,18 +2934,19 @@ function importBackup(event) {
           reader.result
         );
 
-      const imported =
-        parsed.data || parsed;
+      const importedData =
+        parsed.data ||
+        parsed;
 
       const normalized =
         normalizeState(
-          imported
+          importedData
         );
 
       if (
         !normalized ||
-        typeof normalized !== "object" ||
-        !normalized.months
+        !normalized.months ||
+        !normalized.categories
       ) {
         throw new Error(
           "Backup inválido."
@@ -2773,13 +2955,14 @@ function importBackup(event) {
 
       if (
         !confirm(
-          "Restaurar este backup irá substituir os dados atuais do FX. Continuar?"
+          "Restaurar este backup irá substituir os dados atuais. Continuar?"
         )
       ) {
         return;
       }
 
-      state = normalized;
+      state =
+        normalized;
 
       save();
 
@@ -2790,7 +2973,10 @@ function importBackup(event) {
       location.reload();
 
     } catch (error) {
-      console.error(error);
+      console.error(
+        "FX: erro ao importar backup:",
+        error
+      );
 
       alert(
         "Não foi possível restaurar o backup."
@@ -2798,51 +2984,297 @@ function importBackup(event) {
     }
   };
 
-  reader.readAsText(file);
+  reader.readAsText(
+    file
+  );
 
-  event.target.value = "";
+  event.target.value =
+    "";
 }
 
 /* =====================================================
-   NAVEGAÇÃO
+   CONTA / LOGIN
 ===================================================== */
 
-function monthShift(key, delta) {
-  const [
-    year,
-    month
-  ] =
-    key
-      .split("-")
-      .map(Number);
+function getAccount() {
+  try {
+    return JSON.parse(
+      localStorage.getItem(
+        ACCOUNT_KEY
+      )
+    );
+  } catch {
+    return null;
+  }
+}
 
-  return monthKey(
-    new Date(
-      year,
-      month - 1 + delta,
-      1
+function saveAccount(
+  account
+) {
+  localStorage.setItem(
+    ACCOUNT_KEY,
+    JSON.stringify(
+      account
     )
   );
 }
 
+function isLogged() {
+  return (
+    localStorage.getItem(
+      SESSION_KEY
+    ) === "true"
+  );
+}
+
+function login(
+  username,
+  password
+) {
+  vibrate(15);
+
+  const account =
+    getAccount();
+
+  if (!account) {
+    showLoginMessage(
+      "Nenhuma conta criada ainda."
+    );
+
+    return;
+  }
+
+  if (
+    username
+      .trim()
+      .toLowerCase() !==
+      account.username ||
+    password !==
+      account.password
+  ) {
+    showLoginMessage(
+      "Usuário ou senha incorretos."
+    );
+
+    return;
+  }
+
+  const remember =
+    document.getElementById(
+      "rememberUserToggle"
+    );
+
+  if (
+    remember?.checked
+  ) {
+    localStorage.setItem(
+      REMEMBER_KEY,
+      account.username
+    );
+  } else {
+    localStorage.removeItem(
+      REMEMBER_KEY
+    );
+  }
+
+  localStorage.setItem(
+    SESSION_KEY,
+    "true"
+  );
+
+  showApp();
+}
+
+function createAccount() {
+  vibrate(15);
+
+  const username =
+    document
+      .getElementById(
+        "createUsername"
+      )
+      ?.value
+      .trim()
+      .toLowerCase() ||
+    "";
+
+  const password =
+    document
+      .getElementById(
+        "createPassword"
+      )
+      ?.value ||
+    "";
+
+  const confirmation =
+    document
+      .getElementById(
+        "createPasswordConfirm"
+      )
+      ?.value ||
+    "";
+
+  if (
+    username.length < 3 ||
+    username.length > 20
+  ) {
+    showLoginMessage(
+      "Usuário de 3 a 20 caracteres."
+    );
+
+    return;
+  }
+
+  if (
+    password.length !== 8
+  ) {
+    showLoginMessage(
+      "Senha deve ter 8 caracteres."
+    );
+
+    return;
+  }
+
+  if (
+    password !==
+    confirmation
+  ) {
+    showLoginMessage(
+      "As senhas não conferem."
+    );
+
+    return;
+  }
+
+  if (
+    getAccount()
+  ) {
+    showLoginMessage(
+      "Já existe uma conta."
+    );
+
+    return;
+  }
+
+  const recoveryCode =
+    `FX-${Math.floor(
+      1000 +
+      Math.random() *
+      9000
+    )}`;
+
+  saveAccount({
+    username,
+    password,
+    recoveryCode
+  });
+
+  localStorage.setItem(
+    SESSION_KEY,
+    "true"
+  );
+
+  localStorage.setItem(
+    REMEMBER_KEY,
+    username
+  );
+
+  alert(
+    `Conta criada!\n\nCódigo de recuperação: ${recoveryCode}`
+  );
+
+  showApp();
+}
+
+function resetPassword() {
+  const code =
+    document
+      .getElementById(
+        "forgotCode"
+      )
+      ?.value
+      .trim() ||
+    "";
+
+  const newPassword =
+    document
+      .getElementById(
+        "forgotNewPassword"
+      )
+      ?.value ||
+    "";
+
+  const account =
+    getAccount();
+
+  if (
+    !account ||
+    (
+      code !== MASTER_KEY &&
+      code.toUpperCase() !==
+        String(
+          account.recoveryCode ||
+          ""
+        ).toUpperCase()
+    )
+  ) {
+    showLoginMessage(
+      "Código inválido."
+    );
+
+    return;
+  }
+
+  if (
+    newPassword.length !== 8
+  ) {
+    showLoginMessage(
+      "Senha deve ter 8 caracteres."
+    );
+
+    return;
+  }
+
+  account.password =
+    newPassword;
+
+  saveAccount(
+    account
+  );
+
+  alert(
+    "Senha redefinida com sucesso!"
+  );
+
+  showLoginForm();
+}
+
+function logout() {
+  localStorage.removeItem(
+    SESSION_KEY
+  );
+
+  location.reload();
+}
+
 /* =====================================================
-   MODAL
+   MODAIS
 ===================================================== */
 
 function closeModal() {
-  const modal =
-    document.getElementById(
+  document
+    .getElementById(
       "modal"
-    );
-
-  if (modal) {
-    modal.classList.add(
+    )
+    ?.classList.add(
       "hidden"
     );
-  }
 }
 
-function openModal(title, html) {
+function openModal(
+  title,
+  html
+) {
   const titleElement =
     document.getElementById(
       "modalTitle"
@@ -2878,75 +3310,12 @@ function openModal(title, html) {
 }
 
 /* =====================================================
-   UTILITÁRIOS
+   TELAS DE LOGIN
 ===================================================== */
 
-function escapeHtml(value) {
-  return String(
-    value ?? ""
-  ).replace(
-    /[&<>"']/g,
-    char =>
-      ({
-        "&": "&amp;",
-        "<": "&lt;",
-        ">": "&gt;",
-        '"': "&quot;",
-        "'": "&#039;"
-      }[char])
-  );
-}
-
-function createId() {
-  if (
-    typeof crypto !== "undefined" &&
-    typeof crypto.randomUUID === "function"
-  ) {
-    return crypto.randomUUID();
-  }
-
-  return (
-    Date.now().toString(36) +
-    Math.random()
-      .toString(36)
-      .substring(2, 10)
-  );
-}
-
-function formatDate(date) {
-  if (!date) {
-    return "--";
-  }
-
-  try {
-    return new Intl.DateTimeFormat(
-      "pt-BR",
-      {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric"
-      }
-    ).format(
-      new Date(date)
-    );
-  } catch {
-    return "--";
-  }
-}
-
-function formatInputMoney(cents) {
-  return (
-    (Number(cents) || 0) / 100
-  )
-    .toFixed(2)
-    .replace(".", ",");
-}
-
-/* =====================================================
-   LOGIN UI
-===================================================== */
-
-function showLoginMessage(message) {
+function showLoginMessage(
+  message
+) {
   const element =
     document.getElementById(
       "loginMessage"
@@ -2959,27 +3328,21 @@ function showLoginMessage(message) {
 }
 
 function showApp() {
-  const loginScreen =
-    document.getElementById(
+  document
+    .getElementById(
       "loginScreen"
+    )
+    ?.classList.add(
+      "hidden"
     );
 
-  const appScreen =
-    document.getElementById(
+  document
+    .getElementById(
       "appScreen"
-    );
-
-  if (loginScreen) {
-    loginScreen.classList.add(
+    )
+    ?.classList.remove(
       "hidden"
     );
-  }
-
-  if (appScreen) {
-    appScreen.classList.remove(
-      "hidden"
-    );
-  }
 
   initFinance();
 }
@@ -3069,63 +3432,103 @@ function showForgotForm() {
 }
 
 /* =====================================================
-   EVENTOS LOGIN
+   INICIALIZAÇÃO
+===================================================== */
+
+function initFinance() {
+  state =
+    normalizeState(
+      state
+    );
+
+  getMonth();
+
+  state.reserveBalance =
+    calculateReserveBalance();
+
+  save();
+
+  render();
+}
+
+/* =====================================================
+   EVENTOS
 ===================================================== */
 
 document
-  .getElementById("loginBtn")
+  .getElementById(
+    "loginBtn"
+  )
   ?.addEventListener(
     "click",
     () => {
       login(
-        document.getElementById(
-          "loginUsername"
-        )?.value || "",
+        document
+          .getElementById(
+            "loginUsername"
+          )
+          ?.value ||
+          "",
 
-        document.getElementById(
-          "loginPassword"
-        )?.value || ""
+        document
+          .getElementById(
+            "loginPassword"
+          )
+          ?.value ||
+          ""
       );
     }
   );
 
 document
-  .getElementById("createBtn")
+  .getElementById(
+    "createBtn"
+  )
   ?.addEventListener(
     "click",
     createAccount
   );
 
 document
-  .getElementById("showCreateBtn")
+  .getElementById(
+    "showCreateBtn"
+  )
   ?.addEventListener(
     "click",
     showCreateAccount
   );
 
 document
-  .getElementById("backLoginBtn")
+  .getElementById(
+    "backLoginBtn"
+  )
   ?.addEventListener(
     "click",
     showLoginForm
   );
 
 document
-  .getElementById("forgotBtn")
+  .getElementById(
+    "forgotBtn"
+  )
   ?.addEventListener(
     "click",
     showForgotForm
   );
 
 document
-  .getElementById("showForgotBtn")
+  .getElementById(
+    "showForgotBtn"
+  )
   ?.addEventListener(
     "click",
     showForgotForm
   );
 
 document
-  .getElementById("resetPasswordBtn")
+  .getElementById(
+    "resetPasswordBtn"
+  )
   ?.addEventListener(
     "click",
     resetPassword
@@ -3141,18 +3544,20 @@ document
   );
 
 document
-  .getElementById("logoutBtn")
+  .getElementById(
+    "logoutBtn"
+  )
   ?.addEventListener(
     "click",
     logout
   );
 
-/* =====================================================
-   VALORES OCULTOS
-===================================================== */
+/* Ocultar / mostrar valores */
 
 document
-  .getElementById("toggleHideBtn")
+  .getElementById(
+    "toggleHideBtn"
+  )
   ?.addEventListener(
     "click",
     () => {
@@ -3167,12 +3572,12 @@ document
     }
   );
 
-/* =====================================================
-   MESES
-===================================================== */
+/* Mês anterior */
 
 document
-  .getElementById("prevMonth")
+  .getElementById(
+    "prevMonth"
+  )
   ?.addEventListener(
     "click",
     () => {
@@ -3190,8 +3595,12 @@ document
     }
   );
 
+/* Próximo mês */
+
 document
-  .getElementById("nextMonth")
+  .getElementById(
+    "nextMonth"
+  )
   ?.addEventListener(
     "click",
     () => {
@@ -3209,80 +3618,106 @@ document
     }
   );
 
-/* =====================================================
-   BOTÕES PRINCIPAIS
-===================================================== */
+/* Gasto */
 
 document
-  .getElementById("addExpenseBtn")
+  .getElementById(
+    "addExpenseBtn"
+  )
   ?.addEventListener(
     "click",
     openExpenseModal
   );
 
+/* Extra */
+
 document
-  .getElementById("addExtraBtn")
+  .getElementById(
+    "addExtraBtn"
+  )
   ?.addEventListener(
     "click",
     openExtraModal
   );
 
+/* Categoria */
+
 document
-  .getElementById("addCategoryBtn")
+  .getElementById(
+    "addCategoryBtn"
+  )
   ?.addEventListener(
     "click",
     () =>
       openCategoryForm()
   );
 
+/* Reserva */
+
 document
-  .getElementById("reserveBtn")
+  .getElementById(
+    "reserveBtn"
+  )
   ?.addEventListener(
     "click",
     openReserveModal
   );
 
+/* Configurações */
+
 document
-  .getElementById("settingsBtn")
+  .getElementById(
+    "settingsBtn"
+  )
   ?.addEventListener(
     "click",
     openSettings
   );
 
 document
-  .getElementById("paymentsSettingsBtn")
+  .getElementById(
+    "paymentsSettingsBtn"
+  )
   ?.addEventListener(
     "click",
     openSettings
   );
 
+/* Histórico */
+
 document
-  .getElementById("historyBtn")
+  .getElementById(
+    "historyBtn"
+  )
   ?.addEventListener(
     "click",
     openHistory
   );
 
 document
-  .getElementById("historyBtn2")
+  .getElementById(
+    "historyBtn2"
+  )
   ?.addEventListener(
     "click",
     openHistory
   );
 
-/* =====================================================
-   MODAL
-===================================================== */
+/* Fechar modal */
 
 document
-  .getElementById("closeModal")
+  .getElementById(
+    "closeModal"
+  )
   ?.addEventListener(
     "click",
     closeModal
   );
 
 document
-  .getElementById("modal")
+  .getElementById(
+    "modal"
+  )
   ?.addEventListener(
     "click",
     event => {
@@ -3296,62 +3731,38 @@ document
   );
 
 /* =====================================================
-   INICIALIZAÇÃO
+   LOGIN AUTOMÁTICO / USUÁRIO LEMBRADO
 ===================================================== */
 
-function initFinance() {
-  state =
-    normalizeState(
-      state
-    );
-
-  document.body.classList.toggle(
-    "dark",
-    localStorage.getItem(
-      "fxDarkMode"
-    ) === "true"
-  );
-
-  getMonth();
-
-  syncReserve();
-
-  render();
-}
-
-/* =====================================================
-   USUÁRIO LEMBRADO
-===================================================== */
-
-const rememberedUser =
+const remembered =
   localStorage.getItem(
     REMEMBER_KEY
   );
 
-if (rememberedUser) {
-  const userInput =
+if (remembered) {
+  const username =
     document.getElementById(
       "loginUsername"
     );
 
-  const rememberToggle =
+  const toggle =
     document.getElementById(
       "rememberUserToggle"
     );
 
-  if (userInput) {
-    userInput.value =
-      rememberedUser;
+  if (username) {
+    username.value =
+      remembered;
   }
 
-  if (rememberToggle) {
-    rememberToggle.checked =
+  if (toggle) {
+    toggle.checked =
       true;
   }
 }
 
 /* =====================================================
-   INÍCIO
+   START
 ===================================================== */
 
 if (isLogged()) {
@@ -3372,4 +3783,4 @@ if (isLogged()) {
     ?.classList.add(
       "hidden"
     );
-       }
+     }
