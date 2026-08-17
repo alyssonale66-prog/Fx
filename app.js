@@ -1,7 +1,7 @@
 /* =====================================================
    PROJETO FX — SEU DINHEIRO. SUAS REGRAS.
    Arquivo: app.js
-   Versão: 1.6.0
+   Versão: 2.0.0
 ===================================================== */
 
 const KEY = "fx_finance_v1";
@@ -10,8 +10,10 @@ const SESSION_KEY = "fx_session_v1";
 const REMEMBER_KEY = "fx_remember_v1";
 const MASTER_KEY = "Fx020919";
 
+const APP_VERSION = "2.0.0";
+
 /* =====================================================
-   TÁTIL
+   VIBRAÇÃO
 ===================================================== */
 
 function vibrate(ms = 12) {
@@ -68,1965 +70,34 @@ const defaultCategories = [
    ESTADO
 ===================================================== */
 
-const state = load() || {
-  version: "1.6.0",
+let state = load() || createInitialState();
 
-  settings: {
-    plannedSalary: 0,
-    salarySplitEnabled: false,
-    advancePercent: 40,
-    advanceDay: 20,
-    mainPaymentLabel: "5º dia útil",
-    reserveGoal: 0,
-    hideBalance: false
-  },
+function createInitialState() {
+  return {
+    version: APP_VERSION,
 
-  categories: defaultCategories.map(cat => ({ ...cat })),
+    settings: {
+      plannedSalary: 0,
 
-  months: {},
+      salarySplitEnabled: false,
+      advancePercent: 40,
+      advanceDay: 20,
+      mainPaymentLabel: "5º dia útil",
 
-  reserveBalance: 0,
+      reserveGoal: 0,
+      hideBalance: false
+    },
 
-  currentMonth: monthKey(new Date())
-};
+    categories: defaultCategories.map(cat => ({
+      ...cat
+    })),
 
-/* =====================================================
-   DINHEIRO
-===================================================== */
+    months: {},
 
-function parseToCents(value) {
-  if (value === null || value === undefined || value === "") {
-    return 0;
-  }
+    currentMonth: monthKey(new Date()),
 
-  if (typeof value === "number") {
-    return Number.isFinite(value) ? Math.round(value) : 0;
-  }
-
-  let text = String(value)
-    .trim()
-    .replace(/R\$/gi, "")
-    .replace(/\s/g, "");
-
-  if (!text) return 0;
-
-  if (text.includes(",")) {
-    text = text.replace(/\./g, "").replace(",", ".");
-
-    const parts = text.split(".");
-
-    const integerPart =
-      (parts[0] || "0").replace(/\D/g, "") || "0";
-
-    const decimalPart =
-      (parts[1] || "")
-        .replace(/\D/g, "")
-        .padEnd(2, "0")
-        .slice(0, 2);
-
-    return (
-      parseInt(integerPart, 10) * 100 +
-      parseInt(decimalPart || "0", 10)
-    );
-  }
-
-  const cleaned = text.replace(/[^0-9.-]/g, "");
-
-  if (!cleaned) return 0;
-
-  const number = Number(cleaned);
-
-  if (!Number.isFinite(number)) return 0;
-
-  return Math.round(number * 100);
-}
-
-function money(cents) {
-  if (state.settings.hideBalance) {
-    return "R$ ••••";
-  }
-
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL"
-  }).format((Number(cents) || 0) / 100);
-}
-
-function numCents(id) {
-  const el = document.getElementById(id);
-
-  if (!el) return 0;
-
-  return parseToCents(el.value);
-}
-
-/* =====================================================
-   UTILITÁRIOS
-===================================================== */
-
-function createId() {
-  if (
-    typeof crypto !== "undefined" &&
-    typeof crypto.randomUUID === "function"
-  ) {
-    return crypto.randomUUID();
-  }
-
-  return (
-    Date.now().toString(36) +
-    Math.random().toString(36).substring(2, 10)
-  );
-}
-
-function escapeHtml(value) {
-  return String(value ?? "").replace(
-    /[&<>"']/g,
-    char => ({
-      "&": "&amp;",
-      "<": "&lt;",
-      ">": "&gt;",
-      '"': "&quot;",
-      "'": "&#039;"
-    })[char]
-  );
-}
-
-function formatDate(date = new Date()) {
-  return new Intl.DateTimeFormat("pt-BR").format(date);
-}
-
-/* =====================================================
-   MESES
-===================================================== */
-
-function monthKey(date) {
-  return `${date.getFullYear()}-${String(
-    date.getMonth() + 1
-  ).padStart(2, "0")}`;
-}
-
-function monthShift(key, delta) {
-  const [year, month] = key.split("-").map(Number);
-
-  return monthKey(
-    new Date(year, month - 1 + delta, 1)
-  );
-}
-
-function getMonth(key = state.currentMonth) {
-  if (!state.months[key]) {
-    state.months[key] = {
-      salaryReceived: 0,
-      expenses: [],
-      extras: [],
-      reserveContribution: 0,
-      extraReserveContribution: 0,
-      reserveWithdrawal: 0,
-      reserveTransactions: [],
-      salaryReserveReturn: 0
-    };
-
-    save();
-  }
-
-  const month = state.months[key];
-
-  if (!Array.isArray(month.expenses)) {
-    month.expenses = [];
-  }
-
-  if (!Array.isArray(month.extras)) {
-    month.extras = [];
-  }
-
-  if (!Array.isArray(month.reserveTransactions)) {
-    month.reserveTransactions = [];
-  }
-
-  month.salaryReceived =
-    parseToCents(month.salaryReceived);
-
-  month.reserveContribution =
-    parseToCents(month.reserveContribution);
-
-  month.extraReserveContribution =
-    parseToCents(month.extraReserveContribution);
-
-  month.reserveWithdrawal =
-    parseToCents(month.reserveWithdrawal);
-
-  month.salaryReserveReturn =
-    parseToCents(month.salaryReserveReturn);
-
-  return month;
-}
-
-/* =====================================================
-   ESTADO / NORMALIZAÇÃO
-===================================================== */
-
-function normalizeState(data) {
-  if (!data || typeof data !== "object") {
-    return null;
-  }
-
-  data.version = "1.6.0";
-
-  if (!data.settings || typeof data.settings !== "object") {
-    data.settings = {};
-  }
-
-  data.settings.plannedSalary =
-    parseToCents(data.settings.plannedSalary);
-
-  data.settings.salarySplitEnabled =
-    Boolean(data.settings.salarySplitEnabled);
-
-  data.settings.advancePercent =
-    Math.min(
-      100,
-      Math.max(
-        0,
-        Number(data.settings.advancePercent) || 40
-      )
-    );
-
-  data.settings.advanceDay =
-    Math.min(
-      31,
-      Math.max(
-        1,
-        Number(data.settings.advanceDay) || 20
-      )
-    );
-
-  data.settings.mainPaymentLabel =
-    String(
-      data.settings.mainPaymentLabel ||
-      "5º dia útil"
-    ).trim();
-
-  data.settings.reserveGoal =
-    parseToCents(data.settings.reserveGoal);
-
-  data.settings.hideBalance =
-    Boolean(data.settings.hideBalance);
-
-  if (!Array.isArray(data.categories)) {
-    data.categories =
-      defaultCategories.map(cat => ({ ...cat }));
-  }
-
-  data.categories = data.categories.map(category => ({
-    id: category.id || `cat_${createId()}`,
-    name: String(category.name || "Categoria").trim(),
-    icon: String(category.icon || "💰").trim(),
-    type: category.type === "reserve"
-      ? "reserve"
-      : "expense",
-    budget: parseToCents(category.budget)
-  }));
-
-  defaultCategories.forEach(defaultCategory => {
-    if (
-      !data.categories.some(
-        category => category.id === defaultCategory.id
-      )
-    ) {
-      data.categories.unshift({
-        ...defaultCategory
-      });
-    }
-  });
-
-  const reserveCategory = data.categories.find(
-    category => category.id === "reserve"
-  );
-
-  if (reserveCategory) {
-    reserveCategory.name = "Reserva";
-    reserveCategory.icon = "🏦";
-    reserveCategory.type = "reserve";
-    reserveCategory.budget = 0;
-  }
-
-  if (!data.months || typeof data.months !== "object") {
-    data.months = {};
-  }
-
-  Object.values(data.months).forEach(month => {
-    if (!Array.isArray(month.expenses)) {
-      month.expenses = [];
-    }
-
-    if (!Array.isArray(month.extras)) {
-      month.extras = [];
-    }
-
-    if (!Array.isArray(month.reserveTransactions)) {
-      month.reserveTransactions = [];
-    }
-
-    month.salaryReceived =
-      parseToCents(month.salaryReceived);
-
-    month.reserveContribution =
-      parseToCents(month.reserveContribution);
-
-    month.extraReserveContribution =
-      parseToCents(month.extraReserveContribution);
-
-    month.reserveWithdrawal =
-      parseToCents(month.reserveWithdrawal);
-
-    month.salaryReserveReturn =
-      parseToCents(month.salaryReserveReturn);
-
-    month.expenses = month.expenses.map(expense => ({
-      ...expense,
-      amount: parseToCents(expense.amount),
-      source: expense.source === "extra"
-        ? "extra"
-        : "salary",
-      note: String(expense.note || "").trim()
-    }));
-
-    month.extras = month.extras.map(extra => ({
-      ...extra,
-      amount: parseToCents(extra.amount),
-      name: String(extra.name || "Extra").trim()
-    }));
-  });
-
-  data.reserveBalance =
-    parseToCents(data.reserveBalance);
-
-  if (typeof data.currentMonth !== "string") {
-    data.currentMonth = monthKey(new Date());
-  }
-
-  return data;
-}
-
-function load() {
-  try {
-    const raw = localStorage.getItem(KEY);
-
-    if (!raw) return null;
-
-    return normalizeState(JSON.parse(raw));
-  } catch (error) {
-    console.error("Erro ao carregar FX:", error);
-    return null;
-  }
-}
-
-function save() {
-  localStorage.setItem(KEY, JSON.stringify(state));
-}
-
-/* =====================================================
-   CÁLCULOS
-===================================================== */
-
-function totalExtras(month) {
-  return month.extras.reduce(
-    (sum, extra) =>
-      sum + (Number(extra.amount) || 0),
-    0
-  );
-}
-
-function totalSpent(month) {
-  return month.expenses.reduce(
-    (sum, expense) =>
-      sum + (Number(expense.amount) || 0),
-    0
-  );
-}
-
-function totalSalarySpent(month) {
-  return month.expenses
-    .filter(expense => expense.source !== "extra")
-    .reduce(
-      (sum, expense) =>
-        sum + (Number(expense.amount) || 0),
-      0
-    );
-}
-
-function totalExtraSpent(month) {
-  return month.expenses
-    .filter(expense => expense.source === "extra")
-    .reduce(
-      (sum, expense) =>
-        sum + (Number(expense.amount) || 0),
-      0
-    );
-}
-
-function categorySpent(id, month) {
-  return month.expenses
-    .filter(expense => expense.categoryId === id)
-    .reduce(
-      (sum, expense) =>
-        sum + (Number(expense.amount) || 0),
-      0
-    );
-}
-
-/* =====================================================
-   SALDO ANTERIOR
-===================================================== */
-
-function getPreviousSalaryCarryover(currentKey) {
-  let carry = 0;
-
-  Object.keys(state.months)
-    .sort()
-    .forEach(key => {
-      if (key >= currentKey) return;
-
-      const month = state.months[key];
-
-      carry +=
-        (Number(month.salaryReceived) || 0) +
-        (Number(month.salaryReserveReturn) || 0) -
-        totalSalarySpent(month) -
-        (Number(month.reserveContribution) || 0);
-    });
-
-  return Math.max(0, carry);
-}
-
-function getPreviousExtraCarryover(currentKey) {
-  let carry = 0;
-
-  Object.keys(state.months)
-    .sort()
-    .forEach(key => {
-      if (key >= currentKey) return;
-
-      const month = state.months[key];
-
-      carry +=
-        totalExtras(month) -
-        totalExtraSpent(month) -
-        (Number(month.extraReserveContribution) || 0);
-    });
-
-  return Math.max(0, carry);
-}
-
-/* =====================================================
-   SALÁRIO DISPONÍVEL
-===================================================== */
-
-function getSalaryAvailable(month) {
-  const previous =
-    getPreviousSalaryCarryover(state.currentMonth);
-
-  const salary =
-    Number(month.salaryReceived) || 0;
-
-  const returned =
-    Number(month.salaryReserveReturn) || 0;
-
-  const spent =
-    totalSalarySpent(month);
-
-  const saved =
-    Number(month.reserveContribution) || 0;
-
-  return Math.max(
-    0,
-    previous +
-    salary +
-    returned -
-    spent -
-    saved
-  );
-}
-
-/* =====================================================
-   EXTRA DISPONÍVEL
-===================================================== */
-
-function getExtraAvailable(month) {
-  const previous =
-    getPreviousExtraCarryover(state.currentMonth);
-
-  const extras =
-    totalExtras(month);
-
-  const spent =
-    totalExtraSpent(month);
-
-  const reserve =
-    Number(month.extraReserveContribution) || 0;
-
-  return Math.max(
-    0,
-    previous +
-    extras -
-    spent -
-    reserve
-  );
-}
-
-/* =====================================================
-   RESERVA
-===================================================== */
-
-function getReserveBalance() {
-  let totalIn = 0;
-  let totalOut = 0;
-
-  Object.values(state.months).forEach(month => {
-    totalIn +=
-      Number(month.reserveContribution) || 0;
-
-    totalIn +=
-      Number(month.extraReserveContribution) || 0;
-
-    totalOut +=
-      Number(month.reserveWithdrawal) || 0;
-  });
-
-  return Math.max(
-    0,
-    totalIn - totalOut
-  );
-}
-
-function syncReserve() {
-  state.reserveBalance =
-    getReserveBalance();
-
-  save();
-}
-
-/* =====================================================
-   RENDER
-===================================================== */
-
-function render() {
-  const month = getMonth();
-
-  const title =
-    document.getElementById("monthTitle");
-
-  if (title) {
-    title.textContent =
-      new Intl.DateTimeFormat("pt-BR", {
-        month: "long",
-        year: "numeric"
-      }).format(
-        new Date(
-          `${state.currentMonth}-01T00:00:00`
-        )
-      );
-  }
-
-  const salaryAvailable =
-    getSalaryAvailable(month);
-
-  const extraAvailable =
-    getExtraAvailable(month);
-
-  const available =
-    document.getElementById("availableValue");
-
-  if (available) {
-    available.textContent =
-      money(salaryAvailable);
-  }
-
-  const salary =
-    document.getElementById("salaryValue");
-
-  if (salary) {
-    salary.textContent =
-      money(salaryAvailable);
-  }
-
-  const extra =
-    document.getElementById("extraValue");
-
-  if (extra) {
-    extra.textContent =
-      money(extraAvailable);
-  }
-
-  const spent =
-    document.getElementById("spentValue");
-
-  if (spent) {
-    spent.textContent =
-      money(totalSpent(month));
-  }
-
-  const reserve =
-    document.getElementById("reserveBig");
-
-  if (reserve) {
-    reserve.textContent =
-      money(getReserveBalance());
-  }
-
-  renderMonthlyBar(month);
-  renderCategories();
-  renderExtras();
-  renderHistoryPreview();
-  renderGoal();
-}
-
-/* =====================================================
-   BARRA
-===================================================== */
-
-function renderMonthlyBar(month) {
-  const totalIncome =
-    (Number(month.salaryReceived) || 0) +
-    totalExtras(month);
-
-  const spent =
-    totalSpent(month);
-
-  const percent =
-    totalIncome > 0
-      ? Math.min(
-          100,
-          Math.max(
-            0,
-            spent / totalIncome * 100
-          )
-        )
-      : 0;
-
-  const bar =
-    document.getElementById("monthlyBar");
-
-  if (bar) {
-    bar.style.width =
-      `${percent}%`;
-  }
-
-  const label =
-    document.getElementById(
-      "spentPercentLabel"
-    );
-
-  if (label) {
-    label.textContent =
-      `${Math.round(percent)}% gasto`;
-  }
-}
-
-/* =====================================================
-   CATEGORIAS
-===================================================== */
-
-function renderCategories() {
-  const wrap =
-    document.getElementById("categories");
-
-  if (!wrap) return;
-
-  const month = getMonth();
-
-  wrap.innerHTML = "";
-
-  state.categories.forEach(category => {
-    const element =
-      document.createElement("div");
-
-    element.className =
-      "category";
-
-    element.dataset.categoryId =
-      category.id;
-
-    const value =
-      category.type === "reserve"
-        ? (
-            (Number(month.reserveContribution) || 0) +
-            (Number(month.extraReserveContribution) || 0)
-          )
-        : categorySpent(
-            category.id,
-            month
-          );
-
-    element.innerHTML = `
-      <div class="cat-icon">
-        ${escapeHtml(category.icon)}
-      </div>
-
-      <div class="cat-main">
-        <div class="cat-name">
-          ${escapeHtml(category.name)}
-        </div>
-      </div>
-
-      <div class="cat-value">
-        <strong>${money(value)}</strong>
-      </div>
-
-      <div class="cat-actions">
-        <button
-          class="cat-edit"
-          type="button"
-          data-edit-category="${escapeHtml(category.id)}"
-        >✎</button>
-      </div>
-    `;
-
-    element.addEventListener("click", event => {
-      if (
-        event.target.closest(
-          "[data-edit-category]"
-        )
-      ) {
-        return;
-      }
-
-      openCategory(category.id);
-    });
-
-    const editButton =
-      element.querySelector(
-        "[data-edit-category]"
-      );
-
-    editButton?.addEventListener(
-      "click",
-      event => {
-        event.stopPropagation();
-        editCategory(category.id);
-      }
-    );
-
-    wrap.appendChild(element);
-  });
-}
-
-function openCategory(categoryId) {
-  vibrate(10);
-
-  const category =
-    state.categories.find(
-      cat => cat.id === categoryId
-    );
-
-  if (!category) return;
-
-  if (category.type === "reserve") {
-    openReserve();
-    return;
-  }
-
-  const month = getMonth();
-
-  const expenses =
-    month.expenses.filter(
-      expense =>
-        expense.categoryId === categoryId
-    );
-
-  let html = `
-    <div class="notice">
-      ${escapeHtml(category.icon)}
-      ${escapeHtml(category.name)}
-    </div>
-
-    <div style="height:10px"></div>
-  `;
-
-  if (!expenses.length) {
-    html += `
-      <div class="empty-history">
-        Nenhum gasto nesta categoria neste mês.
-      </div>
-    `;
-  } else {
-    html += `
-      <div class="full-history">
-        ${expenses.map(expense => `
-          <div class="history-item">
-            <div class="history-icon">
-              ${escapeHtml(category.icon)}
-            </div>
-
-            <div class="history-main">
-              <div class="history-name">
-                ${escapeHtml(
-                  expense.note ||
-                  "Gasto"
-                )}
-              </div>
-
-              <div class="history-date">
-                ${escapeHtml(
-                  expense.date ||
-                  ""
-                )}
-              </div>
-            </div>
-
-            <div class="history-value expense">
-              ${money(expense.amount)}
-            </div>
-          </div>
-        `).join("")}
-      </div>
-    `;
-  }
-
-  html += `
-    <div style="height:12px"></div>
-
-    <button
-      class="form button"
-      style="width:100%; padding:13px; border-radius:12px; background:var(--accent-gradient); color:#000; font-weight:900;"
-      onclick="closeModal(); openExpenseModal('${category.id}')"
-    >
-      + Adicionar gasto
-    </button>
-  `;
-
-  openModal(
-    category.name,
-    html
-  );
-}
-
-/* =====================================================
-   EXTRAS
-===================================================== */
-
-function renderExtras() {
-  const wrap =
-    document.getElementById("extrasList");
-
-  if (!wrap) return;
-
-  const month = getMonth();
-
-  wrap.innerHTML = "";
-
-  if (!month.extras.length) {
-    wrap.innerHTML = `
-      <div class="empty-history">
-        Nenhuma entrada extra neste mês.
-      </div>
-    `;
-
-    return;
-  }
-
-  month.extras.forEach(extra => {
-    const element =
-      document.createElement("div");
-
-    element.className =
-      "extra-item";
-
-    element.innerHTML = `
-      <div class="extra-icon">💰</div>
-
-      <div class="extra-main">
-        <div class="extra-name">
-          ${escapeHtml(extra.name)}
-        </div>
-
-        <div class="extra-date">
-          ${escapeHtml(extra.date || "")}
-        </div>
-      </div>
-
-      <div class="extra-value">
-        + ${money(extra.amount)}
-      </div>
-
-      <button
-        class="extra-delete"
-        type="button"
-        data-extra-delete="${escapeHtml(extra.id)}"
-      >
-        ×
-      </button>
-    `;
-
-    element
-      .querySelector("[data-extra-delete]")
-      ?.addEventListener(
-        "click",
-        () => deleteExtra(extra.id)
-      );
-
-    wrap.appendChild(element);
-  });
-}
-
-function openExtraModal() {
-  openModal(
-    "Adicionar entrada extra",
-    `
-      <form class="form" id="extraForm">
-
-        <label>Nome</label>
-        <input
-          id="extraName"
-          placeholder="Ex: Freelance"
-          required
-        >
-
-        <label>Valor</label>
-        <input
-          id="extraAmount"
-          inputmode="decimal"
-          placeholder="R$ 0,00"
-          required
-        >
-
-        <button type="submit">
-          Adicionar extra
-        </button>
-
-      </form>
-    `
-  );
-
-  document
-    .getElementById("extraForm")
-    ?.addEventListener(
-      "submit",
-      event => {
-        event.preventDefault();
-
-        const name =
-          document.getElementById(
-            "extraName"
-          )?.value.trim();
-
-        const amount =
-          numCents("extraAmount");
-
-        if (!name || amount <= 0) {
-          alert(
-            "Informe o nome e um valor válido."
-          );
-          return;
-        }
-
-        const month = getMonth();
-
-        month.extras.push({
-          id: createId(),
-          name,
-          amount,
-          date: formatDate()
-        });
-
-        save();
-        closeModal();
-        render();
-        vibrate(15);
-      }
-    );
-}
-
-function deleteExtra(id) {
-  const month = getMonth();
-
-  const index =
-    month.extras.findIndex(
-      extra => extra.id === id
-    );
-
-  if (index === -1) return;
-
-  if (
-    !confirm(
-      "Excluir esta entrada extra?"
-    )
-  ) {
-    return;
-  }
-
-  month.extras.splice(index, 1);
-
-  save();
-  render();
-}
-
-/* =====================================================
-   GASTOS
-===================================================== */
-
-function openExpenseModal(
-  preselectedCategoryId = ""
-) {
-  const categoryOptions =
-    state.categories
-      .filter(
-        category =>
-          category.type !== "reserve"
-      )
-      .map(
-        category => `
-          <option
-            value="${escapeHtml(category.id)}"
-            ${category.id === preselectedCategoryId ? "selected" : ""}
-          >
-            ${escapeHtml(category.icon)}
-            ${escapeHtml(category.name)}
-          </option>
-        `
-      )
-      .join("");
-
-  openModal(
-    "Adicionar gasto",
-    `
-      <form class="form" id="expenseForm">
-
-        <label>Categoria</label>
-
-        <select id="expenseCategory">
-          ${categoryOptions}
-        </select>
-
-        <label>Valor</label>
-
-        <input
-          id="expenseAmount"
-          inputmode="decimal"
-          placeholder="R$ 0,00"
-          required
-        >
-
-        <label>Pago com</label>
-
-        <select id="expenseSource">
-          <option value="salary">
-            Salário
-          </option>
-          <option value="extra">
-            Extra
-          </option>
-        </select>
-
-        <label>Descrição</label>
-
-        <input
-          id="expenseNote"
-          placeholder="Ex: Conta de luz"
-        >
-
-        <button type="submit">
-          Adicionar gasto
-        </button>
-
-      </form>
-    `
-  );
-
-  document
-    .getElementById("expenseForm")
-    ?.addEventListener(
-      "submit",
-      event => {
-        event.preventDefault();
-
-        addExpense();
-      }
-    );
-}
-
-function addExpense() {
-  const categoryId =
-    document.getElementById(
-      "expenseCategory"
-    )?.value;
-
-  const amount =
-    numCents("expenseAmount");
-
-  const source =
-    document.getElementById(
-      "expenseSource"
-    )?.value === "extra"
-      ? "extra"
-      : "salary";
-
-  const note =
-    document.getElementById(
-      "expenseNote"
-    )?.value.trim() || "";
-
-  if (!categoryId) {
-    alert(
-      "Escolha uma categoria."
-    );
-    return;
-  }
-
-  if (amount <= 0) {
-    alert(
-      "Informe um valor válido."
-    );
-    return;
-  }
-
-  const month = getMonth();
-
-  month.expenses.push({
-    id: createId(),
-    categoryId,
-    amount,
-    source,
-    note,
-    date: formatDate()
-  });
-
-  save();
-  closeModal();
-  render();
-  vibrate(15);
-}
-
-/* =====================================================
-   EDITAR CATEGORIA
-===================================================== */
-
-function editCategory(id) {
-  const category =
-    state.categories.find(
-      cat => cat.id === id
-    );
-
-  if (!category) return;
-
-  if (category.id === "reserve") {
-    openReserve();
-    return;
-  }
-
-  openModal(
-    "Editar categoria",
-    `
-      <form class="form" id="categoryEditForm">
-
-        <label>Nome</label>
-
-        <input
-          id="editCategoryName"
-          value="${escapeHtml(category.name)}"
-          required
-        >
-
-        <label>Ícone</label>
-
-        <input
-          id="editCategoryIcon"
-          value="${escapeHtml(category.icon)}"
-          maxlength="4"
-        >
-
-        <button type="submit">
-          Salvar
-        </button>
-
-        <button
-          type="button"
-          class="secondary"
-          id="deleteCategoryButton"
-        >
-          Excluir categoria
-        </button>
-
-      </form>
-    `
-  );
-
-  document
-    .getElementById("categoryEditForm")
-    ?.addEventListener(
-      "submit",
-      event => {
-        event.preventDefault();
-
-        category.name =
-          document
-            .getElementById(
-              "editCategoryName"
-            )
-            ?.value.trim() ||
-          category.name;
-
-        category.icon =
-          document
-            .getElementById(
-              "editCategoryIcon"
-            )
-            ?.value.trim() ||
-          category.icon;
-
-        save();
-        closeModal();
-        render();
-      }
-    );
-
-  document
-    .getElementById(
-      "deleteCategoryButton"
-    )
-    ?.addEventListener(
-      "click",
-      () => deleteCategory(id)
-    );
-}
-
-function deleteCategory(id) {
-  if (
-    defaultCategories.some(
-      category => category.id === id
-    )
-  ) {
-    alert(
-      "As categorias padrão não podem ser excluídas."
-    );
-    return;
-  }
-
-  if (
-    !confirm(
-      "Excluir esta categoria? Os gastos existentes serão mantidos no histórico."
-    )
-  ) {
-    return;
-  }
-
-  state.categories =
-    state.categories.filter(
-      category => category.id !== id
-    );
-
-  save();
-  closeModal();
-  render();
-}
-
-function openAddCategoryModal() {
-  openModal(
-    "Nova categoria",
-    `
-      <form class="form" id="newCategoryForm">
-
-        <label>Nome</label>
-
-        <input
-          id="newCategoryName"
-          placeholder="Ex: Alimentação"
-          required
-        >
-
-        <label>Ícone</label>
-
-        <input
-          id="newCategoryIcon"
-          placeholder="🍔"
-          maxlength="4"
-        >
-
-        <button type="submit">
-          Criar categoria
-        </button>
-
-      </form>
-    `
-  );
-
-  document
-    .getElementById("newCategoryForm")
-    ?.addEventListener(
-      "submit",
-      event => {
-        event.preventDefault();
-
-        const name =
-          document
-            .getElementById(
-              "newCategoryName"
-            )
-            ?.value.trim();
-
-        const icon =
-          document
-            .getElementById(
-              "newCategoryIcon"
-            )
-            ?.value.trim() ||
-          "💰";
-
-        if (!name) return;
-
-        state.categories.push({
-          id: `cat_${createId()}`,
-          name,
-          icon,
-          type: "expense",
-          budget: 0
-        });
-
-        save();
-        closeModal();
-        render();
-        vibrate(15);
-      }
-    );
-}
-
-/* =====================================================
-   RESERVA
-===================================================== */
-
-function openReserve() {
-  const month = getMonth();
-
-  openModal(
-    "Reserva",
-    `
-      <div class="notice">
-        Saldo acumulado:
-        <strong>
-          ${money(getReserveBalance())}
-        </strong>
-      </div>
-
-      <div style="height:12px"></div>
-
-      <form class="form" id="reserveForm">
-
-        <label>Valor para reservar</label>
-
-        <input
-          id="reserveAmount"
-          inputmode="decimal"
-          placeholder="R$ 0,00"
-        >
-
-        <label>Origem</label>
-
-        <select id="reserveSource">
-          <option value="salary">
-            Salário
-          </option>
-          <option value="extra">
-            Extra
-          </option>
-        </select>
-
-        <button type="submit">
-          Adicionar à reserva
-        </button>
-
-        <button
-          type="button"
-          class="danger"
-          id="withdrawReserveButton"
-        >
-          Retirar da reserva
-        </button>
-
-      </form>
-    `
-  );
-
-  document
-    .getElementById("reserveForm")
-    ?.addEventListener(
-      "submit",
-      event => {
-        event.preventDefault();
-
-        const amount =
-          numCents("reserveAmount");
-
-        if (amount <= 0) {
-          alert(
-            "Informe um valor válido."
-          );
-          return;
-        }
-
-        const source =
-          document.getElementById(
-            "reserveSource"
-          )?.value;
-
-        if (source === "extra") {
-          month.extraReserveContribution +=
-            amount;
-        } else {
-          month.reserveContribution +=
-            amount;
-        }
-
-        month.reserveTransactions.push({
-          id: createId(),
-          type: "in",
-          amount,
-          note:
-            source === "extra"
-              ? "Reserva de extra"
-              : "Reserva de salário",
-          date: formatDate()
-        });
-
-        save();
-        closeModal();
-        render();
-      }
-    );
-
-  document
-    .getElementById(
-      "withdrawReserveButton"
-    )
-    ?.addEventListener(
-      "click",
-      () => {
-        const amount =
-          numCents("reserveAmount");
-
-        if (
-          amount <= 0 ||
-          amount > getReserveBalance()
-        ) {
-          alert(
-            "Valor inválido ou maior que a reserva."
-          );
-          return;
-        }
-
-        month.reserveWithdrawal +=
-          amount;
-
-        month.reserveTransactions.push({
-          id: createId(),
-          type: "out",
-          amount,
-          note: "Retirada da reserva",
-          date: formatDate()
-        });
-
-        save();
-        closeModal();
-        render();
-      }
-    );
-}
-
-/* =====================================================
-   HISTÓRICO
-===================================================== */
-
-function getHistory(month) {
-  const history = [];
-
-  month.expenses.forEach(expense => {
-    const category =
-      state.categories.find(
-        cat =>
-          cat.id === expense.categoryId
-      );
-
-    history.push({
-      date: expense.date || "",
-      icon: category?.icon || "💸",
-      name:
-        expense.note ||
-        category?.name ||
-        "Gasto",
-      amount: -Math.abs(
-        expense.amount
-      ),
-      type: "expense"
-    });
-  });
-
-  month.extras.forEach(extra => {
-    history.push({
-      date: extra.date || "",
-      icon: "💰",
-      name: extra.name,
-      amount: Math.abs(
-        extra.amount
-      ),
-      type: "extra-in"
-    });
-  });
-
-  month.reserveTransactions.forEach(tx => {
-    history.push({
-      date: tx.date || "",
-      icon: "🏦",
-      name: tx.note || "Reserva",
-      amount:
-        tx.type === "out"
-          ? -Math.abs(tx.amount)
-          : Math.abs(tx.amount),
-      type:
-        tx.type === "out"
-          ? "reserve-out"
-          : "reserve-in"
-    });
-  });
-
-  return history;
-}
-
-function renderHistoryPreview() {
-  const wrap =
-    document.getElementById(
-      "historyPreview"
-    );
-
-  if (!wrap) return;
-
-  const history =
-    getHistory(getMonth());
-
-  wrap.innerHTML = "";
-
-  if (!history.length) {
-    wrap.innerHTML = `
-      <div class="empty-history">
-        Nenhuma movimentação neste mês.
-      </div>
-    `;
-
-    return;
-  }
-
-  history
-    .slice(-5)
-    .reverse()
-    .forEach(item => {
-      const element =
-        document.createElement("div");
-
-      element.className =
-        "history-item";
-
-      const amountClass =
-        item.type;
-
-      element.innerHTML = `
-        <div class="history-icon">
-          ${escapeHtml(item.icon)}
-        </div>
-
-        <div class="history-main">
-          <div class="history-name">
-            ${escapeHtml(item.name)}
-          </div>
-
-          <div class="history-date">
-            ${escapeHtml(item.date)}
-          </div>
-        </div>
-
-        <div class="history-value ${amountClass}">
-          ${item.amount < 0 ? "-" : "+"}
-          ${money(Math.abs(item.amount))}
-        </div>
-      `;
-
-      wrap.appendChild(element);
-    });
-}
-
-function openHistory() {
-  const month = getMonth();
-
-  const history =
-    getHistory(month);
-
-  const total =
-    totalSpent(month);
-
-  const html = `
-    <div class="history-total">
-      Gastos do mês
-      <strong>${money(total)}</strong>
-    </div>
-
-    <div class="full-history">
-      ${
-        history.length
-          ? history
-              .slice()
-              .reverse()
-              .map(item => `
-                <div class="history-item">
-                  <div class="history-icon">
-                    ${escapeHtml(item.icon)}
-                  </div>
-
-                  <div class="history-main">
-                    <div class="history-name">
-                      ${escapeHtml(item.name)}
-                    </div>
-
-                    <div class="history-date">
-                      ${escapeHtml(item.date)}
-                    </div>
-                  </div>
-
-                  <div class="history-value ${item.type}">
-                    ${item.amount < 0 ? "-" : "+"}
-                    ${money(Math.abs(item.amount))}
-                  </div>
-                </div>
-              `)
-              .join("")
-          : `
-              <div class="empty-history">
-                Nenhuma movimentação.
-              </div>
-            `
-      }
-    </div>
-  `;
-
-  openModal(
-    "Extrato",
-    html
-  );
-}
-
-/* =====================================================
-   CONFIGURAÇÕES
-===================================================== */
-
-function openSettings() {
-  const settings =
-    state.settings;
-
-  openModal(
-    "Configurações",
-    `
-      <form class="form" id="settingsForm">
-
-        <label>Salário planejado</label>
-
-        <input
-          id="plannedSalary"
-          inputmode="decimal"
-          value="${moneyInput(settings.plannedSalary)}"
-        >
-
-        <label>Meta da reserva</label>
-
-        <input
-          id="reserveGoal"
-          inputmode="decimal"
-          value="${moneyInput(settings.reserveGoal)}"
-        >
-
-        <div class="notice">
-          O salário informado aqui será usado
-          como valor inicial para novos meses.
-        </div>
-
-        <button type="submit">
-          Salvar configurações
-        </button>
-
-        <button
-          type="button"
-          class="secondary"
-          id="backupButton"
-        >
-          Fazer backup
-        </button>
-
-        <button
-          type="button"
-          class="secondary"
-          id="restoreButton"
-        >
-          Restaurar backup
-        </button>
-
-        <input
-          id="restoreFile"
-          type="file"
-          accept=".json,application/json"
-          style="display:none"
-        >
-
-      </form>
-    `
-  );
-
-  document
-    .getElementById("settingsForm")
-    ?.addEventListener(
-      "submit",
-      event => {
-        event.preventDefault();
-
-        settings.plannedSalary =
-          numCents("plannedSalary");
-
-        settings.reserveGoal =
-          numCents("reserveGoal");
-
-        save();
-
-        /*
-          IMPORTANTE:
-          Se o mês ainda não recebeu salário,
-          atualizamos o mês atual.
-
-          Isso resolve o problema de colocar
-          salário e a tela não mudar.
-        */
-
-        const month = getMonth();
-
-        if (
-          month.salaryReceived === 0 &&
-          settings.plannedSalary > 0
-        ) {
-          month.salaryReceived =
-            settings.plannedSalary;
-        }
-
-        save();
-        closeModal();
-        render();
-        vibrate(15);
-      }
-    );
-
-  document
-    .getElementById("backupButton")
-    ?.addEventListener(
-      "click",
-      backupData
-    );
-
-  document
-    .getElementById("restoreButton")
-    ?.addEventListener(
-      "click",
-      () =>
-        document
-          .getElementById(
-            "restoreFile"
-          )
-          ?.click()
-    );
-
-  document
-    .getElementById("restoreFile")
-    ?.addEventListener(
-      "change",
-      restoreData
-    );
-}
-
-function moneyInput(cents) {
-  return ((Number(cents) || 0) / 100)
-    .toFixed(2)
-    .replace(".", ",");
-}
-
-/* =====================================================
-   BACKUP
-===================================================== */
-
-function backupData() {
-  const data = {
-    fxBackup: true,
-    version: "1.6.0",
-    exportedAt: new Date().toISOString(),
-    state
+    reserveBalance: 0
   };
-
-  const blob =
-    new Blob(
-      [JSON.stringify(data, null, 2)],
-      {
-        type: "application/json"
-      }
-    );
-
-  const url =
-    URL.createObjectURL(blob);
-
-  const link =
-    document.createElement("a");
-
-  link.href = url;
-
-  link.download =
-    `FX-backup-${new Date()
-      .toISOString()
-      .slice(0, 10)}.json`;
-
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-
-  URL.revokeObjectURL(url);
-
-  vibrate(20);
-}
-
-function restoreData(event) {
-  const file =
-    event.target.files?.[0];
-
-  if (!file) return;
-
-  const reader =
-    new FileReader();
-
-  reader.onload = () => {
-    try {
-      const imported =
-        JSON.parse(
-          reader.result
-        );
-
-      const data =
-        imported.state ||
-        imported;
-
-      const normalized =
-        normalizeState(data);
-
-      if (!normalized) {
-        throw new Error(
-          "Backup inválido."
-        );
-      }
-
-      if (
-        !confirm(
-          "Restaurar este backup substituirá os dados atuais do FX. Continuar?"
-        )
-      ) {
-        return;
-      }
-
-      localStorage.setItem(
-        KEY,
-        JSON.stringify(normalized)
-      );
-
-      location.reload();
-    } catch (error) {
-      console.error(error);
-
-      alert(
-        "Não foi possível restaurar este backup."
-      );
-    }
-  };
-
-  reader.readAsText(file);
-}
-
-/* =====================================================
-   META
-===================================================== */
-
-function renderGoal() {
-  const box =
-    document.getElementById(
-      "goalBox"
-    );
-
-  if (!box) return;
-
-  const goal =
-    Number(
-      state.settings.reserveGoal
-    ) || 0;
-
-  const current =
-    getReserveBalance();
-
-  if (goal <= 0) {
-    box.textContent =
-      "Defina uma meta";
-    return;
-  }
-
-  const percent =
-    Math.min(
-      100,
-      current / goal * 100
-    );
-
-  box.innerHTML = `
-    ${money(current)} / ${money(goal)}
-    <div class="progress">
-      <div style="width:${percent}%"></div>
-    </div>
-  `;
-}
-
-/* =====================================================
-   MODAL
-===================================================== */
-
-function closeModal() {
-  document
-    .getElementById("modal")
-    ?.classList.add("hidden");
-}
-
-function openModal(title, html) {
-  const modal =
-    document.getElementById("modal");
-
-  const titleElement =
-    document.getElementById(
-      "modalTitle"
-    );
-
-  const bodyElement =
-    document.getElementById(
-      "modalBody"
-    );
-
-  if (
-    !modal ||
-    !titleElement ||
-    !bodyElement
-  ) {
-    return;
-  }
-
-  titleElement.textContent =
-    title;
-
-  bodyElement.innerHTML =
-    html;
-
-  modal.classList.remove(
-    "hidden"
-  );
 }
 
 /* =====================================================
@@ -2036,9 +107,7 @@ function openModal(title, html) {
 function getAccount() {
   try {
     return JSON.parse(
-      localStorage.getItem(
-        ACCOUNT_KEY
-      )
+      localStorage.getItem(ACCOUNT_KEY)
     );
   } catch {
     return null;
@@ -2053,62 +122,41 @@ function saveAccount(account) {
 }
 
 function isLogged() {
-  return (
-    localStorage.getItem(
-      SESSION_KEY
-    ) === "true"
-  );
+  return localStorage.getItem(SESSION_KEY) === "true";
 }
 
-function showLoginMessage(message) {
-  const element =
-    document.getElementById(
-      "loginMessage"
-    );
-
-  if (element) {
-    element.textContent =
-      message;
-  }
-}
+/* =====================================================
+   LOGIN
+===================================================== */
 
 function login(username, password) {
   vibrate(15);
 
-  const account =
-    getAccount();
+  const account = getAccount();
 
   if (!account) {
-    showLoginMessage(
-      "Nenhuma conta criada ainda."
-    );
+    showLoginMessage("Nenhuma conta criada ainda.");
     return;
   }
 
-  const cleanUser =
-    String(username || "")
-      .trim()
-      .toLowerCase();
+  const cleanUser = String(username || "")
+    .trim()
+    .toLowerCase();
 
-  const savedUser =
-    String(account.username || "")
-      .trim()
-      .toLowerCase();
+  const savedUser = String(account.username || "")
+    .trim()
+    .toLowerCase();
 
   if (
     cleanUser !== savedUser ||
     password !== account.password
   ) {
-    showLoginMessage(
-      "Usuário ou senha incorretos."
-    );
+    showLoginMessage("Usuário ou senha incorretos.");
     return;
   }
 
   const remember =
-    document.getElementById(
-      "rememberUserToggle"
-    )?.checked;
+    document.getElementById("rememberUserToggle")?.checked;
 
   if (remember) {
     localStorage.setItem(
@@ -2116,15 +164,10 @@ function login(username, password) {
       account.username
     );
   } else {
-    localStorage.removeItem(
-      REMEMBER_KEY
-    );
+    localStorage.removeItem(REMEMBER_KEY);
   }
 
-  localStorage.setItem(
-    SESSION_KEY,
-    "true"
-  );
+  localStorage.setItem(SESSION_KEY, "true");
 
   showApp();
 }
@@ -2133,29 +176,17 @@ function createAccount() {
   vibrate(15);
 
   const username =
-    (
-      document.getElementById(
-        "createUsername"
-      )?.value ||
-      ""
-    )
+    document.getElementById("createUsername")?.value
       .trim()
-      .toLowerCase();
+      .toLowerCase() || "";
 
   const password =
-    document.getElementById(
-      "createPassword"
-    )?.value || "";
+    document.getElementById("createPassword")?.value || "";
 
   const confirmation =
-    document.getElementById(
-      "createPasswordConfirm"
-    )?.value || "";
+    document.getElementById("createPasswordConfirm")?.value || "";
 
-  if (
-    username.length < 3 ||
-    username.length > 20
-  ) {
+  if (username.length < 3 || username.length > 20) {
     showLoginMessage(
       "Usuário de 3 a 20 caracteres."
     );
@@ -2184,10 +215,7 @@ function createAccount() {
   }
 
   const recoveryCode =
-    `FX-${Math.floor(
-      1000 +
-      Math.random() * 9000
-    )}`;
+    `FX-${Math.floor(1000 + Math.random() * 9000)}`;
 
   saveAccount({
     username,
@@ -2195,15 +223,8 @@ function createAccount() {
     recoveryCode
   });
 
-  localStorage.setItem(
-    SESSION_KEY,
-    "true"
-  );
-
-  localStorage.setItem(
-    REMEMBER_KEY,
-    username
-  );
+  localStorage.setItem(SESSION_KEY, "true");
+  localStorage.setItem(REMEMBER_KEY, username);
 
   alert(
     `Conta criada!\n\nCódigo de recuperação: ${recoveryCode}`
@@ -2214,31 +235,23 @@ function createAccount() {
 
 function resetPassword() {
   const code =
-    document.getElementById(
-      "forgotCode"
-    )?.value.trim() || "";
+    document.getElementById("forgotCode")?.value
+      .trim() || "";
 
   const newPass =
-    document.getElementById(
-      "forgotNewPassword"
-    )?.value || "";
+    document.getElementById("forgotNewPassword")?.value || "";
 
-  const account =
-    getAccount();
+  const account = getAccount();
 
   if (
     !account ||
     (
       code !== MASTER_KEY &&
       code.toUpperCase() !==
-        String(
-          account.recoveryCode || ""
-        ).toUpperCase()
+        String(account.recoveryCode || "").toUpperCase()
     )
   ) {
-    showLoginMessage(
-      "Código inválido."
-    );
+    showLoginMessage("Código inválido.");
     return;
   }
 
@@ -2249,92 +262,2814 @@ function resetPassword() {
     return;
   }
 
-  account.password =
-    newPass;
+  account.password = newPass;
 
   saveAccount(account);
 
-  alert(
-    "Senha redefinida!"
-  );
+  alert("Senha redefinida!");
 
   showLoginForm();
 }
 
 function logout() {
-  localStorage.removeItem(
-    SESSION_KEY
-  );
-
+  localStorage.removeItem(SESSION_KEY);
   location.reload();
 }
 
 /* =====================================================
-   TELAS
+   NORMALIZAÇÃO
 ===================================================== */
 
-function showApp() {
-  document
-    .getElementById("loginScreen")
-    ?.classList.add("hidden");
+function normalizeState(data) {
+  if (!data || typeof data !== "object") {
+    return createInitialState();
+  }
+
+  data.version = APP_VERSION;
+
+  /* SETTINGS */
+
+  if (
+    !data.settings ||
+    typeof data.settings !== "object"
+  ) {
+    data.settings = {};
+  }
+
+  data.settings.plannedSalary =
+    parseToCents(
+      data.settings.plannedSalary
+    );
+
+  data.settings.salarySplitEnabled =
+    Boolean(
+      data.settings.salarySplitEnabled
+    );
+
+  data.settings.advancePercent =
+    Math.min(
+      100,
+      Math.max(
+        0,
+        Number(
+          data.settings.advancePercent
+        ) || 40
+      )
+    );
+
+  data.settings.advanceDay =
+    Math.min(
+      31,
+      Math.max(
+        1,
+        Number(
+          data.settings.advanceDay
+        ) || 20
+      )
+    );
+
+  data.settings.mainPaymentLabel =
+    String(
+      data.settings.mainPaymentLabel ||
+      "5º dia útil"
+    ).trim();
+
+  data.settings.reserveGoal =
+    parseToCents(
+      data.settings.reserveGoal
+    );
+
+  data.settings.hideBalance =
+    Boolean(
+      data.settings.hideBalance
+    );
+
+  /* CATEGORIAS */
+
+  if (!Array.isArray(data.categories)) {
+    data.categories =
+      defaultCategories.map(cat => ({
+        ...cat
+      }));
+  }
+
+  data.categories =
+    data.categories.map(category => ({
+      id:
+        category.id ||
+        "cat_" + createId(),
+
+      name:
+        String(
+          category.name || "Categoria"
+        ).trim(),
+
+      icon:
+        String(
+          category.icon || "💰"
+        ).trim(),
+
+      type:
+        category.type === "reserve"
+          ? "reserve"
+          : "expense",
+
+      budget:
+        parseToCents(category.budget)
+    }));
+
+  defaultCategories.forEach(defaultCategory => {
+    const exists =
+      data.categories.some(
+        category =>
+          category.id === defaultCategory.id
+      );
+
+    if (!exists) {
+      data.categories.unshift({
+        ...defaultCategory
+      });
+    }
+  });
+
+  const reserveCategory =
+    data.categories.find(
+      category => category.id === "reserve"
+    );
+
+  if (reserveCategory) {
+    reserveCategory.name = "Reserva";
+    reserveCategory.icon = "🏦";
+    reserveCategory.type = "reserve";
+    reserveCategory.budget = 0;
+  }
+
+  data.categories.forEach(category => {
+    if (
+      category.id !== "reserve" &&
+      category.type === "reserve"
+    ) {
+      category.type = "expense";
+    }
+  });
+
+  /* MESES */
+
+  if (
+    !data.months ||
+    typeof data.months !== "object"
+  ) {
+    data.months = {};
+  }
+
+  Object.values(data.months).forEach(month => {
+    normalizeMonth(month);
+  });
+
+  data.reserveBalance =
+    parseToCents(data.reserveBalance);
+
+  if (
+    typeof data.currentMonth !== "string"
+  ) {
+    data.currentMonth =
+      monthKey(new Date());
+  }
+
+  return data;
+}
+
+function normalizeMonth(month) {
+  if (!month || typeof month !== "object") {
+    return;
+  }
+
+  if (!Array.isArray(month.expenses)) {
+    month.expenses = [];
+  }
+
+  if (!Array.isArray(month.extras)) {
+    month.extras = [];
+  }
+
+  if (!Array.isArray(month.reserveTransactions)) {
+    month.reserveTransactions = [];
+  }
+
+  month.salaryReceived =
+    parseToCents(month.salaryReceived);
+
+  month.salaryReserveReturn =
+    parseToCents(
+      month.salaryReserveReturn
+    );
+
+  month.reserveContribution =
+    parseToCents(
+      month.reserveContribution
+    );
+
+  month.extraReserveContribution =
+    parseToCents(
+      month.extraReserveContribution
+    );
+
+  month.reserveWithdrawal =
+    parseToCents(
+      month.reserveWithdrawal
+    );
+
+  month.expenses =
+    month.expenses.map(expense => ({
+      ...expense,
+
+      id:
+        expense.id ||
+        createId(),
+
+      amount:
+        parseToCents(expense.amount),
+
+      categoryId:
+        expense.categoryId || "fixed",
+
+      source:
+        expense.source === "extra"
+          ? "extra"
+          : "salary",
+
+      note:
+        String(
+          expense.note || ""
+        ).trim(),
+
+      date:
+        expense.date ||
+        new Date().toISOString()
+    }));
+
+  month.extras =
+    month.extras.map(extra => ({
+      ...extra,
+
+      id:
+        extra.id ||
+        createId(),
+
+      amount:
+        parseToCents(extra.amount),
+
+      name:
+        String(
+          extra.name || "Entrada extra"
+        ).trim(),
+
+      date:
+        extra.date ||
+        new Date().toISOString()
+    }));
+
+  month.reserveTransactions =
+    month.reserveTransactions.map(tx => ({
+      ...tx,
+
+      id:
+        tx.id ||
+        createId(),
+
+      amount:
+        parseToCents(tx.amount),
+
+      type:
+        tx.type === "out"
+          ? "out"
+          : "in",
+
+      source:
+        tx.source === "extra"
+          ? "extra"
+          : "salary",
+
+      note:
+        String(
+          tx.note || ""
+        ).trim(),
+
+      date:
+        tx.date ||
+        new Date().toISOString()
+    }));
+}
+
+function load() {
+  try {
+    const raw =
+      localStorage.getItem(KEY);
+
+    if (!raw) {
+      return null;
+    }
+
+    return normalizeState(
+      JSON.parse(raw)
+    );
+  } catch {
+    return null;
+  }
+}
+
+function save() {
+  localStorage.setItem(
+    KEY,
+    JSON.stringify(state)
+  );
+}
+
+/* =====================================================
+   DINHEIRO
+===================================================== */
+
+function money(cents) {
+  if (state.settings.hideBalance) {
+    return "R$ ••••";
+  }
+
+  return new Intl.NumberFormat(
+    "pt-BR",
+    {
+      style: "currency",
+      currency: "BRL"
+    }
+  ).format(
+    (Number(cents) || 0) / 100
+  );
+}
+
+function parseToCents(value) {
+  if (
+    value === null ||
+    value === undefined ||
+    value === ""
+  ) {
+    return 0;
+  }
+
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) {
+      return 0;
+    }
+
+    return Math.round(value);
+  }
+
+  let text =
+    String(value)
+      .trim()
+      .replace(/R\$/gi, "")
+      .replace(/\s/g, "");
+
+  if (!text) {
+    return 0;
+  }
+
+  if (text.includes(",")) {
+    text =
+      text
+        .replace(/\./g, "")
+        .replace(",", ".");
+
+    const parts =
+      text.split(".");
+
+    const integerPart =
+      parts[0] || "0";
+
+    const decimalPart =
+      parts[1] || "";
+
+    const integer =
+      parseInt(
+        integerPart.replace(/\D/g, "") || "0",
+        10
+      );
+
+    const decimal =
+      decimalPart
+        .replace(/\D/g, "")
+        .padEnd(2, "0")
+        .slice(0, 2);
+
+    return (
+      integer * 100 +
+      parseInt(decimal || "0", 10)
+    );
+  }
+
+  const cleaned =
+    text.replace(/[^0-9.-]/g, "");
+
+  if (!cleaned) {
+    return 0;
+  }
+
+  const parsed = Number(cleaned);
+
+  if (!Number.isFinite(parsed)) {
+    return 0;
+  }
+
+  return Math.round(parsed * 100);
+}
+
+function numCents(id) {
+  const element =
+    document.getElementById(id);
+
+  if (!element) {
+    return 0;
+  }
+
+  return parseToCents(
+    element.value
+  );
+}
+
+/* =====================================================
+   MESES
+===================================================== */
+
+function monthKey(date) {
+  return `${date.getFullYear()}-${String(
+    date.getMonth() + 1
+  ).padStart(2, "0")}`;
+}
+
+function getMonth(key = state.currentMonth) {
+  if (!state.months[key]) {
+    state.months[key] = {
+      salaryReceived:
+        getPlannedSalaryForMonth(key),
+
+      expenses: [],
+
+      extras: [],
+
+      reserveContribution: 0,
+
+      extraReserveContribution: 0,
+
+      reserveWithdrawal: 0,
+
+      reserveTransactions: [],
+
+      salaryReserveReturn: 0
+    };
+
+    save();
+  }
+
+  normalizeMonth(
+    state.months[key]
+  );
+
+  return state.months[key];
+}
+
+/* =====================================================
+   SALÁRIO PADRÃO PARA NOVOS MESES
+===================================================== */
+
+function getPlannedSalaryForMonth(key) {
+  const configured =
+    Number(
+      state.settings.plannedSalary
+    ) || 0;
+
+  if (configured <= 0) {
+    return 0;
+  }
+
+  /*
+     O salário definido em configurações
+     passa a ser padrão para meses futuros.
+
+     Não copiamos o salário de um mês
+     para outro depois que o mês já existe.
+  */
+
+  return configured;
+}
+
+/* =====================================================
+   CÁLCULOS BÁSICOS
+===================================================== */
+
+function categorySpent(id, month) {
+  return month.expenses
+    .filter(
+      expense =>
+        expense.categoryId === id
+    )
+    .reduce(
+      (sum, expense) =>
+        sum + (Number(expense.amount) || 0),
+      0
+    );
+}
+
+function totalSpent(month) {
+  return month.expenses.reduce(
+    (sum, expense) =>
+      sum + (Number(expense.amount) || 0),
+    0
+  );
+}
+
+function totalSalarySpent(month) {
+  return month.expenses
+    .filter(
+      expense =>
+        expense.source !== "extra"
+    )
+    .reduce(
+      (sum, expense) =>
+        sum + (Number(expense.amount) || 0),
+      0
+    );
+}
+
+function totalExtraSpent(month) {
+  return month.expenses
+    .filter(
+      expense =>
+        expense.source === "extra"
+    )
+    .reduce(
+      (sum, expense) =>
+        sum + (Number(expense.amount) || 0),
+      0
+    );
+}
+
+function totalExtras(month) {
+  return month.extras.reduce(
+    (sum, extra) =>
+      sum + (Number(extra.amount) || 0),
+    0
+  );
+}
+
+/* =====================================================
+   SALDO ANTERIOR DO SALÁRIO
+===================================================== */
+
+function getPreviousSalaryCarryover(currentKey) {
+  let carry = 0;
+
+  Object.keys(state.months)
+    .sort()
+    .forEach(key => {
+      if (key >= currentKey) {
+        return;
+      }
+
+      const month =
+        state.months[key];
+
+      carry +=
+        (Number(month.salaryReceived) || 0) +
+        (Number(month.salaryReserveReturn) || 0) -
+        totalSalarySpent(month) -
+        (Number(month.reserveContribution) || 0);
+    });
+
+  return carry;
+}
+
+/* =====================================================
+   SALDO ANTERIOR DOS EXTRAS
+===================================================== */
+
+function getPreviousExtraCarryover(currentKey) {
+  let carry = 0;
+
+  Object.keys(state.months)
+    .sort()
+    .forEach(key => {
+      if (key >= currentKey) {
+        return;
+      }
+
+      const month =
+        state.months[key];
+
+      carry +=
+        totalExtras(month) -
+        totalExtraSpent(month) -
+        (Number(month.extraReserveContribution) || 0);
+    });
+
+  return carry;
+}
+
+/* =====================================================
+   SALDO DO SALÁRIO
+===================================================== */
+
+function getSalaryAvailable(month) {
+  const previous =
+    getPreviousSalaryCarryover(
+      state.currentMonth
+    );
+
+  const salary =
+    Number(month.salaryReceived) || 0;
+
+  const returned =
+    Number(month.salaryReserveReturn) || 0;
+
+  const spent =
+    totalSalarySpent(month);
+
+  const saved =
+    Number(month.reserveContribution) || 0;
+
+  /*
+     NÃO usamos Math.max(0).
+
+     Se o usuário gastar mais do que possui,
+     o FX mostra o saldo negativo.
+
+     Assim dinheiro nunca desaparece
+     magicamente.
+  */
+
+  return (
+    previous +
+    salary +
+    returned -
+    spent -
+    saved
+  );
+}
+
+/* =====================================================
+   SALDO DOS EXTRAS
+===================================================== */
+
+function getExtraAvailable(month) {
+  const previous =
+    getPreviousExtraCarryover(
+      state.currentMonth
+    );
+
+  const extras =
+    totalExtras(month);
+
+  const spent =
+    totalExtraSpent(month);
+
+  const reserve =
+    Number(
+      month.extraReserveContribution
+    ) || 0;
+
+  return (
+    previous +
+    extras -
+    spent -
+    reserve
+  );
+}
+
+/* =====================================================
+   RESERVA
+===================================================== */
+
+function getReserveBalance() {
+  let totalIn = 0;
+  let totalOut = 0;
+
+  Object.values(state.months)
+    .forEach(month => {
+
+      totalIn +=
+        Number(
+          month.reserveContribution
+        ) || 0;
+
+      totalIn +=
+        Number(
+          month.extraReserveContribution
+        ) || 0;
+
+      totalOut +=
+        Number(
+          month.reserveWithdrawal
+        ) || 0;
+    });
+
+  return totalIn - totalOut;
+}
+
+function syncReserve() {
+  state.reserveBalance =
+    getReserveBalance();
+
+  save();
+}
+
+/* =====================================================
+   RENDER
+===================================================== */
+
+function render() {
+  const month =
+    getMonth();
+
+  syncReserve();
+
+  renderMonthTitle();
+  renderMainValues();
+  renderMonthlyProgress();
+  renderCategories();
+  renderExtras();
+  renderHistoryPreview();
+  renderPayments();
+  renderReserveGoal();
+}
+
+function renderMonthTitle() {
+  const title =
+    document.getElementById(
+      "monthTitle"
+    );
+
+  if (!title) {
+    return;
+  }
+
+  title.textContent =
+    new Intl.DateTimeFormat(
+      "pt-BR",
+      {
+        month: "long",
+        year: "numeric"
+      }
+    ).format(
+      new Date(
+        `${state.currentMonth}-01T00:00:00`
+      )
+    );
+}
+
+function renderMainValues() {
+  const month =
+    getMonth();
+
+  const salaryAvailable =
+    getSalaryAvailable(month);
+
+  const extraAvailable =
+    getExtraAvailable(month);
+
+  const available =
+    document.getElementById(
+      "availableValue"
+    );
+
+  if (available) {
+    available.textContent =
+      money(salaryAvailable);
+
+    available.style.color =
+      salaryAvailable < 0
+        ? "var(--danger)"
+        : "";
+  }
+
+  const hint =
+    document.getElementById(
+      "availableHint"
+    );
+
+  if (hint) {
+    if (salaryAvailable < 0) {
+      hint.textContent =
+        `Você ultrapassou o saldo do salário em ${money(
+          Math.abs(salaryAvailable)
+        )}.`;
+    } else {
+      hint.textContent =
+        "Disponível do salário. Extras ficam separados.";
+    }
+  }
+
+  const salary =
+    document.getElementById(
+      "salaryValue"
+    );
+
+  if (salary) {
+    salary.textContent =
+      money(salaryAvailable);
+  }
+
+  const extra =
+    document.getElementById(
+      "extraValue"
+    );
+
+  if (extra) {
+    extra.textContent =
+      money(extraAvailable);
+
+    extra.style.color =
+      extraAvailable < 0
+        ? "var(--danger)"
+        : "";
+  }
+
+  const spent =
+    document.getElementById(
+      "spentValue"
+    );
+
+  if (spent) {
+    spent.textContent =
+      money(totalSpent(month));
+  }
+
+  const reserve =
+    document.getElementById(
+      "reserveBig"
+    );
+
+  if (reserve) {
+    reserve.textContent =
+      money(state.reserveBalance);
+  }
+}
+
+function renderMonthlyProgress() {
+  const month =
+    getMonth();
+
+  const totalIncomes =
+    (Number(month.salaryReceived) || 0) +
+    totalExtras(month);
+
+  const spent =
+    totalSpent(month);
+
+  const percent =
+    totalIncomes > 0
+      ? Math.min(
+          100,
+          Math.max(
+            0,
+            (spent / totalIncomes) * 100
+          )
+        )
+      : 0;
+
+  const bar =
+    document.getElementById(
+      "monthlyBar"
+    );
+
+  if (bar) {
+    bar.style.width =
+      `${percent}%`;
+  }
+
+  const label =
+    document.getElementById(
+      "spentPercentLabel"
+    );
+
+  if (label) {
+    label.textContent =
+      `${Math.round(percent)}% gasto`;
+  }
+}
+
+/* =====================================================
+   CATEGORIAS
+===================================================== */
+
+function renderCategories() {
+  const wrap =
+    document.getElementById(
+      "categories"
+    );
+
+  if (!wrap) {
+    return;
+  }
+
+  const month =
+    getMonth();
+
+  wrap.innerHTML = "";
+
+  state.categories.forEach(category => {
+    const element =
+      document.createElement("div");
+
+    element.className =
+      "category";
+
+    const value =
+      category.type === "reserve"
+        ? (
+            (Number(
+              month.reserveContribution
+            ) || 0) +
+            (Number(
+              month.extraReserveContribution
+            ) || 0)
+          )
+        : categorySpent(
+            category.id,
+            month
+          );
+
+    element.innerHTML = `
+      <div class="cat-icon">
+        ${escapeHtml(category.icon)}
+      </div>
+
+      <div class="cat-main">
+        <div class="cat-name">
+          ${escapeHtml(category.name)}
+        </div>
+      </div>
+
+      <div class="cat-value">
+        <strong>
+          ${money(value)}
+        </strong>
+      </div>
+
+      <div class="cat-actions">
+        <button
+          class="cat-edit"
+          type="button"
+          data-category="${escapeHtml(category.id)}"
+        >
+          ⋮
+        </button>
+      </div>
+    `;
+
+    wrap.appendChild(element);
+  });
+
+  wrap
+    .querySelectorAll("[data-category]")
+    .forEach(button => {
+      button.addEventListener(
+        "click",
+        () => {
+          openCategoryMenu(
+            button.dataset.category
+          );
+        }
+      );
+    });
+}
+
+function openCategoryMenu(id) {
+  const category =
+    state.categories.find(
+      cat => cat.id === id
+    );
+
+  if (!category) {
+    return;
+  }
+
+  if (category.id === "reserve") {
+    openReserveModal();
+    return;
+  }
+
+  openModal(
+    category.name,
+    `
+      <div class="form">
+
+        <button
+          type="button"
+          id="editCategoryAction"
+        >
+          ✏️ Editar categoria
+        </button>
+
+        <button
+          type="button"
+          class="danger"
+          id="deleteCategoryAction"
+        >
+          🗑️ Excluir categoria
+        </button>
+
+      </div>
+    `
+  );
 
   document
-    .getElementById("appScreen")
-    ?.classList.remove("hidden");
+    .getElementById("editCategoryAction")
+    ?.addEventListener(
+      "click",
+      () => {
+        openCategoryForm(category.id);
+      }
+    );
+
+  document
+    .getElementById("deleteCategoryAction")
+    ?.addEventListener(
+      "click",
+      () => {
+        deleteCategory(category.id);
+      }
+    );
+}
+
+function openCategoryForm(id = null) {
+  const category =
+    id
+      ? state.categories.find(
+          cat => cat.id === id
+        )
+      : null;
+
+  openModal(
+    id
+      ? "Editar categoria"
+      : "Nova categoria",
+
+    `
+      <div class="form">
+
+        <label>Nome</label>
+        <input
+          id="categoryNameInput"
+          value="${escapeHtml(
+            category?.name || ""
+          )}"
+          placeholder="Ex: Alimentação"
+        >
+
+        <label>Ícone</label>
+        <input
+          id="categoryIconInput"
+          value="${escapeHtml(
+            category?.icon || "💰"
+          )}"
+          maxlength="4"
+          placeholder="🍔"
+        >
+
+        <button
+          type="button"
+          id="saveCategoryAction"
+        >
+          Salvar categoria
+        </button>
+
+      </div>
+    `
+  );
+
+  document
+    .getElementById("saveCategoryAction")
+    ?.addEventListener(
+      "click",
+      () => {
+
+        const name =
+          document
+            .getElementById(
+              "categoryNameInput"
+            )
+            ?.value
+            .trim();
+
+        const icon =
+          document
+            .getElementById(
+              "categoryIconInput"
+            )
+            ?.value
+            .trim();
+
+        if (!name) {
+          alert(
+            "Digite o nome da categoria."
+          );
+          return;
+        }
+
+        if (category) {
+          category.name = name;
+          category.icon = icon || "💰";
+        } else {
+          state.categories.push({
+            id:
+              "cat_" + createId(),
+            name,
+            icon: icon || "💰",
+            type: "expense",
+            budget: 0
+          });
+        }
+
+        save();
+        closeModal();
+        render();
+      }
+    );
+}
+
+function deleteCategory(id) {
+  if (id === "reserve") {
+    alert(
+      "A categoria Reserva não pode ser excluída."
+    );
+    return;
+  }
+
+  const category =
+    state.categories.find(
+      cat => cat.id === id
+    );
+
+  if (!category) {
+    return;
+  }
+
+  const used =
+    Object.values(state.months)
+      .some(month =>
+        month.expenses.some(
+          expense =>
+            expense.categoryId === id
+        )
+      );
+
+  if (used) {
+    alert(
+      "Essa categoria já possui gastos registrados e não pode ser excluída."
+    );
+    return;
+  }
+
+  if (
+    !confirm(
+      `Excluir a categoria "${category.name}"?`
+    )
+  ) {
+    return;
+  }
+
+  state.categories =
+    state.categories.filter(
+      cat => cat.id !== id
+    );
+
+  save();
+  closeModal();
+  render();
+}
+
+/* =====================================================
+   ADICIONAR GASTO
+===================================================== */
+
+function openExpenseModal() {
+  const month =
+    getMonth();
+
+  const options =
+    state.categories
+      .filter(
+        category =>
+          category.type !== "reserve"
+      )
+      .map(
+        category =>
+          `
+            <option value="${escapeHtml(
+              category.id
+            )}">
+              ${escapeHtml(
+                category.icon
+              )} ${escapeHtml(
+                category.name
+              )}
+            </option>
+          `
+      )
+      .join("");
+
+  openModal(
+    "Adicionar gasto",
+    `
+      <div class="form">
+
+        <label>Valor</label>
+        <input
+          id="expenseAmount"
+          inputmode="decimal"
+          placeholder="R$ 0,00"
+        >
+
+        <label>Categoria</label>
+        <select id="expenseCategory">
+          ${options}
+        </select>
+
+        <label>Origem do dinheiro</label>
+        <select id="expenseSource">
+          <option value="salary">
+            Salário
+          </option>
+          <option value="extra">
+            Extra
+          </option>
+        </select>
+
+        <label>Observação</label>
+        <input
+          id="expenseNote"
+          placeholder="Opcional"
+        >
+
+        <button
+          type="button"
+          id="saveExpenseAction"
+        >
+          Adicionar gasto
+        </button>
+
+      </div>
+    `
+  );
+
+  document
+    .getElementById("saveExpenseAction")
+    ?.addEventListener(
+      "click",
+      addExpense
+    );
+}
+
+function addExpense() {
+  const amount =
+    parseToCents(
+      document.getElementById(
+        "expenseAmount"
+      )?.value
+    );
+
+  const categoryId =
+    document.getElementById(
+      "expenseCategory"
+    )?.value;
+
+  const source =
+    document.getElementById(
+      "expenseSource"
+    )?.value === "extra"
+      ? "extra"
+      : "salary";
+
+  const note =
+    document.getElementById(
+      "expenseNote"
+    )?.value
+      .trim() || "";
+
+  if (amount <= 0) {
+    alert(
+      "Digite um valor válido."
+    );
+    return;
+  }
+
+  const month =
+    getMonth();
+
+  const salaryAvailable =
+    getSalaryAvailable(month);
+
+  const extraAvailable =
+    getExtraAvailable(month);
+
+  const available =
+    source === "extra"
+      ? extraAvailable
+      : salaryAvailable;
+
+  /*
+     AQUI ESTÁ A CORREÇÃO DO
+     DINHEIRO FANTASMA.
+
+     Se não existe dinheiro suficiente,
+     não permitimos criar um gasto
+     que apareça como se tivesse sido pago.
+  */
+
+  if (amount > available) {
+    alert(
+      `Saldo insuficiente.\n\nDisponível: ${money(
+        available
+      )}\nGasto: ${money(
+        amount
+      )}`
+    );
+
+    return;
+  }
+
+  month.expenses.push({
+    id: createId(),
+    amount,
+    categoryId:
+      categoryId || "fixed",
+    source,
+    note,
+    date:
+      new Date().toISOString()
+  });
+
+  save();
+
+  closeModal();
+  render();
+}
+
+/* =====================================================
+   EXTRAS
+===================================================== */
+
+function openExtraModal() {
+  openModal(
+    "Adicionar entrada extra",
+    `
+      <div class="form">
+
+        <label>Nome</label>
+        <input
+          id="extraName"
+          placeholder="Ex: Freelance"
+        >
+
+        <label>Valor</label>
+        <input
+          id="extraAmount"
+          inputmode="decimal"
+          placeholder="R$ 0,00"
+        >
+
+        <button
+          type="button"
+          id="saveExtraAction"
+        >
+          Adicionar extra
+        </button>
+
+      </div>
+    `
+  );
+
+  document
+    .getElementById("saveExtraAction")
+    ?.addEventListener(
+      "click",
+      addExtra
+    );
+}
+
+function addExtra() {
+  const name =
+    document.getElementById(
+      "extraName"
+    )?.value
+      .trim() || "Entrada extra";
+
+  const amount =
+    parseToCents(
+      document.getElementById(
+        "extraAmount"
+      )?.value
+    );
+
+  if (amount <= 0) {
+    alert(
+      "Digite um valor válido."
+    );
+    return;
+  }
+
+  const month =
+    getMonth();
+
+  month.extras.push({
+    id: createId(),
+    name,
+    amount,
+    date:
+      new Date().toISOString()
+  });
+
+  save();
+
+  closeModal();
+  render();
+}
+
+function renderExtras() {
+  const list =
+    document.getElementById(
+      "extrasList"
+    );
+
+  if (!list) {
+    return;
+  }
+
+  const month =
+    getMonth();
+
+  if (!month.extras.length) {
+    list.innerHTML = `
+      <div class="empty-history">
+        Nenhuma entrada extra neste mês.
+      </div>
+    `;
+    return;
+  }
+
+  list.innerHTML =
+    month.extras
+      .slice()
+      .reverse()
+      .map(
+        extra => `
+          <div class="extra-item">
+
+            <div class="extra-icon">
+              💰
+            </div>
+
+            <div class="extra-main">
+              <div class="extra-name">
+                ${escapeHtml(
+                  extra.name
+                )}
+              </div>
+
+              <div class="extra-date">
+                ${formatDate(
+                  extra.date
+                )}
+              </div>
+            </div>
+
+            <div class="extra-value">
+              +${money(
+                extra.amount
+              )}
+            </div>
+
+            <button
+              type="button"
+              class="extra-delete"
+              data-extra="${escapeHtml(
+                extra.id
+              )}"
+            >
+              ✕
+            </button>
+
+          </div>
+        `
+      )
+      .join("");
+
+  list
+    .querySelectorAll(
+      "[data-extra]"
+    )
+    .forEach(button => {
+      button.addEventListener(
+        "click",
+        () => {
+          deleteExtra(
+            button.dataset.extra
+          );
+        }
+      );
+    });
+}
+
+function deleteExtra(id) {
+  const month =
+    getMonth();
+
+  const extra =
+    month.extras.find(
+      item => item.id === id
+    );
+
+  if (!extra) {
+    return;
+  }
+
+  if (
+    !confirm(
+      `Excluir "${extra.name}"?`
+    )
+  ) {
+    return;
+  }
+
+  month.extras =
+    month.extras.filter(
+      item => item.id !== id
+    );
+
+  save();
+  render();
+}
+
+/* =====================================================
+   RESERVA
+===================================================== */
+
+function openReserveModal() {
+  const month =
+    getMonth();
+
+  openModal(
+    "Gerenciar reserva",
+    `
+      <div class="form">
+
+        <div class="notice">
+          Reserva atual:
+          <strong>
+            ${money(
+              state.reserveBalance
+            )}
+          </strong>
+        </div>
+
+        <label>Valor</label>
+        <input
+          id="reserveAmount"
+          inputmode="decimal"
+          placeholder="R$ 0,00"
+        >
+
+        <label>Origem</label>
+        <select id="reserveSource">
+          <option value="salary">
+            Salário
+          </option>
+          <option value="extra">
+            Extra
+          </option>
+        </select>
+
+        <button
+          type="button"
+          id="reserveAddAction"
+        >
+          Guardar na reserva
+        </button>
+
+        <button
+          type="button"
+          class="secondary"
+          id="reserveWithdrawAction"
+        >
+          Retirar da reserva
+        </button>
+
+      </div>
+    `
+  );
+
+  document
+    .getElementById(
+      "reserveAddAction"
+    )
+    ?.addEventListener(
+      "click",
+      addReserve
+    );
+
+  document
+    .getElementById(
+      "reserveWithdrawAction"
+    )
+    ?.addEventListener(
+      "click",
+      withdrawReserve
+    );
+}
+
+function addReserve() {
+  const amount =
+    parseToCents(
+      document.getElementById(
+        "reserveAmount"
+      )?.value
+    );
+
+  const source =
+    document.getElementById(
+      "reserveSource"
+    )?.value === "extra"
+      ? "extra"
+      : "salary";
+
+  if (amount <= 0) {
+    alert(
+      "Digite um valor válido."
+    );
+    return;
+  }
+
+  const month =
+    getMonth();
+
+  const available =
+    source === "extra"
+      ? getExtraAvailable(month)
+      : getSalaryAvailable(month);
+
+  if (amount > available) {
+    alert(
+      `Saldo insuficiente.\n\nDisponível: ${money(
+        available
+      )}`
+    );
+    return;
+  }
+
+  if (source === "extra") {
+    month.extraReserveContribution +=
+      amount;
+  } else {
+    month.reserveContribution +=
+      amount;
+  }
+
+  month.reserveTransactions.push({
+    id: createId(),
+    amount,
+    type: "in",
+    source,
+    note: "Entrada na reserva",
+    date:
+      new Date().toISOString()
+  });
+
+  save();
+  closeModal();
+  render();
+}
+
+function withdrawReserve() {
+  const amount =
+    parseToCents(
+      document.getElementById(
+        "reserveAmount"
+      )?.value
+    );
+
+  if (amount <= 0) {
+    alert(
+      "Digite um valor válido."
+    );
+    return;
+  }
+
+  if (amount > state.reserveBalance) {
+    alert(
+      `A reserva possui apenas ${money(
+        state.reserveBalance
+      )}.`
+    );
+    return;
+  }
+
+  const month =
+    getMonth();
+
+  month.reserveWithdrawal +=
+    amount;
+
+  month.reserveTransactions.push({
+    id: createId(),
+    amount,
+    type: "out",
+    source: "reserve",
+    note: "Retirada da reserva",
+    date:
+      new Date().toISOString()
+  });
+
+  save();
+  closeModal();
+  render();
+}
+
+/* =====================================================
+   META DA RESERVA
+===================================================== */
+
+function renderReserveGoal() {
+  const box =
+    document.getElementById(
+      "goalBox"
+    );
+
+  if (!box) {
+    return;
+  }
+
+  const goal =
+    Number(
+      state.settings.reserveGoal
+    ) || 0;
+
+  if (goal <= 0) {
+    box.textContent =
+      "Sem meta definida";
+    return;
+  }
+
+  const current =
+    Math.max(
+      0,
+      state.reserveBalance
+    );
+
+  const percent =
+    Math.min(
+      100,
+      (current / goal) * 100
+    );
+
+  box.textContent =
+    `${money(current)} / ${money(goal)} • ${Math.round(
+      percent
+    )}%`;
+}
+
+/* =====================================================
+   HISTÓRICO
+===================================================== */
+
+function buildHistory(month) {
+  const entries = [];
+
+  month.expenses.forEach(expense => {
+    const category =
+      state.categories.find(
+        cat =>
+          cat.id === expense.categoryId
+      );
+
+    entries.push({
+      date:
+        expense.date,
+      name:
+        category?.name ||
+        "Gasto",
+      icon:
+        category?.icon ||
+        "💸",
+      amount:
+        -Math.abs(
+          expense.amount
+        ),
+      className:
+        "expense",
+      note:
+        expense.source === "extra"
+          ? "Pago com extra"
+          : "Pago com salário"
+    });
+  });
+
+  month.extras.forEach(extra => {
+    entries.push({
+      date:
+        extra.date,
+      name:
+        extra.name,
+      icon:
+        "💰",
+      amount:
+        extra.amount,
+      className:
+        "extra-in",
+      note:
+        "Entrada extra"
+    });
+  });
+
+  month.reserveTransactions.forEach(tx => {
+    entries.push({
+      date:
+        tx.date,
+      name:
+        tx.type === "in"
+          ? "Reserva"
+          : "Retirada da reserva",
+      icon:
+        "🏦",
+      amount:
+        tx.type === "in"
+          ? tx.amount
+          : -tx.amount,
+      className:
+        tx.type === "in"
+          ? "reserve-in"
+          : "reserve-out",
+      note:
+        tx.note || ""
+    });
+  });
+
+  return entries.sort(
+    (a, b) =>
+      new Date(b.date) -
+      new Date(a.date)
+  );
+}
+
+function renderHistoryPreview() {
+  const wrap =
+    document.getElementById(
+      "historyPreview"
+    );
+
+  if (!wrap) {
+    return;
+  }
+
+  const history =
+    buildHistory(
+      getMonth()
+    ).slice(0, 5);
+
+  if (!history.length) {
+    wrap.innerHTML = `
+      <div class="empty-history">
+        Nenhuma movimentação neste mês.
+      </div>
+    `;
+    return;
+  }
+
+  wrap.innerHTML =
+    history
+      .map(
+        item => `
+          <div class="history-item">
+
+            <div class="history-icon">
+              ${escapeHtml(
+                item.icon
+              )}
+            </div>
+
+            <div class="history-main">
+
+              <div class="history-name">
+                ${escapeHtml(
+                  item.name
+                )}
+              </div>
+
+              <div class="history-date">
+                ${formatDate(
+                  item.date
+                )}
+              </div>
+
+              <div class="history-note">
+                ${escapeHtml(
+                  item.note
+                )}
+              </div>
+
+            </div>
+
+            <div
+              class="history-value ${item.className}"
+            >
+              ${
+                item.amount >= 0
+                  ? "+"
+                  : "-"
+              }${money(
+                Math.abs(
+                  item.amount
+                )
+              )}
+            </div>
+
+          </div>
+        `
+      )
+      .join("");
+}
+
+function openHistory() {
+  const history =
+    buildHistory(
+      getMonth()
+    );
+
+  const total =
+    totalSpent(
+      getMonth()
+    );
+
+  openModal(
+    "Extrato",
+    `
+      <div class="history-total">
+        Gastos no mês
+        <strong>
+          ${money(total)}
+        </strong>
+      </div>
+
+      <div class="full-history">
+
+        ${
+          history.length
+            ? history
+                .map(
+                  item => `
+                    <div class="history-item">
+
+                      <div class="history-icon">
+                        ${escapeHtml(
+                          item.icon
+                        )}
+                      </div>
+
+                      <div class="history-main">
+                        <div class="history-name">
+                          ${escapeHtml(
+                            item.name
+                          )}
+                        </div>
+
+                        <div class="history-date">
+                          ${formatDate(
+                            item.date
+                          )}
+                        </div>
+
+                        <div class="history-note">
+                          ${escapeHtml(
+                            item.note
+                          )}
+                        </div>
+                      </div>
+
+                      <div
+                        class="history-value ${item.className}"
+                      >
+                        ${
+                          item.amount >= 0
+                            ? "+"
+                            : "-"
+                        }${money(
+                          Math.abs(
+                            item.amount
+                          )
+                        )}
+                      </div>
+
+                    </div>
+                  `
+                )
+                .join("")
+            : `
+                <div class="empty-history">
+                  Nenhuma movimentação.
+                </div>
+              `
+        }
+
+      </div>
+    `
+  );
+}
+
+/* =====================================================
+   CONFIGURAÇÕES
+===================================================== */
+
+function openSettings() {
+  const settings =
+    state.settings;
+
+  openModal(
+    "Configurações",
+    `
+      <div class="form">
+
+        <label>Salário mensal</label>
+        <input
+          id="settingsSalary"
+          inputmode="decimal"
+          value="${formatInputMoney(
+            settings.plannedSalary
+          )}"
+          placeholder="R$ 0,00"
+        >
+
+        <div class="dark-mode-row">
+          <span>
+            Dividir salário
+          </span>
+
+          <label class="theme-switch">
+            <input
+              type="checkbox"
+              id="salarySplitToggle"
+              ${
+                settings.salarySplitEnabled
+                  ? "checked"
+                  : ""
+              }
+            >
+            <span class="theme-slider">
+              <span class="theme-dot"></span>
+            </span>
+          </label>
+        </div>
+
+        <div
+          id="salarySplitOptions"
+          ${
+            settings.salarySplitEnabled
+              ? ""
+              : 'style="display:none"'
+          }
+        >
+
+          <label>
+            Percentual do adiantamento
+          </label>
+
+          <input
+            id="advancePercentInput"
+            type="number"
+            min="0"
+            max="100"
+            value="${
+              settings.advancePercent
+            }"
+          >
+
+          <label>
+            Dia do adiantamento
+          </label>
+
+          <input
+            id="advanceDayInput"
+            type="number"
+            min="1"
+            max="31"
+            value="${
+              settings.advanceDay
+            }"
+          >
+
+          <label>
+            Pagamento principal
+          </label>
+
+          <input
+            id="mainPaymentLabelInput"
+            value="${escapeHtml(
+              settings.mainPaymentLabel
+            )}"
+          >
+
+        </div>
+
+        <label>
+          Meta da reserva
+        </label>
+
+        <input
+          id="reserveGoalInput"
+          inputmode="decimal"
+          value="${formatInputMoney(
+            settings.reserveGoal
+          )}"
+          placeholder="R$ 0,00"
+        >
+
+        <button
+          type="button"
+          id="saveSettingsAction"
+        >
+          Salvar configurações
+        </button>
+
+        <button
+          type="button"
+          class="secondary"
+          id="backupExportAction"
+        >
+          💾 Fazer backup
+        </button>
+
+        <button
+          type="button"
+          class="secondary"
+          id="backupImportAction"
+        >
+          📥 Restaurar backup
+        </button>
+
+        <input
+          type="file"
+          id="backupFileInput"
+          accept=".json,application/json"
+          class="hidden"
+        >
+
+      </div>
+    `
+  );
+
+  const toggle =
+    document.getElementById(
+      "salarySplitToggle"
+    );
+
+  toggle?.addEventListener(
+    "change",
+    () => {
+      const options =
+        document.getElementById(
+          "salarySplitOptions"
+        );
+
+      if (options) {
+        options.style.display =
+          toggle.checked
+            ? "grid"
+            : "none";
+      }
+    }
+  );
+
+  document
+    .getElementById(
+      "saveSettingsAction"
+    )
+    ?.addEventListener(
+      "click",
+      saveSettings
+    );
+
+  document
+    .getElementById(
+      "backupExportAction"
+    )
+    ?.addEventListener(
+      "click",
+      exportBackup
+    );
+
+  document
+    .getElementById(
+      "backupImportAction"
+    )
+    ?.addEventListener(
+      "click",
+      () =>
+        document
+          .getElementById(
+            "backupFileInput"
+          )
+          ?.click()
+    );
+
+  document
+    .getElementById(
+      "backupFileInput"
+    )
+    ?.addEventListener(
+      "change",
+      importBackup
+    );
+}
+
+function saveSettings() {
+  const oldSalary =
+    Number(
+      state.settings.plannedSalary
+    ) || 0;
+
+  const salary =
+    parseToCents(
+      document.getElementById(
+        "settingsSalary"
+      )?.value
+    );
+
+  const split =
+    Boolean(
+      document.getElementById(
+        "salarySplitToggle"
+      )?.checked
+    );
+
+  const percent =
+    Math.min(
+      100,
+      Math.max(
+        0,
+        Number(
+          document.getElementById(
+            "advancePercentInput"
+          )?.value
+        ) || 0
+      )
+    );
+
+  const advanceDay =
+    Math.min(
+      31,
+      Math.max(
+        1,
+        Number(
+          document.getElementById(
+            "advanceDayInput"
+          )?.value
+        ) || 20
+      )
+    );
+
+  const label =
+    document.getElementById(
+      "mainPaymentLabelInput"
+    )?.value
+      .trim() ||
+    "5º dia útil";
+
+  const goal =
+    parseToCents(
+      document.getElementById(
+        "reserveGoalInput"
+      )?.value
+    );
+
+  state.settings.plannedSalary =
+    salary;
+
+  state.settings.salarySplitEnabled =
+    split;
+
+  state.settings.advancePercent =
+    percent;
+
+  state.settings.advanceDay =
+    advanceDay;
+
+  state.settings.mainPaymentLabel =
+    label;
+
+  state.settings.reserveGoal =
+    goal;
+
+  /*
+     CORREÇÃO IMPORTANTE:
+
+     Ao alterar o salário, o mês atual
+     recebe o novo salário.
+
+     Meses futuros que ainda não possuem
+     salário também recebem a nova
+     configuração quando forem criados.
+  */
+
+  const current =
+    getMonth();
+
+  if (
+    oldSalary !== salary ||
+    Number(current.salaryReceived) === 0
+  ) {
+    current.salaryReceived =
+      salary;
+  }
+
+  save();
+
+  closeModal();
+  render();
+}
+
+/* =====================================================
+   PAGAMENTOS
+===================================================== */
+
+function renderPayments() {
+  const card =
+    document.querySelector(
+      ".payments-card"
+    );
+
+  if (!card) {
+    return;
+  }
+
+  if (
+    !state.settings.salarySplitEnabled
+  ) {
+    card.classList.add("hidden");
+    return;
+  }
+
+  card.classList.remove("hidden");
+
+  const salary =
+    Number(
+      getMonth().salaryReceived
+    ) || 0;
+
+  const advance =
+    Math.round(
+      salary *
+      (
+        Number(
+          state.settings.advancePercent
+        ) || 0
+      ) /
+      100
+    );
+
+  const main =
+    salary - advance;
+
+  const advanceValue =
+    document.getElementById(
+      "advanceValue"
+    );
+
+  const mainValue =
+    document.getElementById(
+      "mainPayValue"
+    );
+
+  if (advanceValue) {
+    advanceValue.textContent =
+      money(advance);
+  }
+
+  if (mainValue) {
+    mainValue.textContent =
+      money(main);
+  }
+
+  const advanceDate =
+    document.getElementById(
+      "advanceDate"
+    );
+
+  const mainDate =
+    document.getElementById(
+      "mainPayDate"
+    );
+
+  if (advanceDate) {
+    advanceDate.textContent =
+      `Dia ${state.settings.advanceDay}`;
+  }
+
+  if (mainDate) {
+    mainDate.textContent =
+      state.settings.mainPaymentLabel;
+  }
+}
+
+/* =====================================================
+   BACKUP
+===================================================== */
+
+function exportBackup() {
+  const backup = {
+    app: "FX",
+    version: APP_VERSION,
+    exportedAt:
+      new Date().toISOString(),
+    data: state
+  };
+
+  const blob =
+    new Blob(
+      [
+        JSON.stringify(
+          backup,
+          null,
+          2
+        )
+      ],
+      {
+        type:
+          "application/json"
+      }
+    );
+
+  const url =
+    URL.createObjectURL(
+      blob
+    );
+
+  const link =
+    document.createElement(
+      "a"
+    );
+
+  const date =
+    new Date()
+      .toISOString()
+      .slice(0, 10);
+
+  link.href = url;
+  link.download =
+    `FX-backup-${date}.json`;
+
+  document.body.appendChild(
+    link
+  );
+
+  link.click();
+
+  link.remove();
+
+  URL.revokeObjectURL(
+    url
+  );
+}
+
+function importBackup(event) {
+  const file =
+    event.target.files?.[0];
+
+  if (!file) {
+    return;
+  }
+
+  const reader =
+    new FileReader();
+
+  reader.onload = () => {
+    try {
+      const parsed =
+        JSON.parse(
+          reader.result
+        );
+
+      const imported =
+        parsed.data || parsed;
+
+      const normalized =
+        normalizeState(
+          imported
+        );
+
+      if (
+        !normalized ||
+        typeof normalized !== "object" ||
+        !normalized.months
+      ) {
+        throw new Error(
+          "Backup inválido."
+        );
+      }
+
+      if (
+        !confirm(
+          "Restaurar este backup irá substituir os dados atuais do FX. Continuar?"
+        )
+      ) {
+        return;
+      }
+
+      state = normalized;
+
+      save();
+
+      alert(
+        "Backup restaurado com sucesso!"
+      );
+
+      location.reload();
+
+    } catch (error) {
+      console.error(error);
+
+      alert(
+        "Não foi possível restaurar o backup."
+      );
+    }
+  };
+
+  reader.readAsText(file);
+
+  event.target.value = "";
+}
+
+/* =====================================================
+   NAVEGAÇÃO
+===================================================== */
+
+function monthShift(key, delta) {
+  const [
+    year,
+    month
+  ] =
+    key
+      .split("-")
+      .map(Number);
+
+  return monthKey(
+    new Date(
+      year,
+      month - 1 + delta,
+      1
+    )
+  );
+}
+
+/* =====================================================
+   MODAL
+===================================================== */
+
+function closeModal() {
+  const modal =
+    document.getElementById(
+      "modal"
+    );
+
+  if (modal) {
+    modal.classList.add(
+      "hidden"
+    );
+  }
+}
+
+function openModal(title, html) {
+  const titleElement =
+    document.getElementById(
+      "modalTitle"
+    );
+
+  const bodyElement =
+    document.getElementById(
+      "modalBody"
+    );
+
+  const modal =
+    document.getElementById(
+      "modal"
+    );
+
+  if (
+    !titleElement ||
+    !bodyElement ||
+    !modal
+  ) {
+    return;
+  }
+
+  titleElement.textContent =
+    title;
+
+  bodyElement.innerHTML =
+    html;
+
+  modal.classList.remove(
+    "hidden"
+  );
+}
+
+/* =====================================================
+   UTILITÁRIOS
+===================================================== */
+
+function escapeHtml(value) {
+  return String(
+    value ?? ""
+  ).replace(
+    /[&<>"']/g,
+    char =>
+      ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#039;"
+      }[char])
+  );
+}
+
+function createId() {
+  if (
+    typeof crypto !== "undefined" &&
+    typeof crypto.randomUUID === "function"
+  ) {
+    return crypto.randomUUID();
+  }
+
+  return (
+    Date.now().toString(36) +
+    Math.random()
+      .toString(36)
+      .substring(2, 10)
+  );
+}
+
+function formatDate(date) {
+  if (!date) {
+    return "--";
+  }
+
+  try {
+    return new Intl.DateTimeFormat(
+      "pt-BR",
+      {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric"
+      }
+    ).format(
+      new Date(date)
+    );
+  } catch {
+    return "--";
+  }
+}
+
+function formatInputMoney(cents) {
+  return (
+    (Number(cents) || 0) / 100
+  )
+    .toFixed(2)
+    .replace(".", ",");
+}
+
+/* =====================================================
+   LOGIN UI
+===================================================== */
+
+function showLoginMessage(message) {
+  const element =
+    document.getElementById(
+      "loginMessage"
+    );
+
+  if (element) {
+    element.textContent =
+      message;
+  }
+}
+
+function showApp() {
+  const loginScreen =
+    document.getElementById(
+      "loginScreen"
+    );
+
+  const appScreen =
+    document.getElementById(
+      "appScreen"
+    );
+
+  if (loginScreen) {
+    loginScreen.classList.add(
+      "hidden"
+    );
+  }
+
+  if (appScreen) {
+    appScreen.classList.remove(
+      "hidden"
+    );
+  }
 
   initFinance();
 }
 
 function showCreateAccount() {
   document
-    .getElementById("loginForm")
-    ?.classList.add("hidden");
+    .getElementById(
+      "loginForm"
+    )
+    ?.classList.add(
+      "hidden"
+    );
 
   document
-    .getElementById("forgotForm")
-    ?.classList.add("hidden");
+    .getElementById(
+      "forgotForm"
+    )
+    ?.classList.add(
+      "hidden"
+    );
 
   document
-    .getElementById("createForm")
-    ?.classList.remove("hidden");
+    .getElementById(
+      "createForm"
+    )
+    ?.classList.remove(
+      "hidden"
+    );
 
   showLoginMessage("");
 }
 
 function showLoginForm() {
   document
-    .getElementById("createForm")
-    ?.classList.add("hidden");
+    .getElementById(
+      "createForm"
+    )
+    ?.classList.add(
+      "hidden"
+    );
 
   document
-    .getElementById("forgotForm")
-    ?.classList.add("hidden");
+    .getElementById(
+      "forgotForm"
+    )
+    ?.classList.add(
+      "hidden"
+    );
 
   document
-    .getElementById("loginForm")
-    ?.classList.remove("hidden");
+    .getElementById(
+      "loginForm"
+    )
+    ?.classList.remove(
+      "hidden"
+    );
 
   showLoginMessage("");
 }
 
 function showForgotForm() {
   document
-    .getElementById("loginForm")
-    ?.classList.add("hidden");
+    .getElementById(
+      "loginForm"
+    )
+    ?.classList.add(
+      "hidden"
+    );
 
   document
-    .getElementById("createForm")
-    ?.classList.add("hidden");
+    .getElementById(
+      "createForm"
+    )
+    ?.classList.add(
+      "hidden"
+    );
 
   document
-    .getElementById("forgotForm")
-    ?.classList.remove("hidden");
+    .getElementById(
+      "forgotForm"
+    )
+    ?.classList.remove(
+      "hidden"
+    );
 
   showLoginMessage("");
 }
 
 /* =====================================================
-   EVENTOS
+   EVENTOS LOGIN
 ===================================================== */
 
 document
@@ -2346,6 +3081,7 @@ document
         document.getElementById(
           "loginUsername"
         )?.value || "",
+
         document.getElementById(
           "loginPassword"
         )?.value || ""
@@ -2389,6 +3125,13 @@ document
   );
 
 document
+  .getElementById("resetPasswordBtn")
+  ?.addEventListener(
+    "click",
+    resetPassword
+  );
+
+document
   .getElementById(
     "backLoginFromForgotBtn"
   )
@@ -2398,40 +3141,42 @@ document
   );
 
 document
-  .getElementById("resetPasswordBtn")
-  ?.addEventListener(
-    "click",
-    resetPassword
-  );
-
-document
   .getElementById("logoutBtn")
   ?.addEventListener(
     "click",
     logout
   );
 
+/* =====================================================
+   VALORES OCULTOS
+===================================================== */
+
 document
   .getElementById("toggleHideBtn")
   ?.addEventListener(
     "click",
     () => {
-      vibrate();
+      vibrate(12);
 
       state.settings.hideBalance =
         !state.settings.hideBalance;
 
       save();
+
       render();
     }
   );
+
+/* =====================================================
+   MESES
+===================================================== */
 
 document
   .getElementById("prevMonth")
   ?.addEventListener(
     "click",
     () => {
-      vibrate();
+      vibrate(10);
 
       state.currentMonth =
         monthShift(
@@ -2440,6 +3185,7 @@ document
         );
 
       save();
+
       render();
     }
   );
@@ -2449,7 +3195,7 @@ document
   ?.addEventListener(
     "click",
     () => {
-      vibrate();
+      vibrate(10);
 
       state.currentMonth =
         monthShift(
@@ -2458,9 +3204,75 @@ document
         );
 
       save();
+
       render();
     }
   );
+
+/* =====================================================
+   BOTÕES PRINCIPAIS
+===================================================== */
+
+document
+  .getElementById("addExpenseBtn")
+  ?.addEventListener(
+    "click",
+    openExpenseModal
+  );
+
+document
+  .getElementById("addExtraBtn")
+  ?.addEventListener(
+    "click",
+    openExtraModal
+  );
+
+document
+  .getElementById("addCategoryBtn")
+  ?.addEventListener(
+    "click",
+    () =>
+      openCategoryForm()
+  );
+
+document
+  .getElementById("reserveBtn")
+  ?.addEventListener(
+    "click",
+    openReserveModal
+  );
+
+document
+  .getElementById("settingsBtn")
+  ?.addEventListener(
+    "click",
+    openSettings
+  );
+
+document
+  .getElementById("paymentsSettingsBtn")
+  ?.addEventListener(
+    "click",
+    openSettings
+  );
+
+document
+  .getElementById("historyBtn")
+  ?.addEventListener(
+    "click",
+    openHistory
+  );
+
+document
+  .getElementById("historyBtn2")
+  ?.addEventListener(
+    "click",
+    openHistory
+  );
+
+/* =====================================================
+   MODAL
+===================================================== */
 
 document
   .getElementById("closeModal")
@@ -2483,77 +3295,22 @@ document
     }
   );
 
-document
-  .getElementById("addExpenseBtn")
-  ?.addEventListener(
-    "click",
-    () => openExpenseModal()
-  );
-
-document
-  .getElementById("addExtraBtn")
-  ?.addEventListener(
-    "click",
-    openExtraModal
-  );
-
-document
-  .getElementById("addCategoryBtn")
-  ?.addEventListener(
-    "click",
-    openAddCategoryModal
-  );
-
-document
-  .getElementById("reserveBtn")
-  ?.addEventListener(
-    "click",
-    openReserve
-  );
-
-document
-  .getElementById("historyBtn")
-  ?.addEventListener(
-    "click",
-    openHistory
-  );
-
-document
-  .getElementById("historyBtn2")
-  ?.addEventListener(
-    "click",
-    openHistory
-  );
-
-document
-  .getElementById("settingsBtn")
-  ?.addEventListener(
-    "click",
-    openSettings
-  );
-
-document
-  .getElementById(
-    "paymentsSettingsBtn"
-  )
-  ?.addEventListener(
-    "click",
-    openSettings
-  );
-
 /* =====================================================
    INICIALIZAÇÃO
 ===================================================== */
 
 function initFinance() {
+  state =
+    normalizeState(
+      state
+    );
+
   document.body.classList.toggle(
     "dark",
     localStorage.getItem(
       "fxDarkMode"
     ) === "true"
   );
-
-  normalizeState(state);
 
   getMonth();
 
@@ -2572,23 +3329,23 @@ const rememberedUser =
   );
 
 if (rememberedUser) {
-  const input =
+  const userInput =
     document.getElementById(
       "loginUsername"
     );
 
-  const toggle =
+  const rememberToggle =
     document.getElementById(
       "rememberUserToggle"
     );
 
-  if (input) {
-    input.value =
+  if (userInput) {
+    userInput.value =
       rememberedUser;
   }
 
-  if (toggle) {
-    toggle.checked =
+  if (rememberToggle) {
+    rememberToggle.checked =
       true;
   }
 }
@@ -2601,10 +3358,18 @@ if (isLogged()) {
   showApp();
 } else {
   document
-    .getElementById("loginScreen")
-    ?.classList.remove("hidden");
+    .getElementById(
+      "loginScreen"
+    )
+    ?.classList.remove(
+      "hidden"
+    );
 
   document
-    .getElementById("appScreen")
-    ?.classList.add("hidden");
-}
+    .getElementById(
+      "appScreen"
+    )
+    ?.classList.add(
+      "hidden"
+    );
+       }
