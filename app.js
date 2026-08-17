@@ -1,7 +1,7 @@
 /* =====================================================
    PROJETO FX — SEU DINHEIRO. SUAS REGRAS.
    Arquivo: app.js
-   Versão: 1.3.0 — Resposta Tátil (Vibração) + Ocultar Saldo (Modo Privacidade)
+   Versão: 1.3.1 — Salários, Extras, Sobras, Vibração e Toggle Ajustados
 ===================================================== */
 
 const KEY = "fx_finance_v1";
@@ -232,7 +232,7 @@ function normalizeState(data) {
     data.settings.hideBalance = false;
   }
 
-  data.settings.advancePercent = Math.min(100, Math.max(0, Number(data.settings.advancePercent) || 0));
+  data.settings.advancePercent = Math.min(100, Math.max(0, Number(data.settings.advancePercent) || 40));
   data.settings.advanceDay = Math.min(31, Math.max(1, Number(data.settings.advanceDay) || 20));
   data.settings.mainPaymentLabel = String(data.settings.mainPaymentLabel || "5º dia útil").trim();
   data.settings.reserveGoal = parseToCents(data.settings.reserveGoal);
@@ -500,7 +500,7 @@ function getSalarySplit(month) {
     return { enabled: false, advance: 0, main: salary };
   }
 
-  const advance = Math.round((salary * (state.settings.advancePercent || 0)) / 100);
+  const advance = Math.round((salary * (state.settings.advancePercent || 40)) / 100);
   const main = salary - advance;
 
   return { enabled: true, advance, main };
@@ -543,9 +543,9 @@ function render() {
 
   const split = getSalarySplit(month);
   document.getElementById("advanceValue").textContent = money(split.advance);
-  document.getElementById("advanceDate").textContent = `Dia ${state.settings.advanceDay}`;
+  document.getElementById("advanceDate").textContent = `Dia ${state.settings.advanceDay || 20}`;
   document.getElementById("mainPayValue").textContent = money(split.main);
-  document.getElementById("mainPayDate").textContent = state.settings.mainPaymentLabel;
+  document.getElementById("mainPayDate").textContent = state.settings.mainPaymentLabel || "5º dia útil";
 
   updatePaymentVisibility();
 
@@ -1247,7 +1247,7 @@ function openHistory() {
 }
 
 /* =====================================================
-   CONFIGURAÇÕES
+   CONFIGURAÇÕES (COM CHAVE DE ALTERNÂNCIA RESTAURADA)
 ===================================================== */
 
 function openSettings() {
@@ -1268,13 +1268,13 @@ function openSettings() {
           </label>
         </div>
 
-        <div id="salarySplitOptions">
+        <div id="salarySplitOptions" class="hidden">
           <label>Percentual do adiantamento (%)</label>
-          <input id="sPercent" type="number" min="0" max="100" value="${state.settings.advancePercent}">
+          <input id="sPercent" type="number" min="0" max="100" value="${state.settings.advancePercent || 40}">
           <label>Dia do adiantamento</label>
-          <input id="sDay" type="number" min="1" max="31" value="${state.settings.advanceDay}">
+          <input id="sDay" type="number" min="1" max="31" value="${state.settings.advanceDay || 20}">
           <label>Texto do pagamento principal</label>
-          <input id="sMain" value="${escapeHtml(state.settings.mainPaymentLabel)}">
+          <input id="sMain" value="${escapeHtml(state.settings.mainPaymentLabel || "5º dia útil")}">
         </div>
 
         <label>Meta da reserva (opcional)</label>
@@ -1302,8 +1302,9 @@ function openSettings() {
   }
 
   updateSalarySplitOptions();
+
   salarySplitToggle.onchange = () => {
-    vibrate();
+    vibrate(12);
     updateSalarySplitOptions();
   };
 
@@ -1321,7 +1322,7 @@ function openSettings() {
     month.salaryReceived = newSalary;
     state.settings.plannedSalary = newSalary;
     state.settings.salarySplitEnabled = salarySplitToggle.checked;
-    state.settings.advancePercent = Math.min(100, Math.max(0, Number(document.getElementById("sPercent").value) || 0));
+    state.settings.advancePercent = Math.min(100, Math.max(0, Number(document.getElementById("sPercent").value) || 40));
     state.settings.advanceDay = Math.min(31, Math.max(1, Number(document.getElementById("sDay").value) || 20));
     state.settings.mainPaymentLabel = document.getElementById("sMain").value.trim() || "5º dia útil";
     state.settings.reserveGoal = Math.max(0, numCents("sGoal"));
