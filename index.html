@@ -7,7 +7,7 @@
   <title>FX — Seu Dinheiro. Suas Regras.</title>
 
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="style.css?v=1.3.0">
+  <link rel="stylesheet" href="style.css?v=1.3.2">
 </head>
 <body>
 
@@ -27,6 +27,7 @@
         <input id="loginPassword" type="password" placeholder="Sua senha" required autocomplete="current-password">
 
         <button class="login-button" id="loginBtn" type="button">Entrar</button>
+        <button class="login-link" id="showForgotBtn" type="button">Esqueci minha senha</button>
         <button class="login-link" id="showCreateBtn" type="button">Criar conta</button>
       </form>
 
@@ -43,6 +44,18 @@
 
         <button class="login-button" id="createBtn" type="button">Criar conta</button>
         <button class="login-link" id="backLoginBtn" type="button">Já tenho uma conta</button>
+      </form>
+
+      <!-- FORM RECUPERAR SENHA -->
+      <form id="forgotForm" class="hidden" onsubmit="return false;">
+        <label for="forgotCode">Código de Recuperação ou Chave Mestra</label>
+        <input id="forgotCode" placeholder="Ex: FX-1234 ou Chave Mestra" required>
+
+        <label for="forgotNewPassword">Nova Senha</label>
+        <input id="forgotNewPassword" type="password" placeholder="8 caracteres" required>
+
+        <button class="login-button" id="resetPasswordBtn" type="button">Redefinir Senha</button>
+        <button class="login-link" id="backLoginFromForgotBtn" type="button">Voltar ao login</button>
       </form>
 
       <div id="loginMessage" class="login-message"></div>
@@ -175,10 +188,10 @@
     </div>
   </div>
 
-  <script src="app.js?v=1.3.0"></script>
+  <script src="app.js?v=1.3.2"></script>
   <script>
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("service-worker.js?v=1.3.0");
+      navigator.serviceWorker.register("service-worker.js?v=1.3.2");
     }
   </script>
 </body>
