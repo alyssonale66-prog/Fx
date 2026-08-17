@@ -1,7 +1,7 @@
 /* =====================================================
    PROJETO FX — SEU DINHEIRO. SUAS REGRAS.
    Arquivo: app.js
-   Versão: 1.2.9 — Acúmulo de Sobras do Mês Anterior (Salário e Extra)
+   Versão: 1.3.0 — Resposta Tátil (Vibração) + Ocultar Saldo (Modo Privacidade)
 ===================================================== */
 
 const KEY = "fx_finance_v1";
@@ -9,7 +9,19 @@ const ACCOUNT_KEY = "fx_account_v1";
 const SESSION_KEY = "fx_session_v1";
 
 /* =====================================================
-   CATEGORIAS PADRÃO (TODAS ZERADAS)
+   SENSATIVIDADE TÁTIL (VIBRAÇÃO ANDROID)
+===================================================== */
+
+function vibrate(ms = 12) {
+  if ("vibrate" in navigator) {
+    try {
+      navigator.vibrate(ms);
+    } catch (e) {}
+  }
+}
+
+/* =====================================================
+   CATEGORIAS PADRÃO
 ===================================================== */
 
 const defaultCategories = [
@@ -41,6 +53,7 @@ function isLogged() {
 }
 
 function login(username, password) {
+  vibrate(15);
   const account = getAccount();
 
   if (!account) {
@@ -58,6 +71,7 @@ function login(username, password) {
 }
 
 function createAccount() {
+  vibrate(15);
   const username = document.getElementById("createUsername").value.trim();
   const password = document.getElementById("createPassword").value;
   const confirmation = document.getElementById("createPasswordConfirm").value;
@@ -93,6 +107,7 @@ function createAccount() {
 }
 
 function logout() {
+  vibrate(20);
   localStorage.removeItem(SESSION_KEY);
 
   document.getElementById("appScreen").classList.add("hidden");
@@ -110,12 +125,14 @@ function showLoginMessage(message) {
 }
 
 function showCreateAccount() {
+  vibrate();
   document.getElementById("loginForm").classList.add("hidden");
   document.getElementById("createForm").classList.remove("hidden");
   showLoginMessage("");
 }
 
 function showLoginForm() {
+  vibrate();
   document.getElementById("createForm").classList.add("hidden");
   document.getElementById("loginForm").classList.remove("hidden");
   showLoginMessage("");
@@ -138,7 +155,8 @@ const state = load() || {
     advancePercent: 40,
     advanceDay: 20,
     mainPaymentLabel: "5º dia útil",
-    reserveGoal: 0
+    reserveGoal: 0,
+    hideBalance: false
   },
   categories: defaultCategories.map(cat => ({ ...cat })),
   months: {},
@@ -147,10 +165,14 @@ const state = load() || {
 };
 
 /* =====================================================
-   DINHEIRO
+   DINHEIRO & PRIVACIDADE DE MASCARAMENTO
 ===================================================== */
 
 function money(cents) {
+  if (state && state.settings && state.settings.hideBalance) {
+    return "R$ ••••";
+  }
+
   const value = (Number(cents) || 0) / 100;
   return new Intl.NumberFormat("pt-BR", {
     style: "currency",
@@ -204,6 +226,10 @@ function normalizeState(data) {
 
   if (typeof data.settings.salarySplitEnabled !== "boolean") {
     data.settings.salarySplitEnabled = false;
+  }
+
+  if (typeof data.settings.hideBalance !== "boolean") {
+    data.settings.hideBalance = false;
   }
 
   data.settings.advancePercent = Math.min(100, Math.max(0, Number(data.settings.advancePercent) || 0));
@@ -414,7 +440,7 @@ function getPreviousExtraCarryover(currentMonthKey) {
 }
 
 /* =====================================================
-   RESERVA E CARTEIRAS ISOLADAS (COM ACÚMULO)
+   RESERVA E CARTEIRAS ISOLADAS
 ===================================================== */
 
 function getReserveBalanceUntil(monthKeyLimit) {
@@ -505,6 +531,9 @@ function render() {
   const salaryAvail = getSalaryAvailable(month);
   const extraAvail = getExtraAvailable(month);
 
+  const eyeBtn = document.getElementById("toggleHideBtn");
+  if (eyeBtn) eyeBtn.textContent = state.settings.hideBalance ? "🙈" : "👁️";
+
   document.getElementById("monthTitle").textContent = monthLabel(state.currentMonth);
   document.getElementById("availableValue").textContent = money(salaryAvail);
   document.getElementById("salaryValue").textContent = money(salaryAvail);
@@ -570,7 +599,10 @@ function renderCategories() {
           <small>guardado</small>
         </div>
       `;
-      element.addEventListener("click", () => openReserve());
+      element.addEventListener("click", () => {
+        vibrate();
+        openReserve();
+      });
       wrap.appendChild(element);
       return;
     }
@@ -613,11 +645,13 @@ function renderCategories() {
 
     element.addEventListener("click", event => {
       if (event.target.closest(".cat-edit")) return;
+      vibrate();
       openExpense(category.id);
     });
 
     element.querySelector(".cat-edit").addEventListener("click", event => {
       event.stopPropagation();
+      vibrate();
       openEditCategory(category.id);
     });
 
@@ -647,6 +681,7 @@ function openCategory() {
 
   document.getElementById("categoryForm").onsubmit = event => {
     event.preventDefault();
+    vibrate(15);
     const name = document.getElementById("catName").value.trim();
     const amount = numCents("catBudget");
 
@@ -703,6 +738,7 @@ function openEditCategory(id) {
 
   document.getElementById("editCategoryForm").onsubmit = event => {
     event.preventDefault();
+    vibrate(15);
     const name = document.getElementById("editCatName").value.trim();
     if (!name) {
       alert("Digite um nome.");
@@ -719,6 +755,7 @@ function openEditCategory(id) {
   };
 
   document.getElementById("deleteCategoryBtn").onclick = () => {
+    vibrate(25);
     if (confirm(`Excluir a categoria "${category.name}"? Os gastos antigos serão mantidos no extrato.`)) {
       state.categories = state.categories.filter(c => c.id !== id);
       save();
@@ -774,6 +811,7 @@ function openExpense(categoryId = state.categories.find(c => c.type === "expense
 
   document.getElementById("expenseForm").onsubmit = event => {
     event.preventDefault();
+    vibrate(18);
     const amount = numCents("expenseAmount");
 
     if (amount <= 0) {
@@ -848,7 +886,10 @@ function renderExtras() {
     .join("");
 
   container.querySelectorAll(".extra-delete").forEach(button => {
-    button.addEventListener("click", () => deleteExtra(button.dataset.id));
+    button.addEventListener("click", () => {
+      vibrate(20);
+      deleteExtra(button.dataset.id);
+    });
   });
 }
 
@@ -872,6 +913,7 @@ function openExtra() {
 
   document.getElementById("extraForm").onsubmit = event => {
     event.preventDefault();
+    vibrate(18);
     const name = document.getElementById("extraName").value.trim();
     const amount = numCents("extraAmount");
     const date = document.getElementById("extraDate").value;
@@ -987,6 +1029,7 @@ function openReserve() {
 
   document.getElementById("reserveForm").onsubmit = event => {
     event.preventDefault();
+    vibrate(18);
     const amount = numCents("reserveAmount");
     const source = document.getElementById("reserveSource").value;
 
@@ -1030,6 +1073,7 @@ function openReserve() {
 
   document.getElementById("withdrawForm").onsubmit = event => {
     event.preventDefault();
+    vibrate(22);
     const amount = numCents("withdrawAmount");
     const currentReserve = getReserveBalance();
 
@@ -1063,7 +1107,10 @@ function openReserve() {
     render();
   };
 
-  document.getElementById("closeReserveBtn").onclick = closeModal;
+  document.getElementById("closeReserveBtn").onclick = () => {
+    vibrate();
+    closeModal();
+  };
 }
 
 /* =====================================================
@@ -1233,14 +1280,6 @@ function openSettings() {
         <label>Meta da reserva (opcional)</label>
         <input id="sGoal" inputmode="decimal" value="${state.settings.reserveGoal > 0 ? (state.settings.reserveGoal / 100).toFixed(2) : ""}" placeholder="Deixe vazio se não quiser uma meta">
 
-        <div class="dark-mode-row">
-          <span>🌙 Modo escuro</span>
-          <label class="theme-switch">
-            <input type="checkbox" id="darkModeToggle">
-            <span class="theme-slider"><span class="theme-dot"></span></span>
-          </label>
-        </div>
-
         <button type="submit">Salvar</button>
       </form>
 
@@ -1254,9 +1293,6 @@ function openSettings() {
     `
   );
 
-  const darkToggle = document.getElementById("darkModeToggle");
-  darkToggle.checked = localStorage.getItem("fxDarkMode") === "true";
-
   const salarySplitToggle = document.getElementById("salarySplitToggle");
   const salarySplitOptions = document.getElementById("salarySplitOptions");
   salarySplitToggle.checked = !!state.settings.salarySplitEnabled;
@@ -1266,10 +1302,14 @@ function openSettings() {
   }
 
   updateSalarySplitOptions();
-  salarySplitToggle.onchange = updateSalarySplitOptions;
+  salarySplitToggle.onchange = () => {
+    vibrate();
+    updateSalarySplitOptions();
+  };
 
   document.getElementById("settingsForm").onsubmit = event => {
     event.preventDefault();
+    vibrate(15);
     const newSalary = numCents("sSalary");
     const committedSalary = totalSalarySpent(month) + (month.reserveContribution || 0) - (month.salaryReserveReturn || 0);
 
@@ -1286,17 +1326,18 @@ function openSettings() {
     state.settings.mainPaymentLabel = document.getElementById("sMain").value.trim() || "5º dia útil";
     state.settings.reserveGoal = Math.max(0, numCents("sGoal"));
 
-    const dark = darkToggle.checked;
-    document.body.classList.toggle("dark", dark);
-    localStorage.setItem("fxDarkMode", dark);
-
     save();
     closeModal();
     render();
   };
 
-  document.getElementById("exportBtn").onclick = exportData;
+  document.getElementById("exportBtn").onclick = () => {
+    vibrate();
+    exportData();
+  };
+
   document.getElementById("resetBtn").onclick = () => {
+    vibrate(25);
     if (confirm("Apagar todos os dados do FX?")) {
       localStorage.clear();
       location.reload();
@@ -1375,43 +1416,48 @@ function closeModal() {
    EVENTOS & INICIALIZAÇÃO
 ===================================================== */
 
-document.getElementById("loginBtn").onclick = () => {
-  login(document.getElementById("loginUsername").value.trim(), document.getElementById("loginPassword").value);
-};
-
+document.getElementById("loginBtn").onclick = () => login(document.getElementById("loginUsername").value.trim(), document.getElementById("loginPassword").value);
 document.getElementById("createBtn").onclick = createAccount;
 document.getElementById("showCreateBtn").onclick = showCreateAccount;
 document.getElementById("backLoginBtn").onclick = showLoginForm;
 document.getElementById("logoutBtn").onclick = logout;
 
+document.getElementById("toggleHideBtn").onclick = () => {
+  vibrate(15);
+  state.settings.hideBalance = !state.settings.hideBalance;
+  save();
+  render();
+};
+
 document.getElementById("prevMonth").onclick = () => {
+  vibrate();
   state.currentMonth = monthShift(state.currentMonth, -1);
   save();
   render();
 };
 
 document.getElementById("nextMonth").onclick = () => {
+  vibrate();
   state.currentMonth = monthShift(state.currentMonth, 1);
   save();
   render();
 };
 
-document.getElementById("addExpenseBtn").onclick = () => openExpense();
-document.getElementById("addCategoryBtn").onclick = openCategory;
-document.getElementById("addExtraBtn").onclick = openExtra;
-document.getElementById("settingsBtn").onclick = openSettings;
-document.getElementById("paymentsSettingsBtn").onclick = openPayments;
-document.getElementById("reserveBtn").onclick = openReserve;
-document.getElementById("historyBtn").onclick = openHistory;
-document.getElementById("historyBtn2").onclick = openHistory;
-document.getElementById("closeModal").onclick = closeModal;
+document.getElementById("addExpenseBtn").onclick = () => { vibrate(); openExpense(); };
+document.getElementById("addCategoryBtn").onclick = () => { vibrate(); openCategory(); };
+document.getElementById("addExtraBtn").onclick = () => { vibrate(); openExtra(); };
+document.getElementById("settingsBtn").onclick = () => { vibrate(); openSettings(); };
+document.getElementById("paymentsSettingsBtn").onclick = () => { vibrate(); openPayments(); };
+document.getElementById("reserveBtn").onclick = () => { vibrate(); openReserve(); };
+document.getElementById("historyBtn").onclick = () => { vibrate(); openHistory(); };
+document.getElementById("historyBtn2").onclick = () => { vibrate(); openHistory(); };
+document.getElementById("closeModal").onclick = () => { vibrate(); closeModal(); };
 
 document.getElementById("modal").addEventListener("click", event => {
-  if (event.target.id === "modal") closeModal();
+  if (event.target.id === "modal") { vibrate(); closeModal(); }
 });
 
 function initFinance() {
-  document.body.classList.toggle("dark", localStorage.getItem("fxDarkMode") === "true");
   normalizeState(state);
   getMonth();
   syncReserve();
