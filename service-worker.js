@@ -1,8 +1,6 @@
-"use strict";
+const CACHE_NAME = "fx-v1";
 
-const CACHE_NAME = "fx-cache-v1";
-
-const ASSETS = [
+const FILES_TO_CACHE = [
   "./",
   "./index.html",
   "./style.css",
@@ -11,68 +9,29 @@ const ASSETS = [
 ];
 
 self.addEventListener("install", event => {
-  self.skipWaiting();
-
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => {
-      return cache.addAll(ASSETS);
-    })
+    caches.open(CACHE_NAME)
+      .then(cache => cache.addAll(FILES_TO_CACHE))
+      .then(() => self.skipWaiting())
   );
 });
 
 self.addEventListener("activate", event => {
   event.waitUntil(
-    caches.keys().then(keys => {
+    caches.keys().then(cacheNames => {
       return Promise.all(
-        keys
-          .filter(key => key !== CACHE_NAME)
-          .map(key => caches.delete(key))
+        cacheNames
+          .filter(name => name !== CACHE_NAME)
+          .map(name => caches.delete(name))
       );
-    }).then(() => {
-      return self.clients.claim();
-    })
+    }).then(() => self.clients.claim())
   );
 });
 
 self.addEventListener("fetch", event => {
-  const request = event.request;
-
-  if (request.method !== "GET") {
-    return;
-  }
-
   event.respondWith(
-    caches.match(request).then(cached => {
-      if (cached) {
-        return cached;
-      }
-
-      return fetch(request)
-        .then(response => {
-
-          if (
-            !response ||
-            response.status !== 200 ||
-            response.type === "opaque"
-          ) {
-            return response;
-          }
-
-          const copy = response.clone();
-
-          caches.open(CACHE_NAME).then(
-            cache => {
-              cache.put(request, copy);
-            }
-          );
-
-          return response;
-        })
-        .catch(() => {
-          return caches.match(
-            "./index.html"
-          );
-        });
+    caches.match(event.request).then(cachedResponse => {
+      return cachedResponse || fetch(event.request);
     })
   );
 });
