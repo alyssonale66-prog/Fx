@@ -1,17 +1,17 @@
 /* =========================================================
    FX — SEU DINHEIRO. SUAS REGRAS.
-   APP.JS
-   ========================================================= */
+   APP.JS — BASE COMPLETA
+========================================================= */
 
 "use strict";
 
 /* =========================================================
    CONFIGURAÇÃO
-   ========================================================= */
+========================================================= */
 
-const APP_NAME = "FX";
-const MASTER_KEY = "Fx020919";
-const STORAGE_KEY = "fx_state_v1";
+const FX_VERSION = "1.0.0";
+const STORAGE_KEY = "fx_state";
+const SESSION_KEY = "fx_session";
 
 const DEFAULT_CATEGORIES = [
   {
@@ -20,7 +20,8 @@ const DEFAULT_CATEGORIES = [
     icon: "🏠",
     type: "expense",
     hasLimit: true,
-    limit: 600
+    limit: 60000,
+    protected: true
   },
   {
     id: "cat-reserve",
@@ -28,15 +29,17 @@ const DEFAULT_CATEGORIES = [
     icon: "🏦",
     type: "reserve",
     hasLimit: false,
-    limit: 0
+    limit: 0,
+    protected: true
   },
   {
-    id: "cat-medicines",
+    id: "cat-medicine",
     name: "Medicamentos",
     icon: "💊",
     type: "expense",
     hasLimit: true,
-    limit: 200
+    limit: 20000,
+    protected: true
   },
   {
     id: "cat-leisure",
@@ -44,7 +47,8 @@ const DEFAULT_CATEGORIES = [
     icon: "🎮",
     type: "expense",
     hasLimit: true,
-    limit: 200
+    limit: 20000,
+    protected: true
   },
   {
     id: "cat-phone",
@@ -52,7 +56,8 @@ const DEFAULT_CATEGORIES = [
     icon: "📱",
     type: "expense",
     hasLimit: true,
-    limit: 35
+    limit: 3500,
+    protected: true
   },
   {
     id: "cat-other",
@@ -60,67 +65,15 @@ const DEFAULT_CATEGORIES = [
     icon: "📦",
     type: "other",
     hasLimit: false,
-    limit: 0
+    limit: 0,
+    protected: true
   }
 ];
 
 
 /* =========================================================
-   ESTADO
-   ========================================================= */
-
-let state = createInitialState();
-
-let currentScreen = "setup";
-let currentPanel = null;
-let currentModal = null;
-
-let selectedCategoryId = null;
-let selectedSettingsCategoryId = null;
-
-let toastTimer = null;
-
-
-/* =========================================================
-   ESTADO INICIAL
-   ========================================================= */
-
-function createInitialState() {
-  return {
-    schemaVersion: 1,
-
-    account: {
-      configured: false,
-      username: "",
-      password: ""
-    },
-
-    session: {
-      locked: false
-    },
-
-    settings: {
-      salaryReference: 0,
-      salarySplit: false,
-      cycleDay: 5
-    },
-
-    currentCycleKey: getCycleKey(new Date()),
-
-    cycles: {},
-
-    categories: clone(DEFAULT_CATEGORIES)
-  };
-}
-
-
-/* =========================================================
-   UTILIDADES
-   ========================================================= */
-
-function clone(value) {
-  return JSON.parse(JSON.stringify(value));
-}
+   UTILITÁRIOS
+========================================================= */
 
 function createId(prefix = "id") {
   return (
@@ -132,36 +85,88 @@ function createId(prefix = "id") {
   );
 }
 
+
 function todayISO() {
-  return new Date().toISOString().slice(0, 10);
+  const date = new Date();
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
 }
 
-function nowISO() {
-  return new Date().toISOString();
+
+function currentCycleKey() {
+  const now = new Date();
+
+  let year = now.getFullYear();
+  let month = now.getMonth() + 1;
+
+  const cycleDay = Number(
+    state?.settings?.cycleDay || 5
+  );
+
+  if (now.getDate() < cycleDay) {
+    month--;
+
+    if (month === 0) {
+      month = 12;
+      year--;
+    }
+  }
+
+  return `${year}-${String(month).padStart(2, "0")}`;
 }
 
-function escapeHtml(value) {
-  return String(value ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
+
+function formatDate(dateString) {
+  if (!dateString) return "";
+
+  const parts = dateString.split("-");
+
+  if (parts.length !== 3) {
+    return dateString;
+  }
+
+  return `${parts[2]}/${parts[1]}`;
 }
 
-function clamp(value, min, max) {
-  return Math.min(Math.max(value, min), max);
+
+function formatDateTime(dateString, timeString) {
+  const date = formatDate(dateString);
+
+  if (!timeString) {
+    return date;
+  }
+
+  return `${date} — ${timeString}`;
+}
+
+
+function currentTime() {
+  const date = new Date();
+
+  return (
+    String(date.getHours()).padStart(2, "0") +
+    ":" +
+    String(date.getMinutes()).padStart(2, "0")
+  );
 }
 
 
 /* =========================================================
    DINHEIRO
-   Internamente usamos CENTAVOS.
-   ========================================================= */
+   INTERNAMENTE: CENTAVOS
+========================================================= */
 
 function parseMoney(value) {
+
   if (typeof value === "number") {
-    if (!Number.isFinite(value)) return 0;
+
+    if (!Number.isFinite(value)) {
+      return 0;
+    }
 
     return Math.round(value * 100);
   }
@@ -170,46 +175,42 @@ function parseMoney(value) {
     return 0;
   }
 
-  let text = String(value).trim();
+  let text = String(value)
+    .trim()
+    .replace(/\s/g, "")
+    .replace(/R\$/gi, "");
 
-  if (!text) return 0;
-
-  text = text
-    .replace(/R\$/gi, "")
-    .replace(/\s/g, "");
+  if (!text) {
+    return 0;
+  }
 
   /*
-    Aceita:
+    Exemplos aceitos:
 
     1770
     1770,50
     1.770,50
-    1770.50
-    1,770.50
+    R$ 1.770,50
+    10.50
   */
 
-  const hasComma = text.includes(",");
-  const hasDot = text.includes(".");
-
-  if (hasComma && hasDot) {
-
-    if (text.lastIndexOf(",") > text.lastIndexOf(".")) {
-      text = text.replace(/\./g, "");
-      text = text.replace(",", ".");
-    } else {
-      text = text.replace(/,/g, "");
-    }
-
-  } else if (hasComma) {
-
-    text = text.replace(",", ".");
-
-  } else if (
-    hasDot &&
-    /^\d{1,3}(\.\d{3})+$/.test(text)
-  ) {
+  if (text.includes(",")) {
 
     text = text.replace(/\./g, "");
+    text = text.replace(",", ".");
+
+  } else {
+
+    /*
+      Se não existe vírgula,
+      ponto é tratado como decimal.
+    */
+
+    const parts = text.split(".");
+
+    if (parts.length > 2) {
+      text = text.replace(/\./g, "");
+    }
   }
 
   const number = Number(text);
@@ -221,279 +222,543 @@ function parseMoney(value) {
   return Math.round(number * 100);
 }
 
-function formatMoney(cents) {
-  const value = Number(cents) || 0;
 
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL"
-  }).format(value / 100);
+function moneyToNumber(cents) {
+  return cents / 100;
 }
 
-function formatInputMoney(cents) {
-  const value = Number(cents) || 0;
 
-  return (value / 100)
-    .toFixed(2)
-    .replace(".", ",");
+function formatMoney(cents) {
+
+  const value = moneyToNumber(
+    Number.isFinite(cents) ? cents : 0
+  );
+
+  return value.toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL"
+  });
+}
+
+
+function formatInputMoney(cents) {
+
+  const value = moneyToNumber(
+    Number.isFinite(cents) ? cents : 0
+  );
+
+  return value.toLocaleString("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
 }
 
 
 /* =========================================================
-   DATAS
-   ========================================================= */
+   SEGURANÇA HTML
+========================================================= */
 
-function getCycleKey(date = new Date()) {
-  const year = date.getFullYear();
-  const month = date.getMonth() + 1;
+function escapeHtml(value) {
 
-  const day = date.getDate();
-  const cycleDay = Number(state?.settings?.cycleDay || 5);
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
 
-  let cycleYear = year;
-  let cycleMonth = month;
 
-  if (day < cycleDay) {
-    cycleMonth--;
+/* =========================================================
+   ESTADO
+========================================================= */
 
-    if (cycleMonth === 0) {
-      cycleMonth = 12;
-      cycleYear--;
+function createDefaultState() {
+
+  return {
+    schemaVersion: 1,
+
+    setupComplete: false,
+
+    user: {
+      name: "",
+      password: ""
+    },
+
+    settings: {
+      salaryReference: 0,
+
+      salarySplit: false,
+
+      cycleDay: 5,
+
+      lastSalaryAdjustmentReminder: "",
+
+      masterKeyEnabled: true
+    },
+
+    categories: DEFAULT_CATEGORIES.map(category => ({
+      ...category
+    })),
+
+    cycles: {},
+
+    currentCycle: currentCycleKey(),
+
+    ui: {
+      settingsOpen: null
     }
-  }
-
-  return (
-    String(cycleYear) +
-    "-" +
-    String(cycleMonth).padStart(2, "0")
-  );
+  };
 }
 
-function getPreviousCycleKey(cycleKey) {
-  const [year, month] = cycleKey.split("-").map(Number);
 
-  let y = year;
-  let m = month - 1;
-
-  if (m === 0) {
-    m = 12;
-    y--;
-  }
-
-  return (
-    String(y) +
-    "-" +
-    String(m).padStart(2, "0")
-  );
-}
-
-function formatCycleName(cycleKey) {
-  if (!cycleKey) return "";
-
-  const [year, month] = cycleKey.split("-");
-
-  const date = new Date(
-    Number(year),
-    Number(month) - 1,
-    1
-  );
-
-  return new Intl.DateTimeFormat("pt-BR", {
-    month: "long",
-    year: "numeric"
-  }).format(date);
-}
-
-function formatDate(dateString) {
-  if (!dateString) return "";
-
-  const date = new Date(dateString);
-
-  if (Number.isNaN(date.getTime())) {
-    return "";
-  }
-
-  return new Intl.DateTimeFormat("pt-BR", {
-    day: "2-digit",
-    month: "2-digit"
-  }).format(date);
-}
-
-function formatTime(dateString) {
-  if (!dateString) return "";
-
-  const date = new Date(dateString);
-
-  if (Number.isNaN(date.getTime())) {
-    return "";
-  }
-
-  return new Intl.DateTimeFormat("pt-BR", {
-    hour: "2-digit",
-    minute: "2-digit"
-  }).format(date);
-}
+let state = createDefaultState();
 
 
 /* =========================================================
    CICLO
-   ========================================================= */
+========================================================= */
 
-function createCycle(key, options = {}) {
-  const salary = Number.isInteger(options.salary)
-    ? options.salary
-    : Number(state.settings.salaryReference || 0);
+function createCycle(key) {
 
   return {
+
     key,
 
-    salary: {
-      reference: salary,
-      received: salary,
-      adjusted: false
-    },
+    salary: 0,
 
-    salarySplit: {
-      enabled: Boolean(state.settings.salarySplit),
-      firstPart: 0,
-      secondPart: 0
-    },
+    salaryReceived: false,
 
     extra: 0,
 
     categories: {},
 
-    transactions: [],
+    expenses: [],
 
-    reserve: {
-      balance: 0,
-      movements: []
-    },
+    reserveTransactions: [],
 
-    createdAt: nowISO()
+    reserveBalanceAtStart: 0,
+
+    reminderShown: false,
+
+    createdAt: new Date().toISOString()
   };
 }
 
+
 function ensureCycle(key) {
+
   if (!state.cycles[key]) {
     state.cycles[key] = createCycle(key);
   }
 
-  return state.cycles[key];
+  const cycle = state.cycles[key];
+
+  if (!Array.isArray(cycle.expenses)) {
+    cycle.expenses = [];
+  }
+
+  if (!Array.isArray(cycle.reserveTransactions)) {
+    cycle.reserveTransactions = [];
+  }
+
+  if (!Number.isFinite(cycle.salary)) {
+    cycle.salary = 0;
+  }
+
+  if (!Number.isFinite(cycle.extra)) {
+    cycle.extra = 0;
+  }
+
+  if (!cycle.categories) {
+    cycle.categories = {};
+  }
+
+  initializeCategoryLimits(cycle);
+
+  return cycle;
+}
+
+
+function initializeCategoryLimits(cycle) {
+
+  state.categories.forEach(category => {
+
+    if (
+      category.type === "reserve"
+    ) {
+      return;
+    }
+
+    if (
+      category.hasLimit === false
+    ) {
+      return;
+    }
+
+    if (
+      !Object.prototype.hasOwnProperty.call(
+        cycle.categories,
+        category.id
+      )
+    ) {
+
+      cycle.categories[category.id] = {
+        limit: Number(category.limit) || 0
+      };
+    }
+  });
+}
+
+
+/* =========================================================
+   RESERVA
+========================================================= */
+
+function getReserveBalance() {
+
+  let total = 0;
+
+  Object.values(state.cycles).forEach(cycle => {
+
+    if (!Array.isArray(cycle.reserveTransactions)) {
+      return;
+    }
+
+    cycle.reserveTransactions.forEach(transaction => {
+
+      if (transaction.type === "deposit") {
+        total += Number(transaction.amount) || 0;
+      }
+
+      if (transaction.type === "withdraw") {
+        total -= Number(transaction.amount) || 0;
+      }
+
+    });
+
+  });
+
+  return Math.max(0, total);
+}
+
+
+function getCycleReserveDeposits(cycle) {
+
+  return cycle.reserveTransactions
+    .filter(transaction =>
+      transaction.type === "deposit"
+    )
+    .reduce(
+      (total, transaction) =>
+        total + Number(transaction.amount || 0),
+      0
+    );
+}
+
+
+function getCycleReserveWithdrawals(cycle) {
+
+  return cycle.reserveTransactions
+    .filter(transaction =>
+      transaction.type === "withdraw"
+    )
+    .reduce(
+      (total, transaction) =>
+        total + Number(transaction.amount || 0),
+      0
+    );
+}
+
+
+/* =========================================================
+   GASTOS
+========================================================= */
+
+function getCycleExpenses(cycle) {
+
+  return cycle.expenses.reduce(
+    (total, expense) =>
+      total + Number(expense.amount || 0),
+    0
+  );
+}
+
+
+function getCategoryExpenses(cycle, categoryId) {
+
+  return cycle.expenses
+    .filter(expense =>
+      expense.categoryId === categoryId
+    )
+    .reduce(
+      (total, expense) =>
+        total + Number(expense.amount || 0),
+      0
+    );
+}
+
+
+function getCategoryAvailable(cycle, category) {
+
+  if (
+    category.type === "reserve" ||
+    category.hasLimit === false
+  ) {
+    return null;
+  }
+
+  const categoryData =
+    cycle.categories[category.id];
+
+  const limit =
+    Number(categoryData?.limit ?? category.limit ?? 0);
+
+  const spent =
+    getCategoryExpenses(
+      cycle,
+      category.id
+    );
+
+  return Math.max(
+    0,
+    limit - spent
+  );
+}
+
+
+/* =========================================================
+   DINHEIRO DISPONÍVEL
+========================================================= */
+
+function getSalaryAvailable(cycle) {
+
+  const salary = Number(cycle.salary) || 0;
+
+  const salaryExpenses =
+    cycle.expenses
+      .filter(expense =>
+        expense.source === "salary"
+      )
+      .reduce(
+        (total, expense) =>
+          total + Number(expense.amount || 0),
+        0
+      );
+
+  const salaryDeposits =
+    cycle.reserveTransactions
+      .filter(transaction =>
+        transaction.type === "deposit" &&
+        transaction.source === "salary"
+      )
+      .reduce(
+        (total, transaction) =>
+          total + Number(transaction.amount || 0),
+        0
+      );
+
+  return Math.max(
+    0,
+    salary -
+    salaryExpenses -
+    salaryDeposits
+  );
+}
+
+
+function getExtraAvailable(cycle) {
+
+  const extra = Number(cycle.extra) || 0;
+
+  const extraExpenses =
+    cycle.expenses
+      .filter(expense =>
+        expense.source === "extra"
+      )
+      .reduce(
+        (total, expense) =>
+          total + Number(expense.amount || 0),
+        0
+      );
+
+  const extraDeposits =
+    cycle.reserveTransactions
+      .filter(transaction =>
+        transaction.type === "deposit" &&
+        transaction.source === "extra"
+      )
+      .reduce(
+        (total, transaction) =>
+          total + Number(transaction.amount || 0),
+        0
+      );
+
+  return Math.max(
+    0,
+    extra -
+    extraExpenses -
+    extraDeposits
+  );
+}
+
+
+function getAvailable(cycle) {
+
+  const salary =
+    getSalaryAvailable(cycle);
+
+  const extra =
+    getExtraAvailable(cycle);
+
+  return salary + extra;
 }
 
 
 /* =========================================================
    NORMALIZAÇÃO
-   ========================================================= */
+========================================================= */
 
 function normalizeState(raw) {
 
-  const fresh = createInitialState();
+  const base = createDefaultState();
 
   if (!raw || typeof raw !== "object") {
-    return fresh;
+    return base;
   }
 
-  const result = {
-    ...fresh,
+  const normalized = {
+    ...base,
     ...raw
   };
 
-  result.account = {
-    ...fresh.account,
-    ...(raw.account || {})
+  normalized.user = {
+    ...base.user,
+    ...(raw.user || {})
   };
 
-  result.session = {
-    ...fresh.session,
-    ...(raw.session || {})
-  };
-
-  result.settings = {
-    ...fresh.settings,
+  normalized.settings = {
+    ...base.settings,
     ...(raw.settings || {})
   };
 
-  result.cycles =
-    raw.cycles &&
-    typeof raw.cycles === "object"
-      ? raw.cycles
-      : {};
+  normalized.ui = {
+    ...base.ui,
+    ...(raw.ui || {})
+  };
 
-  result.categories =
-    Array.isArray(raw.categories) &&
-    raw.categories.length
-      ? raw.categories
-      : clone(DEFAULT_CATEGORIES);
+  if (
+    !Array.isArray(raw.categories) ||
+    raw.categories.length === 0
+  ) {
 
-  result.categories = result.categories.map(category => ({
-    id: category.id || createId("cat"),
-    name: String(category.name || "Categoria"),
-    icon: category.icon || "📦",
-    type: category.type || "expense",
-    hasLimit:
-      category.type === "reserve"
-        ? false
-        : Boolean(category.hasLimit),
-    limit:
-      category.type === "reserve"
-        ? 0
-        : Math.max(
-            0,
-            Number(category.limit) || 0
-          )
-  }));
+    normalized.categories =
+      base.categories.map(category => ({
+        ...category
+      }));
 
-  Object.keys(result.cycles).forEach(key => {
-    const cycle = result.cycles[key];
+  } else {
 
-    cycle.salary = {
-      reference: Number(cycle.salary?.reference) || 0,
-      received: Number(cycle.salary?.received) || 0,
-      adjusted: Boolean(cycle.salary?.adjusted)
-    };
+    normalized.categories =
+      raw.categories.map(category => ({
+        id: category.id || createId("cat"),
+        name: String(category.name || "Sem nome"),
+        icon: String(category.icon || "📦"),
+        type: category.type || "expense",
+        hasLimit:
+          category.type === "reserve"
+            ? false
+            : category.hasLimit !== false,
+        limit:
+          Number(category.limit) || 0,
+        protected:
+          category.protected === true
+      }));
 
-    cycle.salarySplit = {
-      enabled: Boolean(cycle.salarySplit?.enabled),
-      firstPart: Number(cycle.salarySplit?.firstPart) || 0,
-      secondPart: Number(cycle.salarySplit?.secondPart) || 0
-    };
+  }
 
-    cycle.extra = Number(cycle.extra) || 0;
+  if (
+    !normalized.categories.some(
+      category => category.type === "reserve"
+    )
+  ) {
 
-    cycle.transactions =
-      Array.isArray(cycle.transactions)
-        ? cycle.transactions
-        : [];
+    normalized.categories.splice(
+      1,
+      0,
+      {
+        ...DEFAULT_CATEGORIES[1]
+      }
+    );
+  }
 
-    cycle.reserve = {
-      balance:
-        Number(cycle.reserve?.balance) || 0,
+  if (
+    !normalized.categories.some(
+      category => category.type === "other"
+    )
+  ) {
 
-      movements:
-        Array.isArray(cycle.reserve?.movements)
-          ? cycle.reserve.movements
-          : []
-    };
+    normalized.categories.push({
+      ...DEFAULT_CATEGORIES[5]
+    });
+  }
 
-    cycle.categories =
-      cycle.categories &&
-      typeof cycle.categories === "object"
-        ? cycle.categories
-        : {};
-  });
+  if (!raw.cycles || typeof raw.cycles !== "object") {
+    normalized.cycles = {};
+  }
 
-  return result;
+  Object.keys(normalized.cycles)
+    .forEach(key => {
+
+      const cycle =
+        normalized.cycles[key];
+
+      if (!cycle || typeof cycle !== "object") {
+        normalized.cycles[key] =
+          createCycle(key);
+        return;
+      }
+
+      cycle.key = key;
+
+      if (!Array.isArray(cycle.expenses)) {
+        cycle.expenses = [];
+      }
+
+      if (!Array.isArray(cycle.reserveTransactions)) {
+        cycle.reserveTransactions = [];
+      }
+
+      if (!cycle.categories) {
+        cycle.categories = {};
+      }
+
+      cycle.salary =
+        Number(cycle.salary) || 0;
+
+      cycle.extra =
+        Number(cycle.extra) || 0;
+
+      initializeCategoryLimits(cycle);
+
+    });
+
+  normalized.currentCycle =
+    raw.currentCycle ||
+    currentCycleKey();
+
+  return normalized;
 }
 
 
 /* =========================================================
-   STORAGE
-   ========================================================= */
+   LOCAL STORAGE
+========================================================= */
 
 function saveState() {
+
   try {
+
     localStorage.setItem(
       STORAGE_KEY,
       JSON.stringify(state)
@@ -504,7 +769,7 @@ function saveState() {
   } catch (error) {
 
     console.error(
-      "FX: erro ao salvar estado",
+      "FX: erro ao salvar dados",
       error
     );
 
@@ -516,313 +781,358 @@ function saveState() {
   }
 }
 
+
 function loadState() {
 
   try {
 
     const raw =
-      localStorage.getItem(STORAGE_KEY);
+      localStorage.getItem(
+        STORAGE_KEY
+      );
 
     if (!raw) {
-      state = createInitialState();
+      state = createDefaultState();
       return;
     }
 
-    state = normalizeState(
-      JSON.parse(raw)
-    );
+    state =
+      normalizeState(
+        JSON.parse(raw)
+      );
 
   } catch (error) {
 
     console.error(
-      "FX: erro ao carregar estado",
+      "FX: erro ao carregar dados",
       error
     );
 
-    state = createInitialState();
+    state =
+      createDefaultState();
 
     showToast(
-      "Os dados locais não puderam ser carregados."
+      "Os dados estavam inválidos. Um estado inicial foi carregado."
     );
+  }
+}
+
+
+/* =========================================================
+   SESSÃO
+========================================================= */
+
+function isLoggedIn() {
+
+  return (
+    localStorage.getItem(
+      SESSION_KEY
+    ) === "unlocked"
+  );
+}
+
+
+function setLoggedIn(value) {
+
+  if (value) {
+
+    localStorage.setItem(
+      SESSION_KEY,
+      "unlocked"
+    );
+
+  } else {
+
+    localStorage.removeItem(
+      SESSION_KEY
+    );
+
   }
 }
 
 
 /* =========================================================
    CATEGORIAS
-   ========================================================= */
+========================================================= */
 
-function getCategory(id) {
+function getCategory(categoryId) {
+
   return state.categories.find(
-    category => category.id === id
+    category =>
+      category.id === categoryId
   );
 }
 
-function isProtectedCategory(category) {
-  return (
-    category &&
-    (
-      category.type === "reserve" ||
-      category.id === "cat-fixed" ||
-      category.id === "cat-medicines" ||
-      category.id === "cat-leisure" ||
-      category.id === "cat-phone" ||
-      category.id === "cat-other"
-    )
+
+function getReserveCategory() {
+
+  return state.categories.find(
+    category =>
+      category.type === "reserve"
   );
 }
 
-function ensureCategoryCycleData(cycle, category) {
 
-  if (!cycle.categories[category.id]) {
+function getOtherCategory() {
 
-    cycle.categories[category.id] = {
-      spent: 0
-    };
-  }
-
-  return cycle.categories[category.id];
+  return state.categories.find(
+    category =>
+      category.type === "other"
+  );
 }
 
-function getCategorySpent(cycle, categoryId) {
 
-  return cycle.transactions
-    .filter(
-      transaction =>
-        transaction.type === "expense" &&
-        transaction.categoryId === categoryId
-    )
-    .reduce(
-      (sum, transaction) =>
-        sum + Number(transaction.amount || 0),
-      0
-    );
-}
+function createCategory({
+  name,
+  icon,
+  hasLimit,
+  limit
+}) {
 
-function getCategoryRemaining(cycle, category) {
+  const cleanName =
+    String(name || "").trim();
 
-  if (!category.hasLimit) {
-    return null;
-  }
-
-  const spent =
-    getCategorySpent(
-      cycle,
-      category.id
+  if (!cleanName) {
+    showToast(
+      "Digite o nome da categoria."
     );
 
-  return Math.max(
-    0,
-    Number(category.limit || 0) - spent
+    return false;
+  }
+
+  const category = {
+
+    id: createId("cat"),
+
+    name: cleanName,
+
+    icon:
+      String(icon || "📦")
+        .trim() || "📦",
+
+    type: "expense",
+
+    hasLimit:
+      hasLimit === true,
+
+    limit:
+      hasLimit
+        ? Math.max(0, Number(limit) || 0)
+        : 0,
+
+    protected: false
+
+  };
+
+  state.categories.push(
+    category
   );
-}
 
+  Object.values(state.cycles)
+    .forEach(cycle => {
 
-/* =========================================================
-   ORIGENS
-   ========================================================= */
-
-function getSalaryAvailable(cycle) {
-
-  const spent =
-    cycle.transactions
-      .filter(
-        transaction =>
-          transaction.type === "expense" &&
-          transaction.source === "salary"
-      )
-      .reduce(
-        (sum, transaction) =>
-          sum + Number(transaction.amount || 0),
-        0
+      initializeCategoryLimits(
+        cycle
       );
 
-  const saved =
-    cycle.reserve.movements
-      .filter(
-        movement =>
-          movement.type === "deposit" &&
-          movement.source === "salary"
-      )
-      .reduce(
-        (sum, movement) =>
-          sum + Number(movement.amount || 0),
-        0
-      );
+      if (category.hasLimit) {
 
-  return Math.max(
-    0,
-    Number(cycle.salary.received || 0)
-      - spent
-      - saved
-  );
-}
+        cycle.categories[
+          category.id
+        ] = {
+          limit: category.limit
+        };
 
-function getExtraAvailable(cycle) {
+      }
 
-  const spent =
-    cycle.transactions
-      .filter(
-        transaction =>
-          transaction.type === "expense" &&
-          transaction.source === "extra"
-      )
-      .reduce(
-        (sum, transaction) =>
-          sum + Number(transaction.amount || 0),
-        0
-      );
-
-  const saved =
-    cycle.reserve.movements
-      .filter(
-        movement =>
-          movement.type === "deposit" &&
-          movement.source === "extra"
-      )
-      .reduce(
-        (sum, movement) =>
-          sum + Number(movement.amount || 0),
-        0
-      );
-
-  return Math.max(
-    0,
-    Number(cycle.extra || 0)
-      - spent
-      - saved
-  );
-}
-
-function getReserveBalance(cycle) {
-
-  return Math.max(
-    0,
-    cycle.reserve.movements.reduce(
-      (sum, movement) => {
-
-        if (movement.type === "deposit") {
-          return (
-            sum +
-            Number(movement.amount || 0)
-          );
-        }
-
-        if (movement.type === "withdrawal") {
-          return (
-            sum -
-            Number(movement.amount || 0)
-          );
-        }
-
-        return sum;
-      },
-      0
-    )
-  );
-}
-
-function getAvailable(cycle) {
-
-  return (
-    getSalaryAvailable(cycle) +
-    getExtraAvailable(cycle)
-  );
-}
-
-
-/* =========================================================
-   SALÁRIO
-   ========================================================= */
-
-function setSalary(cycle, amount) {
-
-  const value = Math.max(
-    0,
-    Number(amount) || 0
-  );
-
-  cycle.salary.received = value;
-  cycle.salary.reference = value;
-  cycle.salary.adjusted = true;
-
-  state.settings.salaryReference = value;
+    });
 
   saveState();
+
+  renderAll();
+
+  showToast(
+    "Categoria criada."
+  );
+
+  return true;
 }
 
-function calculateSalarySplit(amount) {
 
-  const total = Number(amount) || 0;
+function updateCategory(
+  categoryId,
+  changes
+) {
 
-  const first =
-    Math.round(total * 0.40);
+  const category =
+    getCategory(categoryId);
 
-  const second =
-    total - first;
-
-  return {
-    firstPart: first,
-    secondPart: second
-  };
-}
-
-function updateSalarySplit(cycle) {
-
-  if (!cycle.salarySplit.enabled) {
-
-    cycle.salarySplit.firstPart = 0;
-    cycle.salarySplit.secondPart =
-      cycle.salary.received;
-
-    return;
+  if (!category) {
+    return false;
   }
 
-  const split =
-    calculateSalarySplit(
-      cycle.salary.received
+  if (
+    typeof changes.name === "string"
+  ) {
+
+    const name =
+      changes.name.trim();
+
+    if (name) {
+      category.name = name;
+    }
+  }
+
+  if (
+    typeof changes.icon === "string"
+  ) {
+
+    category.icon =
+      changes.icon.trim() || "📦";
+  }
+
+  if (
+    category.type !== "reserve" &&
+    typeof changes.hasLimit === "boolean"
+  ) {
+
+    category.hasLimit =
+      changes.hasLimit;
+
+    category.limit =
+      changes.hasLimit
+        ? Math.max(
+            0,
+            Number(changes.limit) || 0
+          )
+        : 0;
+
+  } else if (
+    category.type !== "reserve" &&
+    changes.limit !== undefined
+  ) {
+
+    category.limit =
+      Math.max(
+        0,
+        Number(changes.limit) || 0
+      );
+  }
+
+  /*
+    Alteração de limite vale para
+    os próximos ciclos.
+
+    O ciclo atual mantém o limite
+    que já foi iniciado.
+  */
+
+  saveState();
+
+  renderAll();
+
+  return true;
+}
+
+
+function deleteCategory(categoryId) {
+
+  const category =
+    getCategory(categoryId);
+
+  if (!category) {
+    return false;
+  }
+
+  if (category.protected) {
+
+    showToast(
+      "Essa categoria não pode ser excluída."
     );
 
-  cycle.salarySplit.firstPart =
-    split.firstPart;
+    return false;
+  }
 
-  cycle.salarySplit.secondPart =
-    split.secondPart;
+  const used =
+    Object.values(state.cycles)
+      .some(cycle =>
+        cycle.expenses.some(
+          expense =>
+            expense.categoryId ===
+            categoryId
+        )
+      );
+
+  if (used) {
+
+    showToast(
+      "A categoria possui gastos antigos e não pode ser excluída."
+    );
+
+    return false;
+  }
+
+  state.categories =
+    state.categories.filter(
+      item =>
+        item.id !== categoryId
+    );
+
+  Object.values(state.cycles)
+    .forEach(cycle => {
+
+      delete cycle.categories[
+        categoryId
+      ];
+
+    });
+
+  saveState();
+
+  renderAll();
+
+  return true;
 }
 
 
 /* =========================================================
-   GASTOS
-   ========================================================= */
+   LANÇAR GASTO
+========================================================= */
 
 function addExpense({
   categoryId,
   amount,
   source,
-  description = ""
+  description
 }) {
 
   const cycle =
-    ensureCycle(state.currentCycleKey);
+    ensureCycle(
+      state.currentCycle
+    );
 
   const category =
     getCategory(categoryId);
 
-  const value =
-    Number(amount) || 0;
-
   if (!category) {
-    return {
-      success: false,
-      message: "Categoria inválida."
-    };
+
+    showToast(
+      "Categoria inválida."
+    );
+
+    return false;
   }
 
+  const value =
+    parseMoney(amount);
+
   if (value <= 0) {
-    return {
-      success: false,
-      message: "Informe um valor maior que zero."
-    };
+
+    showToast(
+      "Digite um valor maior que zero."
+    );
+
+    return false;
   }
 
   if (
@@ -830,173 +1140,247 @@ function addExpense({
     source !== "extra" &&
     source !== "reserve"
   ) {
-    return {
-      success: false,
-      message: "Origem inválida."
-    };
+
+    showToast(
+      "Origem inválida."
+    );
+
+    return false;
   }
 
-  if (
-    category.type === "reserve" &&
-    source !== "reserve"
-  ) {
-    return {
-      success: false,
-      message: "A Reserva possui movimentação própria."
-    };
-  }
-
-  if (source === "salary") {
-
-    if (value > getSalaryAvailable(cycle)) {
-
-      return {
-        success: false,
-        message: "Saldo de Salário insuficiente."
-      };
-    }
-  }
-
-  if (source === "extra") {
-
-    if (value > getExtraAvailable(cycle)) {
-
-      return {
-        success: false,
-        message: "Saldo de Extra insuficiente."
-      };
-    }
-  }
+  /*
+    Reserva → Outros
+  */
 
   if (source === "reserve") {
 
-    if (value > getReserveBalance(cycle)) {
+    if (
+      category.type !== "other"
+    ) {
 
-      return {
-        success: false,
-        message: "Saldo da Reserva insuficiente."
-      };
+      showToast(
+        "Dinheiro da Reserva só pode sair para Outros."
+      );
+
+      return false;
     }
+
+    if (
+      value > getReserveBalance()
+    ) {
+
+      showToast(
+        "A Reserva não possui dinheiro suficiente."
+      );
+
+      return false;
+    }
+
   }
 
-  if (category.hasLimit) {
+  /*
+    Salário
+  */
 
-    const remaining =
-      getCategoryRemaining(
+  if (
+    source === "salary" &&
+    value >
+      getSalaryAvailable(cycle)
+  ) {
+
+    showToast(
+      "Saldo do Salário insuficiente."
+    );
+
+    return false;
+  }
+
+  /*
+    Extra
+  */
+
+  if (
+    source === "extra" &&
+    value >
+      getExtraAvailable(cycle)
+  ) {
+
+    showToast(
+      "Saldo do Extra insuficiente."
+    );
+
+    return false;
+  }
+
+  /*
+    Limite da categoria.
+    Reserva e Outros não possuem limite.
+  */
+
+  if (
+    source !== "reserve" &&
+    category.type !== "reserve" &&
+    category.hasLimit
+  ) {
+
+    const available =
+      getCategoryAvailable(
         cycle,
         category
       );
 
-    if (value > remaining) {
+    if (
+      available !== null &&
+      value > available
+    ) {
 
-      return {
-        success: false,
-        message:
-          "Esse gasto ultrapassa o limite da categoria."
-      };
+      showToast(
+        "O limite dessa categoria foi atingido."
+      );
+
+      return false;
     }
   }
 
-  cycle.transactions.push({
+  const now =
+    new Date();
+
+  cycle.expenses.push({
+
     id: createId("expense"),
 
-    type: "expense",
-
-    categoryId: category.id,
+    categoryId,
 
     amount: value,
 
     source,
 
     description:
-      String(description || "").trim(),
+      String(description || "")
+        .trim(),
 
-    date: nowISO()
+    date:
+      todayISO(),
+
+    time:
+      currentTime(),
+
+    createdAt:
+      now.toISOString()
+
   });
 
   saveState();
 
-  renderMain();
+  renderAll();
 
-  return {
-    success: true
-  };
+  return true;
 }
 
 
 /* =========================================================
    EXTRA
-   ========================================================= */
+========================================================= */
 
-function addExtra(amount, description = "") {
+function addExtra({
+  amount,
+  description
+}) {
 
   const cycle =
-    ensureCycle(state.currentCycleKey);
+    ensureCycle(
+      state.currentCycle
+    );
 
   const value =
-    Number(amount) || 0;
+    parseMoney(amount);
 
   if (value <= 0) {
 
-    return {
-      success: false,
-      message: "Informe um valor maior que zero."
-    };
+    showToast(
+      "Digite um valor maior que zero."
+    );
+
+    return false;
   }
 
   cycle.extra += value;
 
-  cycle.transactions.push({
-    id: createId("extra"),
+  /*
+    O Extra recebido é acumulado.
+    A descrição fica registrada
+    no histórico interno do ciclo.
+  */
 
-    type: "extra",
+  if (!Array.isArray(cycle.extraEntries)) {
+    cycle.extraEntries = [];
+  }
+
+  cycle.extraEntries.push({
+
+    id: createId("extra"),
 
     amount: value,
 
     description:
-      String(description || "").trim(),
+      String(description || "")
+        .trim(),
 
-    date: nowISO()
+    date:
+      todayISO(),
+
+    time:
+      currentTime(),
+
+    createdAt:
+      new Date().toISOString()
+
   });
 
   saveState();
 
-  renderMain();
+  renderAll();
 
-  return {
-    success: true
-  };
+  return true;
 }
 
 
 /* =========================================================
-   RESERVA
-   ========================================================= */
+   RESERVA — GUARDAR
+========================================================= */
 
-function depositReserve(source, amount) {
+function depositReserve({
+  amount,
+  source
+}) {
 
   const cycle =
-    ensureCycle(state.currentCycleKey);
+    ensureCycle(
+      state.currentCycle
+    );
 
   const value =
-    Number(amount) || 0;
+    parseMoney(amount);
+
+  if (value <= 0) {
+
+    showToast(
+      "Digite um valor maior que zero."
+    );
+
+    return false;
+  }
 
   if (
     source !== "salary" &&
     source !== "extra"
   ) {
-    return {
-      success: false,
-      message: "Origem inválida."
-    };
-  }
 
-  if (value <= 0) {
+    showToast(
+      "Origem inválida."
+    );
 
-    return {
-      success: false,
-      message: "Informe um valor maior que zero."
-    };
+    return false;
   }
 
   const available =
@@ -1006,184 +1390,530 @@ function depositReserve(source, amount) {
 
   if (value > available) {
 
-    return {
-      success: false,
-      message:
-        "Você não possui esse valor disponível."
-    };
+    showToast(
+      "Não existe dinheiro suficiente nessa origem."
+    );
+
+    return false;
   }
 
-  cycle.reserve.movements.push({
+  cycle.reserveTransactions.push({
 
     id: createId("reserve"),
 
     type: "deposit",
 
-    source,
-
     amount: value,
 
-    date: nowISO()
+    source,
+
+    date:
+      todayISO(),
+
+    time:
+      currentTime(),
+
+    createdAt:
+      new Date().toISOString()
+
   });
 
   saveState();
 
-  renderMain();
+  renderAll();
 
-  return {
-    success: true
-  };
+  return true;
 }
 
-function withdrawReserve(amount) {
+
+/* =========================================================
+   RESERVA — RETIRAR
+========================================================= */
+
+function withdrawReserve({
+  amount
+}) {
 
   const cycle =
-    ensureCycle(state.currentCycleKey);
+    ensureCycle(
+      state.currentCycle
+    );
 
   const value =
-    Number(amount) || 0;
+    parseMoney(amount);
 
   if (value <= 0) {
 
-    return {
-      success: false,
-      message: "Informe um valor maior que zero."
-    };
+    showToast(
+      "Digite um valor maior que zero."
+    );
+
+    return false;
   }
 
-  const balance =
-    getReserveBalance(cycle);
+  const reserve =
+    getReserveBalance();
 
-  if (value > balance) {
+  if (value > reserve) {
 
-    return {
-      success: false,
-      message:
-        "O valor ultrapassa o saldo da Reserva."
-    };
+    showToast(
+      "A Reserva não possui dinheiro suficiente."
+    );
+
+    return false;
   }
 
-  cycle.reserve.movements.push({
+  /*
+    Retirada da Reserva:
+
+    - diminui Reserva
+    - cria automaticamente
+      um gasto em Outros
+    - NÃO volta para Salário
+    - NÃO volta para Extra
+  */
+
+  cycle.reserveTransactions.push({
 
     id: createId("reserve"),
 
-    type: "withdrawal",
-
-    amount: value,
-
-    date: nowISO()
-  });
-
-  /*
-    Retirada da Reserva NÃO volta para Salário
-    nem para Extra.
-
-    Ela cria automaticamente um gasto em Outros.
-  */
-
-  cycle.transactions.push({
-
-    id: createId("expense"),
-
-    type: "expense",
-
-    categoryId: "cat-other",
+    type: "withdraw",
 
     amount: value,
 
     source: "reserve",
 
-    description: "Retirada da reserva",
+    date:
+      todayISO(),
 
-    date: nowISO()
+    time:
+      currentTime(),
+
+    createdAt:
+      new Date().toISOString()
+
   });
+
+  const other =
+    getOtherCategory();
+
+  if (other) {
+
+    cycle.expenses.push({
+
+      id: createId("expense"),
+
+      categoryId:
+        other.id,
+
+      amount: value,
+
+      source: "reserve",
+
+      description:
+        "Retirada da reserva",
+
+      date:
+        todayISO(),
+
+      time:
+        currentTime(),
+
+      createdAt:
+        new Date().toISOString()
+
+    });
+
+  }
 
   saveState();
 
-  renderMain();
+  renderAll();
+
+  return true;
+}
+
+
+/* =========================================================
+   SALÁRIO
+========================================================= */
+
+function setSalaryReference(
+  amount
+) {
+
+  const value =
+    parseMoney(amount);
+
+  if (value < 0) {
+
+    showToast(
+      "O salário não pode ser negativo."
+    );
+
+    return false;
+  }
+
+  state.settings.salaryReference =
+    value;
+
+  saveState();
+
+  return true;
+}
+
+
+function setCycleSalary(
+  cycleKey,
+  amount
+) {
+
+  const cycle =
+    ensureCycle(cycleKey);
+
+  const value =
+    parseMoney(amount);
+
+  if (value < 0) {
+
+    showToast(
+      "O salário não pode ser negativo."
+    );
+
+    return false;
+  }
+
+  cycle.salary = value;
+
+  cycle.salaryReceived =
+    true;
+
+  /*
+    Quando o salário recebido é ajustado,
+    ele vira a referência dos próximos ciclos.
+  */
+
+  state.settings.salaryReference =
+    value;
+
+  saveState();
+
+  renderAll();
+
+  return true;
+}
+
+
+/* =========================================================
+   SALÁRIO DIVIDIDO
+========================================================= */
+
+function getSalaryParts(
+  salary
+) {
+
+  const value =
+    Number(salary) || 0;
+
+  const first =
+    Math.floor(
+      value * 0.40
+    );
+
+  const second =
+    value - first;
 
   return {
-    success: true
+    first,
+    second
   };
 }
 
 
 /* =========================================================
-   RENDER
-   ========================================================= */
+   NOVO CICLO
+========================================================= */
 
-function render() {
+function checkCycle() {
 
-  renderScreen();
+  const realCycle =
+    currentCycleKey();
 
-  if (currentScreen === "main") {
-    renderMain();
-  }
+  if (
+    state.currentCycle !== realCycle
+  ) {
 
-  if (currentPanel === "settings") {
-    renderSettings();
-  }
-}
+    state.currentCycle =
+      realCycle;
 
-function renderScreen() {
+    const cycle =
+      ensureCycle(
+        realCycle
+      );
 
-  const setup =
-    document.getElementById(
-      "screen-setup"
+    /*
+      Salário entra automaticamente.
+    */
+
+    if (
+      cycle.salary === 0 &&
+      state.settings.salaryReference > 0
+    ) {
+
+      cycle.salary =
+        state.settings.salaryReference;
+
+    }
+
+    saveState();
+
+    showCycleSummaryIfNeeded();
+
+  } else {
+
+    ensureCycle(
+      state.currentCycle
     );
-
-  const lock =
-    document.getElementById(
-      "screen-lock"
-    );
-
-  const main =
-    document.getElementById(
-      "screen-main"
-    );
-
-  if (!setup || !lock || !main) {
-    return;
   }
-
-  setup.classList.add("hidden");
-  lock.classList.add("hidden");
-  main.classList.add("hidden");
-
-  if (!state.account.configured) {
-
-    setup.classList.remove("hidden");
-
-    currentScreen = "setup";
-
-    return;
-  }
-
-  if (state.session.locked) {
-
-    lock.classList.remove("hidden");
-
-    currentScreen = "lock";
-
-    return;
-  }
-
-  main.classList.remove("hidden");
-
-  currentScreen = "main";
 }
 
 
 /* =========================================================
-   MAIN
-   ========================================================= */
+   HISTÓRICO
+========================================================= */
 
-function renderMain() {
+function getHistory(
+  cycle
+) {
+
+  const items = [];
+
+  cycle.expenses.forEach(expense => {
+
+    const category =
+      getCategory(
+        expense.categoryId
+      );
+
+    items.push({
+
+      id: expense.id,
+
+      type: "expense",
+
+      icon:
+        category?.icon || "📦",
+
+      title:
+        category?.name || "Categoria removida",
+
+      description:
+        expense.description || "",
+
+      date:
+        expense.date,
+
+      time:
+        expense.time,
+
+      amount:
+        -Number(expense.amount || 0),
+
+      source:
+        expense.source
+
+    });
+
+  });
+
+
+  if (Array.isArray(cycle.extraEntries)) {
+
+    cycle.extraEntries.forEach(extra => {
+
+      items.push({
+
+        id: extra.id,
+
+        type: "extra",
+
+        icon: "➕",
+
+        title: "Extra",
+
+        description:
+          extra.description || "",
+
+        date:
+          extra.date,
+
+        time:
+          extra.time,
+
+        amount:
+          Number(extra.amount || 0),
+
+        source: "extra"
+
+      });
+
+    });
+
+  }
+
+
+  cycle.reserveTransactions.forEach(
+    transaction => {
+
+      if (
+        transaction.type === "deposit"
+      ) {
+
+        items.push({
+
+          id:
+            transaction.id,
+
+          type:
+            "reserve-deposit",
+
+          icon:
+            "🏦",
+
+          title:
+            "Reserva",
+
+          description:
+            "Aporte",
+
+          date:
+            transaction.date,
+
+          time:
+            transaction.time,
+
+          amount:
+            Number(
+              transaction.amount || 0
+            ),
+
+          source:
+            transaction.source
+
+        });
+
+      }
+
+      if (
+        transaction.type === "withdraw"
+      ) {
+
+        items.push({
+
+          id:
+            transaction.id,
+
+          type:
+            "reserve-withdraw",
+
+          icon:
+            "🏦",
+
+          title:
+            "Reserva",
+
+          description:
+            "Retirada",
+
+          date:
+            transaction.date,
+
+          time:
+            transaction.time,
+
+          amount:
+            -Number(
+              transaction.amount || 0
+            ),
+
+          source:
+            "reserve"
+
+        });
+
+      }
+
+    }
+  );
+
+
+  return items.sort(
+    (a, b) => {
+
+      const dateA =
+        `${a.date} ${a.time || ""}`;
+
+      const dateB =
+        `${b.date} ${b.time || ""}`;
+
+      return dateB.localeCompare(
+        dateA
+      );
+
+    }
+  );
+}
+
+
+/* =========================================================
+   RENDER PRINCIPAL
+========================================================= */
+
+function renderAll() {
+
+  ensureMainElements();
+
+  renderBalance();
+
+  renderCategories();
+
+  renderExpenses();
+
+  renderSettings();
+
+  renderReserve();
+
+  renderNavigation();
+
+}
+
+
+/* =========================================================
+   GARANTIR ELEMENTOS
+========================================================= */
+
+function ensureMainElements() {
+
+  const app =
+    document.getElementById("app");
+
+  if (!app) {
+    return;
+  }
+
+}
+
+
+/* =========================================================
+   RENDER SALDO
+========================================================= */
+
+function renderBalance() {
 
   const cycle =
-    ensureCycle(state.currentCycleKey);
-
-  updateSalarySplit(cycle);
+    ensureCycle(
+      state.currentCycle
+    );
 
   const balance =
     getAvailable(cycle);
@@ -1194,71 +1924,87 @@ function renderMain() {
   const extra =
     getExtraAvailable(cycle);
 
-  const reserve =
-    getReserveBalance(cycle);
-
-  const balanceElement =
+  const balanceEl =
     document.getElementById(
-      "main-balance"
+      "balance-value"
     );
 
-  const salaryElement =
-    document.getElementById(
-      "main-salary"
-    );
-
-  const extraElement =
-    document.getElementById(
-      "main-extra"
-    );
-
-  const reserveElement =
-    document.getElementById(
-      "main-reserve"
-    );
-
-  const cycleElement =
-    document.getElementById(
-      "main-cycle"
-    );
-
-  if (balanceElement) {
-    balanceElement.textContent =
+  if (balanceEl) {
+    balanceEl.textContent =
       formatMoney(balance);
   }
 
-  if (salaryElement) {
-    salaryElement.textContent =
+  const salaryEl =
+    document.getElementById(
+      "salary-balance"
+    );
+
+  if (salaryEl) {
+    salaryEl.textContent =
       formatMoney(salary);
   }
 
-  if (extraElement) {
-    extraElement.textContent =
+  const extraEl =
+    document.getElementById(
+      "extra-balance"
+    );
+
+  if (extraEl) {
+    extraEl.textContent =
       formatMoney(extra);
   }
 
-  if (reserveElement) {
-    reserveElement.textContent =
-      formatMoney(reserve);
-  }
+  const cycleEl =
+    document.getElementById(
+      "cycle-period"
+    );
 
-  if (cycleElement) {
-    cycleElement.textContent =
-      formatCycleName(
-        state.currentCycleKey
+  if (cycleEl) {
+
+    cycleEl.textContent =
+      formatCycleLabel(
+        state.currentCycle
       );
+
   }
-
-  renderCategories();
-  renderTransactions();
-
-  saveState();
 }
 
 
 /* =========================================================
-   CATEGORIAS NA HOME
-   ========================================================= */
+   LABEL DO CICLO
+========================================================= */
+
+function formatCycleLabel(key) {
+
+  if (!key) {
+    return "";
+  }
+
+  const [
+    year,
+    month
+  ] = key.split("-");
+
+  const date =
+    new Date(
+      Number(year),
+      Number(month) - 1,
+      1
+    );
+
+  return date.toLocaleDateString(
+    "pt-BR",
+    {
+      month: "long",
+      year: "numeric"
+    }
+  );
+}
+
+
+/* =========================================================
+   RENDER CATEGORIAS
+========================================================= */
 
 function renderCategories() {
 
@@ -1272,129 +2018,223 @@ function renderCategories() {
   }
 
   const cycle =
-    ensureCycle(state.currentCycleKey);
+    ensureCycle(
+      state.currentCycle
+    );
 
-  container.innerHTML =
-    state.categories
-      .map(category => {
+  container.innerHTML = "";
 
-        const remaining =
-          getCategoryRemaining(
-            cycle,
-            category
+  state.categories.forEach(
+    category => {
+
+      if (
+        category.type === "reserve"
+      ) {
+
+        const reserveBalance =
+          getReserveBalance();
+
+        const button =
+          createElement(
+            "button"
           );
 
-        const spent =
-          getCategorySpent(
-            cycle,
+        button.className =
+          "category-card";
+
+        button.innerHTML = `
+
+          <span class="category-icon">
+            ${escapeHtml(category.icon)}
+          </span>
+
+          <span class="category-info">
+
+            <span class="category-name">
+              ${escapeHtml(category.name)}
+            </span>
+
+            <span class="category-balance">
+              ${formatMoney(reserveBalance)}
+            </span>
+
+          </span>
+
+          <span
+            class="category-open"
+            title="Abrir Reserva"
+          >
+            ›
+          </span>
+        `;
+
+        button.addEventListener(
+          "click",
+          event => {
+
+            if (
+              event.target.closest(
+                ".category-open"
+              )
+            ) {
+
+              openReserveModal();
+
+              return;
+            }
+
+            openReserveModal();
+
+          }
+        );
+
+        container.appendChild(
+          button
+        );
+
+        return;
+      }
+
+
+      const available =
+        getCategoryAvailable(
+          cycle,
+          category
+        );
+
+      const spent =
+        getCategoryExpenses(
+          cycle,
+          category.id
+        );
+
+      const limit =
+        category.hasLimit
+          ? Number(
+              cycle.categories[
+                category.id
+              ]?.limit ??
+              category.limit ??
+              0
+            )
+          : 0;
+
+      const percent =
+        limit > 0
+          ? Math.min(
+              100,
+              (spent / limit) * 100
+            )
+          : 0;
+
+      const button =
+        createElement(
+          "button"
+        );
+
+      button.className =
+        "category-card";
+
+      if (
+        category.hasLimit &&
+        available <= 0
+      ) {
+
+        button.classList.add(
+          "locked"
+        );
+      }
+
+      button.innerHTML = `
+
+        <span class="category-icon">
+          ${escapeHtml(category.icon)}
+        </span>
+
+        <span class="category-info">
+
+          <span class="category-name">
+            ${escapeHtml(category.name)}
+          </span>
+
+          <span class="category-balance">
+            ${
+              category.hasLimit
+                ? formatMoney(available)
+                : "Sem limite"
+            }
+          </span>
+
+          ${
+            category.hasLimit
+              ? `
+                <span class="category-bar-container">
+                  <span
+                    class="category-bar ${
+                      percent >= 100
+                        ? "over"
+                        : ""
+                    }"
+                    style="width:${percent}%"
+                  ></span>
+                </span>
+              `
+              : ""
+          }
+
+        </span>
+
+        <span
+          class="category-open"
+          title="Abrir categoria"
+        >
+          ›
+        </span>
+
+      `;
+
+      button.addEventListener(
+        "click",
+        event => {
+
+          if (
+            event.target.closest(
+              ".category-open"
+            )
+          ) {
+
+            openCategoryView(
+              category.id
+            );
+
+            return;
+          }
+
+          openExpenseModal(
             category.id
           );
 
-        let balanceText = "";
-
-        if (category.type === "reserve") {
-
-          balanceText =
-            formatMoney(
-              getReserveBalance(cycle)
-            );
-
-        } else if (category.hasLimit) {
-
-          balanceText =
-            formatMoney(remaining);
-
-        } else {
-
-          balanceText =
-            "Sem limite";
         }
+      );
 
-        let progress = 0;
+      container.appendChild(
+        button
+      );
 
-        if (
-          category.hasLimit &&
-          category.limit > 0
-        ) {
-
-          progress =
-            clamp(
-              (spent / category.limit) * 100,
-              0,
-              100
-            );
-        }
-
-        const limitReached =
-          category.hasLimit &&
-          remaining <= 0;
-
-        return `
-          <article
-            class="category-card ${
-              limitReached
-                ? "limit-reached"
-                : ""
-            }"
-            data-category-id="${escapeHtml(category.id)}"
-          >
-
-            <div class="category-icon">
-              ${escapeHtml(category.icon)}
-            </div>
-
-            <button
-              class="category-main"
-              data-action="quick-expense"
-              data-category-id="${escapeHtml(category.id)}"
-            >
-              <span class="category-name">
-                ${escapeHtml(category.name)}
-              </span>
-
-              <span class="category-balance">
-                ${escapeHtml(balanceText)}
-              </span>
-            </button>
-
-            <button
-              class="category-open-button"
-              data-action="open-category"
-              data-category-id="${escapeHtml(category.id)}"
-              aria-label="Abrir categoria"
-            >
-              ›
-            </button>
-
-            ${
-              category.hasLimit
-                ? `
-                  <div class="category-progress">
-                    <div
-                      class="category-progress-fill"
-                      style="width:${progress}%"
-                    ></div>
-                  </div>
-                `
-                : ""
-            }
-
-          </article>
-        `;
-      })
-      .join("");
+    }
+  );
 }
 
 
 /* =========================================================
-   TRANSAÇÕES
-   ========================================================= */
+   RENDER GASTOS
+========================================================= */
 
-function renderTransactions() {
+function renderExpenses() {
 
   const container =
     document.getElementById(
-      "transactions-list"
+      "expenses-list"
     );
 
   if (!container) {
@@ -1402,1560 +2242,1707 @@ function renderTransactions() {
   }
 
   const cycle =
-    ensureCycle(state.currentCycleKey);
+    ensureCycle(
+      state.currentCycle
+    );
 
-  const transactions = [
-    ...cycle.transactions
-  ];
+  const expenses =
+    [...cycle.expenses]
+      .sort(
+        (a, b) =>
+          `${b.date} ${b.time || ""}`
+          .localeCompare(
+            `${a.date} ${a.time || ""}`
+          )
+      );
 
-  cycle.reserve.movements.forEach(
-    movement => {
+  container.innerHTML = "";
 
-      transactions.push({
-
-        id: movement.id,
-
-        type:
-          movement.type === "deposit"
-            ? "reserve-deposit"
-            : "reserve-withdrawal",
-
-        amount: movement.amount,
-
-        source:
-          movement.source || "reserve",
-
-        date: movement.date,
-
-        description:
-          movement.type === "deposit"
-            ? "Reserva"
-            : "Retirada da reserva"
-      });
-    }
-  );
-
-  transactions.sort(
-    (a, b) =>
-      new Date(b.date) -
-      new Date(a.date)
-  );
-
-  if (!transactions.length) {
+  if (!expenses.length) {
 
     container.innerHTML = `
-      <div class="transactions-empty">
-        Nenhum lançamento neste ciclo.
+      <div class="empty-state">
+        Nenhum gasto neste ciclo.
       </div>
     `;
 
     return;
   }
 
-  container.innerHTML =
-    transactions
-      .map(transaction => {
-
-        let title = "";
-        let icon = "💸";
-        let valueClass = "negative";
-        let valuePrefix = "-";
-
-        if (
-          transaction.type === "expense"
-        ) {
-
-          const category =
-            getCategory(
-              transaction.categoryId
-            );
-
-          title =
-            category
-              ? category.name
-              : "Gasto";
-
-          icon =
-            category
-              ? category.icon
-              : "💸";
-
-          if (
-            transaction.source === "reserve"
-          ) {
-            title = "Retirada da reserva";
-          }
-
-        } else if (
-          transaction.type === "extra"
-        ) {
-
-          title = "Extra";
-          icon = "➕";
-
-          valueClass = "positive";
-          valuePrefix = "+";
-
-        } else if (
-          transaction.type ===
-          "reserve-deposit"
-        ) {
-
-          title = "Reserva";
-          icon = "🏦";
-
-          valueClass = "reserve";
-          valuePrefix = "-";
-
-        } else if (
-          transaction.type ===
-          "reserve-withdrawal"
-        ) {
-
-          title = "Retirada da reserva";
-          icon = "↩️";
-
-          valueClass = "positive";
-          valuePrefix = "+";
-        }
-
-        const description =
-          transaction.description
-            ? transaction.description
-            : "";
-
-        return `
-          <div class="transaction-item">
-
-            <div class="transaction-icon">
-              ${escapeHtml(icon)}
-            </div>
-
-            <div class="transaction-info">
-
-              <span class="transaction-title">
-                ${escapeHtml(title)}
-              </span>
-
-              ${
-                description
-                  ? `
-                    <span class="transaction-description">
-                      ${escapeHtml(description)}
-                    </span>
-                  `
-                  : ""
-              }
-
-              <span class="transaction-date">
-                ${escapeHtml(formatDate(transaction.date))}
-                ·
-                ${escapeHtml(formatTime(transaction.date))}
-              </span>
-
-            </div>
-
-            <div
-              class="transaction-value ${valueClass}"
-            >
-              ${valuePrefix}
-              ${escapeHtml(formatMoney(transaction.amount))}
-            </div>
-
-          </div>
-        `;
-      })
-      .join("");
-}
-
-
-/* =========================================================
-   MODAIS
-   ========================================================= */
-
-function closeModal() {
-
-  const modal =
-    document.getElementById(
-      "modal-root"
-    );
-
-  if (modal) {
-    modal.innerHTML = "";
-  }
-
-  currentModal = null;
-}
-
-function openModal(content) {
-
-  const modal =
-    document.getElementById(
-      "modal-root"
-    );
-
-  if (!modal) {
-    return;
-  }
-
-  modal.innerHTML = `
-    <div class="modal">
-
-      <div
-        class="modal-backdrop"
-        data-action="close-modal"
-      ></div>
-
-      ${content}
-
-    </div>
-  `;
-
-  currentModal = true;
-}
-
-function openExpenseModal(categoryId) {
-
-  const category =
-    getCategory(categoryId);
-
-  if (!category) return;
-
-  const cycle =
-    ensureCycle(state.currentCycleKey);
-
-  if (
-    category.hasLimit &&
-    getCategoryRemaining(cycle, category) <= 0
-  ) {
-
-    showToast(
-      "O limite desta categoria foi atingido."
-    );
-
-    return;
-  }
-
-  if (category.type === "reserve") {
-
-    openReserveModal();
-
-    return;
-  }
-
-  openModal(`
-
-    <div class="modal-box">
-
-      <div class="modal-header">
-
-        <h2>
-          ${escapeHtml(category.name)}
-        </h2>
-
-        <button
-          class="modal-close"
-          data-action="close-modal"
-        >
-          ×
-        </button>
-
-      </div>
-
-      <form id="expense-form">
-
-        <input
-          type="hidden"
-          name="categoryId"
-          value="${escapeHtml(category.id)}"
-        />
-
-        <div>
-          <label>
-            Valor
-          </label>
-
-          <input
-            name="amount"
-            inputmode="decimal"
-            autocomplete="off"
-            placeholder="R$ 0,00"
-            required
-          />
-        </div>
-
-        <div>
-          <label>
-            Origem
-          </label>
-
-          <select
-            name="source"
-            required
-          >
-            <option value="salary">
-              Salário — ${escapeHtml(
-                formatMoney(
-                  getSalaryAvailable(cycle)
-                )
-              )}
-            </option>
-
-            <option value="extra">
-              Extra — ${escapeHtml(
-                formatMoney(
-                  getExtraAvailable(cycle)
-                )
-              )}
-            </option>
-
-            ${
-              getReserveBalance(cycle) > 0
-                ? `
-                  <option value="reserve">
-                    Reserva — ${escapeHtml(
-                      formatMoney(
-                        getReserveBalance(cycle)
-                      )
-                    )}
-                  </option>
-                `
-                : ""
-            }
-
-          </select>
-        </div>
-
-        <div>
-          <label>
-            Descrição opcional
-          </label>
-
-          <input
-            name="description"
-            maxlength="120"
-            placeholder="Ex.: Farmácia"
-          />
-        </div>
-
-        <button
-          type="submit"
-          class="primary-button"
-        >
-          Lançar
-        </button>
-
-      </form>
-
-    </div>
-
-  `);
-}
-
-function openExtraModal() {
-
-  openModal(`
-
-    <div class="modal-box">
-
-      <div class="modal-header">
-
-        <h2>
-          Adicionar Extra
-        </h2>
-
-        <button
-          class="modal-close"
-          data-action="close-modal"
-        >
-          ×
-        </button>
-
-      </div>
-
-      <form id="extra-form">
-
-        <div>
-
-          <label>
-            Valor
-          </label>
-
-          <input
-            name="amount"
-            inputmode="decimal"
-            autocomplete="off"
-            placeholder="R$ 0,00"
-            required
-          />
-
-        </div>
-
-        <div>
-
-          <label>
-            Descrição opcional
-          </label>
-
-          <input
-            name="description"
-            maxlength="120"
-            placeholder="Ex.: Freelance"
-          />
-
-        </div>
-
-        <button
-          type="submit"
-          class="primary-button"
-        >
-          Salvar
-        </button>
-
-      </form>
-
-    </div>
-
-  `);
-}
-
-function openReserveModal() {
-
-  const cycle =
-    ensureCycle(state.currentCycleKey);
-
-  openModal(`
-
-    <div class="modal-box">
-
-      <div class="modal-header">
-
-        <h2>
-          Reserva
-        </h2>
-
-        <button
-          class="modal-close"
-          data-action="close-modal"
-        >
-          ×
-        </button>
-
-      </div>
-
-      <div class="reserve-balance-modal">
-
-        <span>
-          Saldo acumulado
+  expenses.forEach(
+    expense => {
+
+      const category =
+        getCategory(
+          expense.categoryId
+        );
+
+      const row =
+        createElement(
+          "div"
+        );
+
+      row.className =
+        "expense-row";
+
+      const sourceLabel =
+        expense.source === "salary"
+          ? "Salário"
+          : expense.source === "extra"
+            ? "Extra"
+            : "Reserva";
+
+      row.innerHTML = `
+
+        <span class="category-icon">
+          ${escapeHtml(
+            category?.icon || "📦"
+          )}
         </span>
 
-        <strong>
-          ${escapeHtml(
-            formatMoney(
-              getReserveBalance(cycle)
-            )
-          )}
-        </strong>
+        <span class="expense-main">
 
-      </div>
-
-      <div class="reserve-actions">
-
-        <button
-          class="secondary-button"
-          data-action="reserve-deposit"
-        >
-          Guardar
-        </button>
-
-        <button
-          class="secondary-button"
-          data-action="reserve-withdraw"
-        >
-          Retirar
-        </button>
-
-      </div>
-
-      <div
-        id="reserve-form-container"
-        class="reserve-form-container"
-      ></div>
-
-    </div>
-
-  `);
-}
-
-function renderReserveDepositForm() {
-
-  const cycle =
-    ensureCycle(state.currentCycleKey);
-
-  const container =
-    document.getElementById(
-      "reserve-form-container"
-    );
-
-  if (!container) return;
-
-  container.innerHTML = `
-
-    <form id="reserve-deposit-form">
-
-      <div>
-
-        <label>
-          Origem
-        </label>
-
-        <select
-          name="source"
-          required
-        >
-
-          <option value="salary">
-            Salário — ${escapeHtml(
-              formatMoney(
-                getSalaryAvailable(cycle)
-              )
+          <span class="expense-title">
+            ${escapeHtml(
+              category?.name ||
+              "Categoria removida"
             )}
-          </option>
+          </span>
 
-          <option value="extra">
-            Extra — ${escapeHtml(
-              formatMoney(
-                getExtraAvailable(cycle)
-              )
-            )}
-          </option>
+          <span class="expense-meta">
+            ${formatDate(expense.date)}
+            · ${escapeHtml(sourceLabel)}
+            · ${escapeHtml(expense.time || "")}
+          </span>
 
-        </select>
+        </span>
 
-      </div>
+        <span class="expense-value">
+          −${formatMoney(expense.amount)}
+        </span>
 
-      <div>
+      `;
 
-        <label>
-          Valor
-        </label>
-
-        <input
-          name="amount"
-          inputmode="decimal"
-          autocomplete="off"
-          placeholder="R$ 0,00"
-          required
-        />
-
-      </div>
-
-      <button
-        type="submit"
-        class="primary-button"
-      >
-        Guardar
-      </button>
-
-    </form>
-  `;
-}
-
-function renderReserveWithdrawForm() {
-
-  const cycle =
-    ensureCycle(state.currentCycleKey);
-
-  const container =
-    document.getElementById(
-      "reserve-form-container"
-    );
-
-  if (!container) return;
-
-  container.innerHTML = `
-
-    <form id="reserve-withdraw-form">
-
-      <div>
-
-        <label>
-          Valor
-        </label>
-
-        <input
-          name="amount"
-          inputmode="decimal"
-          autocomplete="off"
-          placeholder="R$ 0,00"
-          required
-        />
-
-      </div>
-
-      <button
-        type="submit"
-        class="primary-button"
-      >
-        Retirar
-      </button>
-
-    </form>
-  `;
-}
-
-
-/* =========================================================
-   CATEGORIA COMPLETA
-   ========================================================= */
-
-function openCategoryPanel(categoryId) {
-
-  const category =
-    getCategory(categoryId);
-
-  if (!category) return;
-
-  const cycle =
-    ensureCycle(state.currentCycleKey);
-
-  selectedCategoryId =
-    category.id;
-
-  const container =
-    document.getElementById(
-      "category-panel"
-    );
-
-  if (!container) return;
-
-  const remaining =
-    getCategoryRemaining(
-      cycle,
-      category
-    );
-
-  const transactions =
-    cycle.transactions
-      .filter(
-        transaction =>
-          transaction.type === "expense" &&
-          transaction.categoryId === category.id
-      )
-      .sort(
-        (a, b) =>
-          new Date(b.date) -
-          new Date(a.date)
+      container.appendChild(
+        row
       );
 
-  container.classList.remove("hidden");
-
-  container.innerHTML = `
-
-    <div class="panel-header">
-
-      <button
-        class="back-button"
-        data-action="close-category-panel"
-      >
-        ←
-      </button>
-
-      <h2>
-        ${escapeHtml(category.name)}
-      </h2>
-
-      <div></div>
-
-    </div>
-
-    <div class="panel-content">
-
-      <div class="category-detail-header">
-
-        <div class="category-detail-icon">
-          ${escapeHtml(category.icon)}
-        </div>
-
-        <div>
-
-          <div class="category-detail-name">
-            ${escapeHtml(category.name)}
-          </div>
-
-          <div class="category-detail-balance">
-
-            ${
-              category.hasLimit
-                ? `Disponível: ${escapeHtml(
-                    formatMoney(remaining)
-                  )}`
-                : "Sem limite"
-            }
-
-          </div>
-
-        </div>
-
-      </div>
-
-      <br>
-
-      <div class="content-section">
-
-        <div class="section-header">
-
-          <h2>
-            Gastos
-          </h2>
-
-        </div>
-
-        <div class="transactions-list">
-
-          ${
-            transactions.length
-              ? transactions
-                  .map(transaction => {
-
-                    return `
-                      <div
-                        class="transaction-item"
-                      >
-
-                        <div
-                          class="transaction-icon"
-                        >
-                          💸
-                        </div>
-
-                        <div
-                          class="transaction-info"
-                        >
-
-                          <span
-                            class="transaction-title"
-                          >
-                            ${
-                              transaction.description
-                                ? escapeHtml(
-                                    transaction.description
-                                  )
-                                : escapeHtml(
-                                    category.name
-                                  )
-                            }
-                          </span>
-
-                          <span
-                            class="transaction-date"
-                          >
-                            ${escapeHtml(
-                              formatDate(
-                                transaction.date
-                              )
-                            )}
-                          </span>
-
-                        </div>
-
-                        <div
-                          class="transaction-value negative"
-                        >
-                          -${escapeHtml(
-                            formatMoney(
-                              transaction.amount
-                            )
-                          )}
-                        </div>
-
-                      </div>
-                    `;
-
-                  })
-                  .join("")
-              : `
-                <div class="transactions-empty">
-                  Nenhum gasto nesta categoria.
-                </div>
-              `
-          }
-
-        </div>
-
-      </div>
-
-    </div>
-  `;
-
-  currentPanel = "category";
-}
-
-
-/* =========================================================
-   SETTINGS
-   ========================================================= */
-
-function openSettings() {
-
-  const panel =
-    document.getElementById(
-      "settings-panel"
-    );
-
-  if (!panel) return;
-
-  panel.classList.remove("hidden");
-
-  currentPanel = "settings";
-
-  renderSettings();
-}
-
-function closeSettings() {
-
-  const panel =
-    document.getElementById(
-      "settings-panel"
-    );
-
-  if (panel) {
-    panel.classList.add("hidden");
-  }
-
-  currentPanel = null;
-}
-
-function renderSettings() {
-
-  const content =
-    document.getElementById(
-      "settings-content"
-    );
-
-  if (!content) return;
-
-  const cycle =
-    ensureCycle(state.currentCycleKey);
-
-  const previous =
-    state.cycles[
-      getPreviousCycleKey(
-        state.currentCycleKey
-      )
-    ];
-
-  content.innerHTML = `
-
-    <div class="settings-section">
-
-      <button
-        class="settings-item"
-        data-action="toggle-settings-categories"
-      >
-
-        <span>
-          Categorias
-        </span>
-
-        <span>
-          ${state.categories.length}
-        </span>
-
-      </button>
-
-      <div
-        id="settings-categories"
-        class="settings-content hidden"
-      >
-
-        <div class="settings-category-list">
-
-          ${
-            state.categories
-              .map(category => `
-
-                <div
-                  class="settings-category-item"
-                >
-
-                  <div
-                    class="settings-category-info"
-                  >
-
-                    <div
-                      class="settings-category-icon"
-                    >
-                      ${escapeHtml(
-                        category.icon
-                      )}
-                    </div>
-
-                    <div>
-
-                      <div
-                        class="settings-category-name"
-                      >
-                        ${escapeHtml(
-                          category.name
-                        )}
-                      </div>
-
-                      <div
-                        class="settings-category-limit"
-                      >
-
-                        ${
-                          category.type ===
-                          "reserve"
-                            ? "Protegida"
-                            : category.hasLimit
-                              ? `Limite: ${escapeHtml(
-                                  formatMoney(
-                                    category.limit
-                                  )
-                                )}`
-                              : "Sem limite"
-                        }
-
-                      </div>
-
-                    </div>
-
-                  </div>
-
-                  <div
-                    class="settings-category-actions"
-                  >
-
-                    <button
-                      class="small-button"
-                      data-action="edit-category"
-                      data-category-id="${escapeHtml(
-                        category.id
-                      )}"
-                    >
-                      ✎
-                    </button>
-
-                    ${
-                      isProtectedCategory(category)
-                        ? ""
-                        : `
-                          <button
-                            class="small-button"
-                            data-action="delete-category"
-                            data-category-id="${escapeHtml(
-                              category.id
-                            )}"
-                          >
-                            ×
-                          </button>
-                        `
-                    }
-
-                  </div>
-
-                </div>
-
-              `)
-              .join("")
-          }
-
-        </div>
-
-        <button
-          class="secondary-button"
-          data-action="new-category"
-        >
-          Criar categoria
-        </button>
-
-        <div
-          id="category-edit-form"
-          class="inline-form-container hidden"
-        ></div>
-
-      </div>
-
-    </div>
-
-
-    <div class="settings-section">
-
-      <button
-        class="settings-item"
-        data-action="toggle-settings-salary"
-      >
-
-        <span>
-          Salário
-        </span>
-
-        <span>
-          ${escapeHtml(
-            formatMoney(
-              state.settings.salaryReference
-            )
-          )}
-        </span>
-
-      </button>
-
-      <div
-        id="settings-salary"
-        class="settings-content hidden"
-      >
-
-        <div class="inline-form-container">
-
-          <form id="salary-settings-form">
-
-            <div>
-
-              <label>
-                Valor
-              </label>
-
-              <input
-                name="salary"
-                inputmode="decimal"
-                value="${escapeHtml(
-                  formatInputMoney(
-                    state.settings.salaryReference
-                  )
-                )}"
-                required
-              />
-
-            </div>
-
-            <div>
-
-              <label>
-                Dividir
-              </label>
-
-              <select
-                name="split"
-              >
-
-                <option
-                  value="no"
-                  ${
-                    !state.settings.salarySplit
-                      ? "selected"
-                      : ""
-                  }
-                >
-                  Não
-                </option>
-
-                <option
-                  value="yes"
-                  ${
-                    state.settings.salarySplit
-                      ? "selected"
-                      : ""
-                  }
-                >
-                  Sim
-                </option>
-
-              </select>
-
-            </div>
-
-            <div class="info-box">
-
-              <strong>
-                Salário dividido
-              </strong>
-
-              <p>
-                40% no dia 20 e 60% no 5º dia útil.
-              </p>
-
-            </div>
-
-            <button
-              type="submit"
-              class="primary-button"
-            >
-              Salvar
-            </button>
-
-          </form>
-
-        </div>
-
-      </div>
-
-    </div>
-
-
-    <div class="settings-section">
-
-      <button
-        class="settings-item"
-        data-action="toggle-settings-cycle"
-      >
-
-        <span>
-          Ciclo
-        </span>
-
-        <span>
-          Dia ${escapeHtml(
-            state.settings.cycleDay
-          )}
-        </span>
-
-      </button>
-
-      <div
-        id="settings-cycle"
-        class="settings-content hidden"
-      >
-
-        <div class="inline-form-container">
-
-          <form id="cycle-settings-form">
-
-            <div>
-
-              <label>
-                Dia de início
-              </label>
-
-              <input
-                type="number"
-                name="cycleDay"
-                min="1"
-                max="31"
-                value="${escapeHtml(
-                  state.settings.cycleDay
-                )}"
-                required
-              />
-
-            </div>
-
-            <button
-              type="submit"
-              class="primary-button"
-            >
-              Salvar
-            </button>
-
-          </form>
-
-        </div>
-
-      </div>
-
-    </div>
-
-
-    <div class="settings-section">
-
-      <button
-        class="settings-item"
-        data-action="open-previous-cycle"
-        ${
-          previous
-            ? ""
-            : "disabled"
-        }
-      >
-
-        <span>
-          Mês anterior
-        </span>
-
-        <span>
-          ${
-            previous
-              ? escapeHtml(
-                  formatCycleName(
-                    getPreviousCycleKey(
-                      state.currentCycleKey
-                    )
-                  )
-                )
-              : "Nenhum"
-          }
-        </span>
-
-      </button>
-
-    </div>
-
-
-    <div class="settings-section">
-
-      <button
-        class="settings-item"
-        data-action="open-pizza"
-      >
-
-        <span>
-          Pizza
-        </span>
-
-        <span>
-          ›
-        </span>
-
-      </button>
-
-    </div>
-
-
-    <div class="settings-section">
-
-      <button
-        class="settings-item"
-        data-action="toggle-settings-security"
-      >
-
-        <span>
-          Segurança
-        </span>
-
-        <span>
-          ›
-        </span>
-
-      </button>
-
-      <div
-        id="settings-security"
-        class="settings-content hidden"
-      >
-
-        <div
-          class="inline-form-container"
-        >
-
-          <form id="password-form">
-
-            <div>
-
-              <label>
-                Senha atual
-              </label>
-
-              <input
-                type="password"
-                name="currentPassword"
-                required
-              />
-
-            </div>
-
-            <div>
-
-              <label>
-                Nova senha
-              </label>
-
-              <input
-                type="password"
-                name="newPassword"
-                required
-              />
-
-            </div>
-
-            <button
-              type="submit"
-              class="primary-button"
-            >
-              Alterar senha
-            </button>
-
-          </form>
-
-          <br>
-
-          <button
-            class="danger-button"
-            data-action="delete-all-data"
-          >
-            Apagar todos os dados
-          </button>
-
-        </div>
-
-      </div>
-
-    </div>
-
-  `;
-}
-
-
-/* =========================================================
-   EDITAR / CRIAR CATEGORIA
-   ========================================================= */
-
-function renderCategoryForm(category = null) {
-
-  const container =
-    document.getElementById(
-      "category-edit-form"
-    );
-
-  if (!container) return;
-
-  container.classList.remove("hidden");
-
-  const editing =
-    Boolean(category);
-
-  container.innerHTML = `
-
-    <form id="category-form">
-
-      <div>
-
-        <label>
-          Nome
-        </label>
-
-        <input
-          name="name"
-          maxlength="40"
-          value="${
-            category
-              ? escapeHtml(category.name)
-              : ""
-          }"
-          required
-        />
-
-      </div>
-
-      <div>
-
-        <label>
-          Ícone
-        </label>
-
-        <input
-          name="icon"
-          maxlength="4"
-          value="${
-            category
-              ? escapeHtml(category.icon)
-              : "📦"
-          }"
-          required
-        />
-
-      </div>
-
-      <div>
-
-        <label>
-          Limite
-        </label>
-
-        <select
-          name="hasLimit"
-        >
-
-          <option
-            value="no"
-            ${
-              category &&
-              category.hasLimit
-                ? ""
-                : "selected"
-            }
-          >
-            Não
-          </option>
-
-          <option
-            value="yes"
-            ${
-              category &&
-              category.hasLimit
-                ? "selected"
-                : ""
-            }
-          >
-            Sim
-          </option>
-
-        </select>
-
-      </div>
-
-      <div>
-
-        <label>
-          Valor do limite
-        </label>
-
-        <input
-          name="limit"
-          inputmode="decimal"
-          value="${
-            category
-              ? escapeHtml(
-                  formatInputMoney(
-                    category.limit
-                  )
-                )
-              : ""
-          }"
-          placeholder="R$ 0,00"
-        />
-
-      </div>
-
-      <button
-        type="submit"
-        class="primary-button"
-      >
-        ${editing ? "Salvar alterações" : "Criar categoria"}
-      </button>
-
-      <button
-        type="button"
-        class="secondary-button"
-        data-action="cancel-category-form"
-      >
-        Cancelar
-      </button>
-
-    </form>
-  `;
-}
-
-
-/* =========================================================
-   EXCLUSÃO DE CATEGORIA
-   ========================================================= */
-
-function deleteCategory(categoryId) {
-
-  const category =
-    getCategory(categoryId);
-
-  if (!category) return;
-
-  if (isProtectedCategory(category)) {
-
-    showToast(
-      "Essa categoria não pode ser excluída."
-    );
-
-    return;
-  }
-
-  const confirmed =
-    window.confirm(
-      `Excluir a categoria "${category.name}"?\n\nOs gastos antigos continuarão no histórico.`
-    );
-
-  if (!confirmed) return;
-
-  state.categories =
-    state.categories.filter(
-      item => item.id !== categoryId
-    );
-
-  saveState();
-
-  renderSettings();
-  renderMain();
-
-  showToast(
-    "Categoria excluída."
+    }
   );
 }
 
 
 /* =========================================================
-   PIZZA
-   ========================================================= */
+   RESERVA
+========================================================= */
 
-function openPizza() {
+function renderReserve() {
 
-  const cycle =
-    ensureCycle(state.currentCycleKey);
-
-  const values =
-    state.categories
-      .filter(
-        category =>
-          category.type !== "reserve"
-      )
-      .map(category => ({
-        category,
-        value:
-          getCategorySpent(
-            cycle,
-            category.id
-          )
-      }))
-      .filter(item => item.value > 0);
-
-  const total =
-    values.reduce(
-      (sum, item) =>
-        sum + item.value,
-      0
+  const elements =
+    document.querySelectorAll(
+      "[data-reserve-balance]"
     );
 
-  let gradient = "transparent";
+  const balance =
+    getReserveBalance();
 
-  if (total > 0) {
+  elements.forEach(
+    element => {
 
-    let start = 0;
+      element.textContent =
+        formatMoney(balance);
 
-    const segments =
-      values.map(item => {
+    }
+  );
+}
 
-        const percent =
-          (item.value / total) * 100;
 
-        const end =
-          start + percent;
+/* =========================================================
+   NAVEGAÇÃO
+========================================================= */
 
-        const segment =
-          `#${Math.floor(
-            Math.random() * 0xffffff
-          )
-            .toString(16)
-            .padStart(6, "0")} ${start}% ${end}%`;
+function renderNavigation() {
 
-        start = end;
+  const main =
+    document.getElementById(
+      "screen-main"
+    );
 
-        return segment;
-      });
+  const settings =
+    document.getElementById(
+      "screen-settings"
+    );
 
-    gradient =
-      `conic-gradient(${segments.join(",")})`;
+  const buttons =
+    document.querySelectorAll(
+      "[data-screen]"
+    );
+
+  buttons.forEach(
+    button => {
+
+      button.classList.remove(
+        "active"
+      );
+
+    }
+  );
+
+  if (
+    settings &&
+    !settings.classList.contains(
+      "hidden"
+    )
+  ) {
+
+    const button =
+      document.querySelector(
+        '[data-screen="settings"]'
+      );
+
+    button?.classList.add(
+      "active"
+    );
+
+  } else {
+
+    const button =
+      document.querySelector(
+        '[data-screen="main"]'
+      );
+
+    button?.classList.add(
+      "active"
+    );
+
+  }
+}
+
+
+/* =========================================================
+   CONFIGURAÇÕES
+========================================================= */
+
+function renderSettings() {
+
+  const salaryInput =
+    document.getElementById(
+      "settings-salary"
+    );
+
+  if (salaryInput) {
+
+    salaryInput.value =
+      formatInputMoney(
+        state.settings.salaryReference
+      );
+
   }
 
-  openModal(`
+  const cycleInput =
+    document.getElementById(
+      "settings-cycle-day"
+    );
 
-    <div class="modal-box">
+  if (cycleInput) {
+
+    cycleInput.value =
+      state.settings.cycleDay;
+
+  }
+
+  const split =
+    document.getElementById(
+      "settings-salary-split"
+    );
+
+  if (split) {
+
+    split.checked =
+      state.settings.salarySplit;
+
+  }
+
+  renderSettingsCategories();
+}
+
+
+function renderSettingsCategories() {
+
+  const container =
+    document.getElementById(
+      "settings-category-list"
+    );
+
+  if (!container) {
+    return;
+  }
+
+  container.innerHTML = "";
+
+  state.categories.forEach(
+    category => {
+
+      const row =
+        createElement(
+          "div"
+        );
+
+      row.className =
+        "settings-category";
+
+      row.innerHTML = `
+
+        <span class="settings-category-icon">
+          ${escapeHtml(category.icon)}
+        </span>
+
+        <span class="settings-category-info">
+
+          <span class="settings-category-name">
+            ${escapeHtml(category.name)}
+          </span>
+
+          <span class="settings-category-limit">
+            ${
+              category.type === "reserve"
+                ? "Sem limite"
+                : category.hasLimit
+                  ? `Limite: ${formatMoney(category.limit)}`
+                  : "Sem limite"
+            }
+          </span>
+
+        </span>
+
+        <button
+          type="button"
+          class="settings-category-edit"
+          data-edit-category="${escapeHtml(category.id)}"
+        >
+          ✎
+        </button>
+
+      `;
+
+      container.appendChild(
+        row
+      );
+
+    }
+  );
+}
+
+
+/* =========================================================
+   ELEMENTO
+========================================================= */
+
+function createElement(tag) {
+
+  return document.createElement(
+    tag
+  );
+}
+
+
+/* =========================================================
+   MODAL BASE
+========================================================= */
+
+function openModal(content) {
+
+  closeModal();
+
+  const root =
+    document.createElement(
+      "div"
+    );
+
+  root.id =
+    "fx-modal-root";
+
+  root.className =
+    "modal-root";
+
+  root.innerHTML = `
+
+    <div class="modal">
+
+      ${content}
+
+    </div>
+
+  `;
+
+  root.addEventListener(
+    "click",
+    event => {
+
+      if (
+        event.target === root
+      ) {
+
+        closeModal();
+
+      }
+
+    }
+  );
+
+  document.body.appendChild(
+    root
+  );
+
+  return root;
+}
+
+
+function closeModal() {
+
+  document
+    .getElementById(
+      "fx-modal-root"
+    )
+    ?.remove();
+
+}
+
+
+/* =========================================================
+   MODAL DE GASTO
+========================================================= */
+
+function openExpenseModal(
+  categoryId
+) {
+
+  const category =
+    getCategory(categoryId);
+
+  if (!category) {
+    return;
+  }
+
+  const cycle =
+    ensureCycle(
+      state.currentCycle
+    );
+
+  if (
+    category.hasLimit &&
+    getCategoryAvailable(
+      cycle,
+      category
+    ) <= 0
+  ) {
+
+    showToast(
+      "Essa categoria atingiu o limite."
+    );
+
+    return;
+  }
+
+  const root =
+    openModal(`
 
       <div class="modal-header">
 
         <h2>
-          Gastos
+          ${escapeHtml(category.icon)}
+          ${escapeHtml(category.name)}
         </h2>
 
         <button
+          type="button"
           class="modal-close"
-          data-action="close-modal"
+          data-close-modal
+        >
+          ×
+        </button>
+
+      </div>
+
+      <label>
+        Valor
+      </label>
+
+      <input
+        id="expense-value"
+        inputmode="decimal"
+        autocomplete="off"
+        placeholder="R$ 0,00"
+      >
+
+      <label>
+        Origem
+      </label>
+
+      <div class="choice-group">
+
+        <label class="choice">
+
+          <input
+            type="radio"
+            name="expense-source"
+            value="salary"
+            checked
+          >
+
+          <span>
+            Salário
+          </span>
+
+        </label>
+
+        <label class="choice">
+
+          <input
+            type="radio"
+            name="expense-source"
+            value="extra"
+          >
+
+          <span>
+            Extra
+          </span>
+
+        </label>
+
+        ${
+          category.type === "other"
+            ? `
+              <label class="choice">
+
+                <input
+                  type="radio"
+                  name="expense-source"
+                  value="reserve"
+                >
+
+                <span>
+                  Reserva
+                </span>
+
+              </label>
+            `
+            : ""
+        }
+
+      </div>
+
+      <label>
+        Descrição opcional
+      </label>
+
+      <input
+        id="expense-description"
+        placeholder="Ex.: mercado"
+        maxlength="100"
+      >
+
+      <div class="modal-actions">
+
+        <button
+          type="button"
+          class="primary-button"
+          id="confirm-expense"
+        >
+          Lançar
+        </button>
+
+        <button
+          type="button"
+          class="secondary-button"
+          data-close-modal
+        >
+          Cancelar
+        </button>
+
+      </div>
+
+  `);
+
+  root
+    .querySelectorAll(
+      "[data-close-modal]"
+    )
+    .forEach(button => {
+
+      button.addEventListener(
+        "click",
+        closeModal
+      );
+
+    });
+
+  root
+    .querySelector(
+      "#confirm-expense"
+    )
+    .addEventListener(
+      "click",
+      () => {
+
+        const amount =
+          root.querySelector(
+            "#expense-value"
+          ).value;
+
+        const source =
+          root.querySelector(
+            'input[name="expense-source"]:checked'
+          )?.value;
+
+        const description =
+          root.querySelector(
+            "#expense-description"
+          ).value;
+
+        if (
+          addExpense({
+            categoryId,
+            amount,
+            source,
+            description
+          })
+        ) {
+
+          closeModal();
+
+          showToast(
+            "Gasto lançado."
+          );
+
+        }
+
+      }
+    );
+
+}
+
+
+/* =========================================================
+   MODAL EXTRA
+========================================================= */
+
+function openExtraModal() {
+
+  const root =
+    openModal(`
+
+      <div class="modal-header">
+
+        <h2>
+          ➕ Extra
+        </h2>
+
+        <button
+          type="button"
+          class="modal-close"
+          data-close-modal
+        >
+          ×
+        </button>
+
+      </div>
+
+      <label>
+        Valor
+      </label>
+
+      <input
+        id="extra-value"
+        inputmode="decimal"
+        autocomplete="off"
+        placeholder="R$ 0,00"
+      >
+
+      <label>
+        Descrição opcional
+      </label>
+
+      <input
+        id="extra-description"
+        maxlength="100"
+        placeholder="Ex.: freelance"
+      >
+
+      <div class="modal-actions">
+
+        <button
+          type="button"
+          class="primary-button"
+          id="confirm-extra"
+        >
+          Salvar
+        </button>
+
+        <button
+          type="button"
+          class="secondary-button"
+          data-close-modal
+        >
+          Cancelar
+        </button>
+
+      </div>
+
+  `);
+
+  root
+    .querySelectorAll(
+      "[data-close-modal]"
+    )
+    .forEach(button =>
+      button.addEventListener(
+        "click",
+        closeModal
+      )
+    );
+
+  root
+    .querySelector(
+      "#confirm-extra"
+    )
+    .addEventListener(
+      "click",
+      () => {
+
+        const result =
+          addExtra({
+
+            amount:
+              root.querySelector(
+                "#extra-value"
+              ).value,
+
+            description:
+              root.querySelector(
+                "#extra-description"
+              ).value
+
+          });
+
+        if (result) {
+
+          closeModal();
+
+          showToast(
+            "Extra adicionado."
+          );
+
+        }
+
+      }
+    );
+}
+
+
+/* =========================================================
+   MODAL RESERVA
+========================================================= */
+
+function openReserveModal() {
+
+  const reserve =
+    getReserveBalance();
+
+  const root =
+    openModal(`
+
+      <div class="modal-header">
+
+        <h2>
+          🏦 Reserva
+        </h2>
+
+        <button
+          type="button"
+          class="modal-close"
+          data-close-modal
+        >
+          ×
+        </button>
+
+      </div>
+
+      <div class="info-box">
+
+        <strong>
+          Saldo da Reserva
+        </strong>
+
+        ${formatMoney(reserve)}
+
+      </div>
+
+      <div class="modal-actions">
+
+        <button
+          type="button"
+          class="primary-button"
+          id="open-deposit"
+        >
+          Guardar dinheiro
+        </button>
+
+        <button
+          type="button"
+          class="secondary-button"
+          id="open-withdraw"
+        >
+          Retirar dinheiro
+        </button>
+
+        <button
+          type="button"
+          class="secondary-button"
+          data-close-modal
+        >
+          Cancelar
+        </button>
+
+      </div>
+
+  `);
+
+  root
+    .querySelectorAll(
+      "[data-close-modal]"
+    )
+    .forEach(button =>
+      button.addEventListener(
+        "click",
+        closeModal
+      )
+    );
+
+  root
+    .querySelector(
+      "#open-deposit"
+    )
+    .addEventListener(
+      "click",
+      openDepositModal
+    );
+
+  root
+    .querySelector(
+      "#open-withdraw"
+    )
+    .addEventListener(
+      "click",
+      openWithdrawModal
+    );
+}
+
+
+/* =========================================================
+   GUARDAR NA RESERVA
+========================================================= */
+
+function openDepositModal() {
+
+  const root =
+    openModal(`
+
+      <div class="modal-header">
+
+        <h2>
+          Guardar na Reserva
+        </h2>
+
+        <button
+          type="button"
+          class="modal-close"
+          data-close-modal
+        >
+          ×
+        </button>
+
+      </div>
+
+      <label>
+        Origem
+      </label>
+
+      <div class="choice-group">
+
+        <label class="choice">
+
+          <input
+            type="radio"
+            name="deposit-source"
+            value="salary"
+            checked
+          >
+
+          <span>
+            Salário
+          </span>
+
+        </label>
+
+        <label class="choice">
+
+          <input
+            type="radio"
+            name="deposit-source"
+            value="extra"
+          >
+
+          <span>
+            Extra
+          </span>
+
+        </label>
+
+      </div>
+
+      <label>
+        Valor
+      </label>
+
+      <input
+        id="deposit-value"
+        inputmode="decimal"
+        placeholder="R$ 0,00"
+      >
+
+      <div class="modal-actions">
+
+        <button
+          type="button"
+          class="primary-button"
+          id="confirm-deposit"
+        >
+          Guardar
+        </button>
+
+        <button
+          type="button"
+          class="secondary-button"
+          data-close-modal
+        >
+          Cancelar
+        </button>
+
+      </div>
+
+  `);
+
+  root
+    .querySelectorAll(
+      "[data-close-modal]"
+    )
+    .forEach(button =>
+      button.addEventListener(
+        "click",
+        closeModal
+      )
+    );
+
+  root
+    .querySelector(
+      "#confirm-deposit"
+    )
+    .addEventListener(
+      "click",
+      () => {
+
+        const amount =
+          root.querySelector(
+            "#deposit-value"
+          ).value;
+
+        const source =
+          root.querySelector(
+            'input[name="deposit-source"]:checked'
+          ).value;
+
+        if (
+          depositReserve({
+            amount,
+            source
+          })
+        ) {
+
+          closeModal();
+
+          showToast(
+            "Dinheiro guardado na Reserva."
+          );
+
+        }
+
+      }
+    );
+}
+
+
+/* =========================================================
+   RETIRAR DA RESERVA
+========================================================= */
+
+function openWithdrawModal() {
+
+  const reserve =
+    getReserveBalance();
+
+  const root =
+    openModal(`
+
+      <div class="modal-header">
+
+        <h2>
+          Retirar da Reserva
+        </h2>
+
+        <button
+          type="button"
+          class="modal-close"
+          data-close-modal
+        >
+          ×
+        </button>
+
+      </div>
+
+      <div class="info-box">
+
+        Saldo disponível:
+        <strong>
+          ${formatMoney(reserve)}
+        </strong>
+
+      </div>
+
+      <label>
+        Valor
+      </label>
+
+      <input
+        id="withdraw-value"
+        inputmode="decimal"
+        placeholder="R$ 0,00"
+      >
+
+      <div class="modal-actions">
+
+        <button
+          type="button"
+          class="primary-button"
+          id="confirm-withdraw"
+        >
+          Retirar
+        </button>
+
+        <button
+          type="button"
+          class="secondary-button"
+          data-close-modal
+        >
+          Cancelar
+        </button>
+
+      </div>
+
+  `);
+
+  root
+    .querySelectorAll(
+      "[data-close-modal]"
+    )
+    .forEach(button =>
+      button.addEventListener(
+        "click",
+        closeModal
+      )
+    );
+
+  root
+    .querySelector(
+      "#confirm-withdraw"
+    )
+    .addEventListener(
+      "click",
+      () => {
+
+        const amount =
+          root.querySelector(
+            "#withdraw-value"
+          ).value;
+
+        if (
+          withdrawReserve({
+            amount
+          })
+        ) {
+
+          closeModal();
+
+          showToast(
+            "Retirada realizada."
+          );
+
+        }
+
+      }
+    );
+}
+
+
+/* =========================================================
+   VISUALIZAÇÃO DE CATEGORIA
+========================================================= */
+
+function openCategoryView(
+  categoryId
+) {
+
+  const category =
+    getCategory(categoryId);
+
+  if (!category) {
+    return;
+  }
+
+  const cycle =
+    ensureCycle(
+      state.currentCycle
+    );
+
+  const expenses =
+    cycle.expenses
+      .filter(
+        expense =>
+          expense.categoryId ===
+          categoryId
+      )
+      .sort(
+        (a, b) =>
+          `${b.date} ${b.time || ""}`
+          .localeCompare(
+            `${a.date} ${a.time || ""}`
+          )
+      );
+
+  const available =
+    getCategoryAvailable(
+      cycle,
+      category
+    );
+
+  const root =
+    openModal(`
+
+      <div class="modal-header">
+
+        <h2>
+          ${escapeHtml(category.icon)}
+          ${escapeHtml(category.name)}
+        </h2>
+
+        <button
+          type="button"
+          class="modal-close"
+          data-close-modal
+        >
+          ×
+        </button>
+
+      </div>
+
+      <div class="info-box">
+
+        <strong>
+          ${
+            category.hasLimit
+              ? "Disponível"
+              : "Sem limite"
+          }
+        </strong>
+
+        ${
+          category.hasLimit
+            ? formatMoney(available)
+            : "Esta categoria não possui limite."
+        }
+
+      </div>
+
+      ${
+        expenses.length
+          ? `
+            <div class="expenses-list">
+
+              ${expenses
+                .map(
+                  expense => `
+
+                    <div class="expense-row">
+
+                      <span class="expense-main">
+
+                        <span class="expense-title">
+                          ${escapeHtml(
+                            expense.description ||
+                            category.name
+                          )}
+                        </span>
+
+                        <span class="expense-meta">
+                          ${formatDate(
+                            expense.date
+                          )}
+                        </span>
+
+                      </span>
+
+                      <span class="expense-value">
+                        −${formatMoney(
+                          expense.amount
+                        )}
+                      </span>
+
+                    </div>
+
+                  `
+                )
+                .join("")}
+
+            </div>
+          `
+          : `
+            <div class="empty-state">
+              Nenhum gasto nesta categoria.
+            </div>
+          `
+      }
+
+      <div class="modal-actions">
+
+        <button
+          type="button"
+          class="primary-button"
+          id="category-add-expense"
+        >
+          Lançar gasto
+        </button>
+
+        <button
+          type="button"
+          class="secondary-button"
+          data-close-modal
+        >
+          Fechar
+        </button>
+
+      </div>
+
+  `);
+
+  root
+    .querySelectorAll(
+      "[data-close-modal]"
+    )
+    .forEach(button =>
+      button.addEventListener(
+        "click",
+        closeModal
+      )
+    );
+
+  root
+    .querySelector(
+      "#category-add-expense"
+    )
+    .addEventListener(
+      "click",
+      () => {
+
+        closeModal();
+
+        openExpenseModal(
+          categoryId
+        );
+
+      }
+    );
+}
+
+
+/* =========================================================
+   CONFIGURAÇÃO DE CATEGORIA
+========================================================= */
+
+function openEditCategory(
+  categoryId
+) {
+
+  const category =
+    getCategory(categoryId);
+
+  if (!category) {
+    return;
+  }
+
+  const isReserve =
+    category.type === "reserve";
+
+  const root =
+    openModal(`
+
+      <div class="modal-header">
+
+        <h2>
+          Editar categoria
+        </h2>
+
+        <button
+          type="button"
+          class="modal-close"
+          data-close-modal
+        >
+          ×
+        </button>
+
+      </div>
+
+      <label>
+        Nome
+      </label>
+
+      <input
+        id="edit-category-name"
+        value="${escapeHtml(category.name)}"
+        maxlength="40"
+      >
+
+      <label>
+        Ícone
+      </label>
+
+      <input
+        id="edit-category-icon"
+        value="${escapeHtml(category.icon)}"
+        maxlength="4"
+      >
+
+      ${
+        !isReserve
+          ? `
+            <label>
+              Limite
+            </label>
+
+            <div class="choice-group">
+
+              <label class="choice">
+
+                <input
+                  type="radio"
+                  name="edit-category-limit"
+                  value="yes"
+                  ${
+                    category.hasLimit
+                      ? "checked"
+                      : ""
+                  }
+                >
+
+                <span>
+                  Sim
+                </span>
+
+              </label>
+
+              <label class="choice">
+
+                <input
+                  type="radio"
+                  name="edit-category-limit"
+                  value="no"
+                  ${
+                    !category.hasLimit
+                      ? "checked"
+                      : ""
+                  }
+                >
+
+                <span>
+                  Não
+                </span>
+
+              </label>
+
+            </div>
+
+            <label>
+              Valor do limite
+            </label>
+
+            <input
+              id="edit-category-limit-value"
+              inputmode="decimal"
+              value="${formatInputMoney(category.limit)}"
+            >
+          `
+          : `
+            <div class="info-box">
+              A Reserva não possui limite.
+            </div>
+          `
+      }
+
+      <div class="modal-actions">
+
+        <button
+          type="button"
+          class="primary-button"
+          id="save-category-edit"
+        >
+          Salvar
+        </button>
+
+        ${
+          !category.protected
+            ? `
+              <button
+                type="button"
+                class="danger-button"
+                id="delete-category"
+              >
+                Excluir categoria
+              </button>
+            `
+            : ""
+        }
+
+        <button
+          type="button"
+          class="secondary-button"
+          data-close-modal
+        >
+          Cancelar
+        </button>
+
+      </div>
+
+  `);
+
+  root
+    .querySelectorAll(
+      "[data-close-modal]"
+    )
+    .forEach(button =>
+      button.addEventListener(
+        "click",
+        closeModal
+      )
+    );
+
+  root
+    .querySelector(
+      "#save-category-edit"
+    )
+    .addEventListener(
+      "click",
+      () => {
+
+        const name =
+          root.querySelector(
+            "#edit-category-name"
+          ).value;
+
+        const icon =
+          root.querySelector(
+            "#edit-category-icon"
+          ).value;
+
+        let hasLimit =
+          category.hasLimit;
+
+        let limit =
+          category.limit;
+
+        if (!isReserve) {
+
+          const selected =
+            root.querySelector(
+              'input[name="edit-category-limit"]:checked'
+            );
+
+          hasLimit =
+            selected?.value === "yes";
+
+          limit =
+            parseMoney(
+              root.querySelector(
+                "#edit-category-limit-value"
+              ).value
+            );
+
+        }
+
+        updateCategory(
+          categoryId,
+          {
+            name,
+            icon,
+            hasLimit,
+            limit
+          }
+        );
+
+        closeModal();
+
+        showToast(
+          "Categoria atualizada."
+        );
+
+      }
+    );
+
+
+  root
+    .querySelector(
+      "#delete-category"
+    )
+    ?.addEventListener(
+      "click",
+      () => {
+
+        const confirmed =
+          window.confirm(
+            "Excluir esta categoria? Gastos antigos não serão apagados."
+          );
+
+        if (!confirmed) {
+          return;
+        }
+
+        if (
+          deleteCategory(
+            categoryId
+          )
+        ) {
+
+          closeModal();
+
+          showToast(
+            "Categoria excluída."
+          );
+
+        }
+
+      }
+    );
+}
+
+
+/* =========================================================
+   CRIAR CATEGORIA
+========================================================= */
+
+function openCreateCategory() {
+
+  const root =
+    openModal(`
+
+      <div class="modal-header">
+
+        <h2>
+          Criar categoria
+        </h2>
+
+        <button
+          type="button"
+          class="modal-close"
+          data-close-modal
+        >
+          ×
+        </button>
+
+      </div>
+
+      <label>
+        Nome
+      </label>
+
+      <input
+        id="new-category-name"
+        maxlength="40"
+        placeholder="Ex.: Alimentação"
+      >
+
+      <label>
+        Ícone
+      </label>
+
+      <input
+        id="new-category-icon"
+        maxlength="4"
+        placeholder="🍔"
+      >
+
+      <label>
+        Limite
+      </label>
+
+      <div class="choice-group">
+
+        <label class="choice">
+
+          <input
+            type="radio"
+            name="new-category-limit"
+            value="yes"
+            checked
+          >
+
+          <span>
+            Sim
+          </span>
+
+        </label>
+
+        <label class="choice">
+
+          <input
+            type="radio"
+            name="new-category-limit"
+            value="no"
+          >
+
+          <span>
+            Não
+          </span>
+
+        </label>
+
+      </div>
+
+      <label>
+        Valor do limite
+      </label>
+
+      <input
+        id="new-category-limit-value"
+        inputmode="decimal"
+        placeholder="R$ 0,00"
+      >
+
+      <div class="modal-actions">
+
+        <button
+          type="button"
+          class="primary-button"
+          id="confirm-new-category"
+        >
+          Salvar
+        </button>
+
+        <button
+          type="button"
+          class="secondary-button"
+          data-close-modal
+        >
+          Cancelar
+        </button>
+
+      </div>
+
+  `);
+
+  root
+    .querySelectorAll(
+      "[data-close-modal]"
+    )
+    .forEach(button =>
+      button.addEventListener(
+        "click",
+        closeModal
+      )
+    );
+
+  root
+    .querySelector(
+      "#confirm-new-category"
+    )
+    .addEventListener(
+      "click",
+      () => {
+
+        const name =
+          root.querySelector(
+            "#new-category-name"
+          ).value;
+
+        const icon =
+          root.querySelector(
+            "#new-category-icon"
+          ).value;
+
+        const hasLimit =
+          root.querySelector(
+            'input[name="new-category-limit"]:checked'
+          )?.value === "yes";
+
+        const limit =
+          parseMoney(
+            root.querySelector(
+              "#new-category-limit-value"
+            ).value
+          );
+
+        if (
+          createCategory({
+            name,
+            icon,
+            hasLimit,
+            limit
+          })
+        ) {
+
+          closeModal();
+
+        }
+
+      }
+    );
+}
+
+
+/* =========================================================
+   HISTÓRICO COMPLETO
+========================================================= */
+
+function openHistory() {
+
+  const cycle =
+    ensureCycle(
+      state.currentCycle
+    );
+
+  const history =
+    getHistory(cycle);
+
+  const root =
+    openModal(`
+
+      <div class="modal-header">
+
+        <h2>
+          Histórico
+        </h2>
+
+        <button
+          type="button"
+          class="modal-close"
+          data-close-modal
         >
           ×
         </button>
@@ -2963,80 +3950,119 @@ function openPizza() {
       </div>
 
       ${
-        total > 0
+        history.length
           ? `
-            <div
-              class="pizza-chart"
-              style="background:${gradient}"
-            ></div>
+            <div class="expenses-list">
+
+              ${history
+                .map(
+                  item => `
+
+                    <div class="expense-row">
+
+                      <span class="category-icon">
+                        ${escapeHtml(item.icon)}
+                      </span>
+
+                      <span class="expense-main">
+
+                        <span class="expense-title">
+                          ${escapeHtml(item.title)}
+                        </span>
+
+                        <span class="expense-meta">
+                          ${formatDate(item.date)}
+                          ·
+                          ${escapeHtml(item.time || "")}
+                          ${
+                            item.description
+                              ? ` · ${escapeHtml(item.description)}`
+                              : ""
+                          }
+                        </span>
+
+                      </span>
+
+                      <span
+                        class="expense-value"
+                        style="
+                          color:${
+                            item.amount >= 0
+                              ? "var(--success)"
+                              : "var(--danger)"
+                          };
+                        "
+                      >
+                        ${
+                          item.amount >= 0
+                            ? "+"
+                            : "−"
+                        }${formatMoney(
+                          Math.abs(item.amount)
+                        )}
+                      </span>
+
+                    </div>
+
+                  `
+                )
+                .join("")}
+
+            </div>
           `
           : `
-            <div class="transactions-empty">
-              Nenhum gasto neste ciclo.
+            <div class="empty-state">
+              Nenhum lançamento neste ciclo.
             </div>
           `
       }
 
-      <div class="pizza-legend">
-
-        ${
-          values
-            .map(item => `
-
-              <div
-                class="pizza-legend-item"
-              >
-
-                <div
-                  class="pizza-legend-left"
-                >
-
-                  <div
-                    class="pizza-legend-icon"
-                  >
-                    ${escapeHtml(
-                      item.category.icon
-                    )}
-                  </div>
-
-                  <span>
-                    ${escapeHtml(
-                      item.category.name
-                    )}
-                  </span>
-
-                </div>
-
-                <strong>
-                  ${escapeHtml(
-                    formatMoney(item.value)
-                  )}
-                </strong>
-
-              </div>
-
-            `)
-            .join("")
-        }
-
-      </div>
-
-    </div>
-
   `);
+
+  root
+    .querySelectorAll(
+      "[data-close-modal]"
+    )
+    .forEach(button =>
+      button.addEventListener(
+        "click",
+        closeModal
+      )
+    );
 }
 
 
 /* =========================================================
-   CICLO ANTERIOR
-   ========================================================= */
+   MÊS ANTERIOR
+========================================================= */
+
+function getPreviousCycleKey() {
+
+  const [
+    year,
+    month
+  ] =
+    state.currentCycle.split("-")
+      .map(Number);
+
+  let y = year;
+  let m = month - 1;
+
+  if (m === 0) {
+    m = 12;
+    y--;
+  }
+
+  return (
+    `${y}-${String(m).padStart(2, "0")}`
+  );
+}
+
 
 function openPreviousCycle() {
 
   const key =
-    getPreviousCycleKey(
-      state.currentCycleKey
-    );
+    getPreviousCycleKey();
 
   const cycle =
     state.cycles[key];
@@ -3050,1214 +4076,646 @@ function openPreviousCycle() {
     return;
   }
 
-  openModal(`
-
-    <div class="modal-box">
+  const root =
+    openModal(`
 
       <div class="modal-header">
 
         <h2>
-          ${escapeHtml(
-            formatCycleName(key)
-          )}
+          Ciclo anterior
         </h2>
 
         <button
+          type="button"
           class="modal-close"
-          data-action="close-modal"
+          data-close-modal
         >
           ×
         </button>
 
       </div>
 
-      <span class="readonly-badge">
-        Somente leitura
-      </span>
+      <div class="info-box">
 
-      <div class="cycle-summary">
+        <strong>
+          ${escapeHtml(
+            formatCycleLabel(key)
+          )}
+        </strong>
 
-        <div>
+        Salário:
+        ${formatMoney(cycle.salary)}
 
-          <span>
-            Salário
-          </span>
+        <br>
 
-          <strong>
-            ${escapeHtml(
-              formatMoney(
-                cycle.salary.received
-              )
-            )}
-          </strong>
+        Extra:
+        ${formatMoney(cycle.extra)}
 
-        </div>
+        <br>
 
-        <div>
-
-          <span>
-            Extra
-          </span>
-
-          <strong>
-            ${escapeHtml(
-              formatMoney(
-                cycle.extra
-              )
-            )}
-          </strong>
-
-        </div>
-
-        <div>
-
-          <span>
-            Disponível
-          </span>
-
-          <strong>
-            ${escapeHtml(
-              formatMoney(
-                getAvailable(cycle)
-              )
-            )}
-          </strong>
-
-        </div>
-
-        <div>
-
-          <span>
-            Reserva
-          </span>
-
-          <strong>
-            ${escapeHtml(
-              formatMoney(
-                getReserveBalance(cycle)
-              )
-            )}
-          </strong>
-
-        </div>
+        Reserva atual:
+        ${formatMoney(getReserveBalance())}
 
       </div>
 
-      <div class="content-section">
+      <div class="expenses-list">
 
-        <div class="section-header">
+        ${
+          cycle.expenses.length
+            ? cycle.expenses
+                .map(expense => {
 
-          <h2>
-            Gastos
-          </h2>
+                  const category =
+                    getCategory(
+                      expense.categoryId
+                    );
 
-        </div>
+                  return `
 
-        <div class="transactions-list">
+                    <div class="expense-row">
 
-          ${
-            cycle.transactions
-              .filter(
-                transaction =>
-                  transaction.type === "expense"
-              )
-              .sort(
-                (a, b) =>
-                  new Date(b.date) -
-                  new Date(a.date)
-              )
-              .map(transaction => {
-
-                const category =
-                  getCategory(
-                    transaction.categoryId
-                  );
-
-                return `
-
-                  <div
-                    class="transaction-item"
-                  >
-
-                    <div
-                      class="transaction-icon"
-                    >
-                      ${
-                        category
-                          ? escapeHtml(
-                              category.icon
-                            )
-                          : "💸"
-                      }
-                    </div>
-
-                    <div
-                      class="transaction-info"
-                    >
-
-                      <span
-                        class="transaction-title"
-                      >
-                        ${
-                          category
-                            ? escapeHtml(
-                                category.name
-                              )
-                            : "Gasto"
-                        }
+                      <span class="category-icon">
+                        ${escapeHtml(
+                          category?.icon || "📦"
+                        )}
                       </span>
 
-                      <span
-                        class="transaction-date"
-                      >
-                        ${escapeHtml(
-                          formatDate(
-                            transaction.date
-                          )
+                      <span class="expense-main">
+
+                        <span class="expense-title">
+                          ${escapeHtml(
+                            category?.name ||
+                            "Categoria removida"
+                          )}
+                        </span>
+
+                        <span class="expense-meta">
+                          ${formatDate(
+                            expense.date
+                          )}
+                        </span>
+
+                      </span>
+
+                      <span class="expense-value">
+                        −${formatMoney(
+                          expense.amount
                         )}
                       </span>
 
                     </div>
 
-                    <div
-                      class="transaction-value negative"
-                    >
-                      -${escapeHtml(
-                        formatMoney(
-                          transaction.amount
-                        )
-                      )}
-                    </div>
+                  `;
 
-                  </div>
-                `;
-              })
-              .join("")
-          }
-
-        </div>
+                })
+                .join("")
+            : `
+              <div class="empty-state">
+                Nenhum gasto neste ciclo.
+              </div>
+            `
+        }
 
       </div>
 
-    </div>
-
   `);
-}
 
-
-/* =========================================================
-   LOGIN / CONFIGURAÇÃO INICIAL
-   ========================================================= */
-
-function initializeSetup() {
-
-  const form =
-    document.getElementById(
-      "setup-form"
-    );
-
-  if (!form) return;
-
-  form.addEventListener(
-    "submit",
-    event => {
-
-      event.preventDefault();
-
-      const data =
-        new FormData(form);
-
-      const username =
-        String(
-          data.get("username") || ""
-        ).trim();
-
-      const password =
-        String(
-          data.get("password") || ""
-        );
-
-      const salary =
-        parseMoney(
-          data.get("salary")
-        );
-
-      const split =
-        data.get("split") === "yes";
-
-      if (!username) {
-
-        showToast(
-          "Informe o usuário."
-        );
-
-        return;
-      }
-
-      if (!password) {
-
-        showToast(
-          "Informe uma senha."
-        );
-
-        return;
-      }
-
-      if (salary < 0) {
-
-        showToast(
-          "Salário inválido."
-        );
-
-        return;
-      }
-
-      state.account = {
-
-        configured: true,
-
-        username,
-
-        password
-      };
-
-      state.settings.salaryReference =
-        salary;
-
-      state.settings.salarySplit =
-        split;
-
-      state.currentCycleKey =
-        getCycleKey(
-          new Date()
-        );
-
-      const cycle =
-        ensureCycle(
-          state.currentCycleKey
-        );
-
-      cycle.salary.reference =
-        salary;
-
-      cycle.salary.received =
-        salary;
-
-      cycle.salarySplit.enabled =
-        split;
-
-      updateSalarySplit(cycle);
-
-      saveState();
-
-      state.session.locked =
-        false;
-
-      render();
-
-      showToast(
-        "Configuração concluída."
-      );
-    }
-  );
-}
-
-
-/* =========================================================
-   DESBLOQUEAR
-   ========================================================= */
-
-function initializeUnlock() {
-
-  const form =
-    document.getElementById(
-      "unlock-form"
-    );
-
-  if (!form) return;
-
-  form.addEventListener(
-    "submit",
-    event => {
-
-      event.preventDefault();
-
-      const data =
-        new FormData(form);
-
-      const password =
-        String(
-          data.get("password") || ""
-        );
-
-      if (
-        password !==
-        state.account.password
-      ) {
-
-        showToast(
-          "Senha incorreta."
-        );
-
-        return;
-      }
-
-      state.session.locked =
-        false;
-
-      saveState();
-
-      render();
-
-      form.reset();
-    }
-  );
-}
-
-
-/* =========================================================
-   EVENTOS
-   ========================================================= */
-
-function initializeEvents() {
-
-  document.addEventListener(
-    "click",
-    event => {
-
-      const target =
-        event.target.closest(
-          "[data-action]"
-        );
-
-      if (!target) return;
-
-      const action =
-        target.dataset.action;
-
-      const categoryId =
-        target.dataset.categoryId;
-
-      switch (action) {
-
-        case "lock":
-          lockApp();
-          break;
-
-        case "open-settings":
-          openSettings();
-          break;
-
-        case "close-settings":
-          closeSettings();
-          break;
-
-        case "close-modal":
-          closeModal();
-          break;
-
-        case "quick-expense":
-          openExpenseModal(categoryId);
-          break;
-
-        case "open-category":
-          openCategoryPanel(categoryId);
-          break;
-
-        case "close-category-panel": {
-
-          const panel =
-            document.getElementById(
-              "category-panel"
-            );
-
-          if (panel) {
-            panel.classList.add("hidden");
-          }
-
-          currentPanel = null;
-
-          break;
-        }
-
-        case "add-extra":
-          openExtraModal();
-          break;
-
-        case "open-reserve":
-          openReserveModal();
-          break;
-
-        case "reserve-deposit":
-          renderReserveDepositForm();
-          break;
-
-        case "reserve-withdraw":
-          renderReserveWithdrawForm();
-          break;
-
-        case "toggle-settings-categories":
-          toggleSettingsSection(
-            "settings-categories"
-          );
-          break;
-
-        case "toggle-settings-salary":
-          toggleSettingsSection(
-            "settings-salary"
-          );
-          break;
-
-        case "toggle-settings-cycle":
-          toggleSettingsSection(
-            "settings-cycle"
-          );
-          break;
-
-        case "toggle-settings-security":
-          toggleSettingsSection(
-            "settings-security"
-          );
-          break;
-
-        case "new-category":
-          renderCategoryForm();
-          break;
-
-        case "edit-category": {
-
-          const category =
-            getCategory(categoryId);
-
-          if (category) {
-            renderCategoryForm(category);
-          }
-
-          break;
-        }
-
-        case "delete-category":
-          deleteCategory(categoryId);
-          break;
-
-        case "cancel-category-form": {
-
-          const container =
-            document.getElementById(
-              "category-edit-form"
-            );
-
-          if (container) {
-
-            container.classList.add(
-              "hidden"
-            );
-
-            container.innerHTML = "";
-          }
-
-          break;
-        }
-
-        case "open-previous-cycle":
-          openPreviousCycle();
-          break;
-
-        case "open-pizza":
-          openPizza();
-          break;
-
-        case "delete-all-data":
-          confirmDeleteAll();
-          break;
-
-        case "export-backup":
-          exportBackup();
-          break;
-      }
-    }
-  );
-
-
-  document.addEventListener(
-    "submit",
-    event => {
-
-      if (
-        event.target.id ===
-        "expense-form"
-      ) {
-
-        event.preventDefault();
-
-        handleExpenseSubmit(
-          event.target
-        );
-
-        return;
-      }
-
-      if (
-        event.target.id ===
-        "extra-form"
-      ) {
-
-        event.preventDefault();
-
-        handleExtraSubmit(
-          event.target
-        );
-
-        return;
-      }
-
-      if (
-        event.target.id ===
-        "reserve-deposit-form"
-      ) {
-
-        event.preventDefault();
-
-        handleReserveDepositSubmit(
-          event.target
-        );
-
-        return;
-      }
-
-      if (
-        event.target.id ===
-        "reserve-withdraw-form"
-      ) {
-
-        event.preventDefault();
-
-        handleReserveWithdrawSubmit(
-          event.target
-        );
-
-        return;
-      }
-
-      if (
-        event.target.id ===
-        "category-form"
-      ) {
-
-        event.preventDefault();
-
-        handleCategorySubmit(
-          event.target
-        );
-
-        return;
-      }
-
-      if (
-        event.target.id ===
-        "salary-settings-form"
-      ) {
-
-        event.preventDefault();
-
-        handleSalarySettingsSubmit(
-          event.target
-        );
-
-        return;
-      }
-
-      if (
-        event.target.id ===
-        "cycle-settings-form"
-      ) {
-
-        event.preventDefault();
-
-        handleCycleSettingsSubmit(
-          event.target
-        );
-
-        return;
-      }
-
-      if (
-        event.target.id ===
-        "password-form"
-      ) {
-
-        event.preventDefault();
-
-        handlePasswordSubmit(
-          event.target
-        );
-
-        return;
-      }
-
-    }
-  );
-}
-
-
-/* =========================================================
-   EVENT HANDLERS
-   ========================================================= */
-
-function handleExpenseSubmit(form) {
-
-  const data =
-    new FormData(form);
-
-  const result =
-    addExpense({
-
-      categoryId:
-        String(
-          data.get("categoryId")
-        ),
-
-      amount:
-        parseMoney(
-          data.get("amount")
-        ),
-
-      source:
-        String(
-          data.get("source")
-        ),
-
-      description:
-        String(
-          data.get("description") || ""
-        )
-    });
-
-  if (!result.success) {
-
-    showToast(
-      result.message
-    );
-
-    return;
-  }
-
-  closeModal();
-
-  showToast(
-    "Gasto lançado."
-  );
-}
-
-function handleExtraSubmit(form) {
-
-  const data =
-    new FormData(form);
-
-  const result =
-    addExtra(
-      parseMoney(
-        data.get("amount")
-      ),
-      String(
-        data.get("description") || ""
+  root
+    .querySelectorAll(
+      "[data-close-modal]"
+    )
+    .forEach(button =>
+      button.addEventListener(
+        "click",
+        closeModal
       )
     );
-
-  if (!result.success) {
-
-    showToast(
-      result.message
-    );
-
-    return;
-  }
-
-  closeModal();
-
-  showToast(
-    "Extra adicionado."
-  );
 }
 
-function handleReserveDepositSubmit(form) {
 
-  const data =
-    new FormData(form);
+/* =========================================================
+   PIZZA
+========================================================= */
 
-  const result =
-    depositReserve(
-      String(
-        data.get("source")
-      ),
-      parseMoney(
-        data.get("amount")
-      )
-    );
-
-  if (!result.success) {
-
-    showToast(
-      result.message
-    );
-
-    return;
-  }
-
-  closeModal();
-
-  showToast(
-    "Dinheiro enviado para a Reserva."
-  );
-}
-
-function handleReserveWithdrawSubmit(form) {
-
-  const data =
-    new FormData(form);
-
-  const result =
-    withdrawReserve(
-      parseMoney(
-        data.get("amount")
-      )
-    );
-
-  if (!result.success) {
-
-    showToast(
-      result.message
-    );
-
-    return;
-  }
-
-  closeModal();
-
-  showToast(
-    "Retirada realizada."
-  );
-}
-
-function handleCategorySubmit(form) {
-
-  const data =
-    new FormData(form);
-
-  const name =
-    String(
-      data.get("name") || ""
-    ).trim();
-
-  const icon =
-    String(
-      data.get("icon") || "📦"
-    ).trim();
-
-  const hasLimit =
-    data.get("hasLimit") === "yes";
-
-  const limit =
-    hasLimit
-      ? parseMoney(
-          data.get("limit")
-        )
-      : 0;
-
-  if (!name) {
-
-    showToast(
-      "Informe o nome da categoria."
-    );
-
-    return;
-  }
-
-  const existingId =
-    selectedSettingsCategoryId;
-
-  if (existingId) {
-
-    const category =
-      getCategory(existingId);
-
-    if (!category) return;
-
-    category.name = name;
-    category.icon = icon;
-
-    if (category.type !== "reserve") {
-
-      category.hasLimit =
-        hasLimit;
-
-      category.limit =
-        limit;
-    }
-
-    selectedSettingsCategoryId =
-      null;
-
-    showToast(
-      "Categoria atualizada."
-    );
-
-  } else {
-
-    state.categories.push({
-
-      id: createId("cat"),
-
-      name,
-
-      icon,
-
-      type: "expense",
-
-      hasLimit,
-
-      limit
-    });
-
-    showToast(
-      "Categoria criada."
-    );
-  }
-
-  saveState();
-
-  renderSettings();
-  renderMain();
-}
-
-function handleSalarySettingsSubmit(form) {
-
-  const data =
-    new FormData(form);
-
-  const salary =
-    parseMoney(
-      data.get("salary")
-    );
-
-  const split =
-    data.get("split") === "yes";
-
-  if (salary < 0) {
-
-    showToast(
-      "Salário inválido."
-    );
-
-    return;
-  }
-
-  state.settings.salaryReference =
-    salary;
-
-  state.settings.salarySplit =
-    split;
+function openPizza() {
 
   const cycle =
     ensureCycle(
-      state.currentCycleKey
+      state.currentCycle
     );
 
-  /*
-    Alterar a referência não altera
-    automaticamente o dinheiro já recebido
-    no ciclo atual.
-  */
+  const categories =
+    state.categories
+      .filter(
+        category =>
+          category.type !== "reserve"
+      )
+      .map(
+        category => ({
+          category,
+          value:
+            getCategoryExpenses(
+              cycle,
+              category.id
+            )
+        })
+      )
+      .filter(
+        item =>
+          item.value > 0
+      );
 
-  saveState();
+  const total =
+    categories.reduce(
+      (sum, item) =>
+        sum + item.value,
+      0
+    );
 
-  renderSettings();
-  renderMain();
+  const root =
+    openModal(`
 
-  showToast(
-    "Configuração de salário salva."
+      <div class="modal-header">
+
+        <h2>
+          Gastos
+        </h2>
+
+        <button
+          type="button"
+          class="modal-close"
+          data-close-modal
+        >
+          ×
+        </button>
+
+      </div>
+
+      ${
+        total === 0
+          ? `
+            <div class="empty-state">
+              Nenhum gasto para mostrar.
+            </div>
+          `
+          : `
+            <div
+              style="
+                width:220px;
+                height:220px;
+                margin:10px auto 24px;
+                border-radius:50%;
+                background:${createPieGradient(categories, total)};
+              "
+            ></div>
+
+            <div class="expenses-list">
+
+              ${categories
+                .map(
+                  item => `
+
+                    <div class="expense-row">
+
+                      <span class="category-icon">
+                        ${escapeHtml(
+                          item.category.icon
+                        )}
+                      </span>
+
+                      <span class="expense-main">
+
+                        <span class="expense-title">
+                          ${escapeHtml(
+                            item.category.name
+                          )}
+                        </span>
+
+                      </span>
+
+                      <span class="expense-value">
+                        ${formatMoney(
+                          item.value
+                        )}
+                      </span>
+
+                    </div>
+
+                  `
+                )
+                .join("")}
+
+            </div>
+          `
+      }
+
+  `);
+
+  root
+    .querySelectorAll(
+      "[data-close-modal]"
+    )
+    .forEach(button =>
+      button.addEventListener(
+        "click",
+        closeModal
+      )
+    );
+}
+
+
+function createPieGradient(
+  items,
+  total
+) {
+
+  const steps = [];
+
+  let current = 0;
+
+  const colors = [
+    "#ffffff",
+    "#8f96a3",
+    "#626977",
+    "#444a55",
+    "#303640",
+    "#1f242d",
+    "#737b89",
+    "#b7bdc7"
+  ];
+
+  items.forEach(
+    (item, index) => {
+
+      const percentage =
+        (
+          item.value /
+          total
+        ) * 100;
+
+      const start =
+        current;
+
+      const end =
+        current + percentage;
+
+      steps.push(
+        `${colors[index % colors.length]} ${start}% ${end}%`
+      );
+
+      current = end;
+
+    }
+  );
+
+  return `
+    conic-gradient(
+      ${steps.join(",")}
+    )
+  `;
+}
+
+
+/* =========================================================
+   BLOQUEIO
+========================================================= */
+
+function lockApp() {
+
+  setLoggedIn(false);
+
+  showScreen(
+    "login"
   );
 }
 
-function handleCycleSettingsSubmit(form) {
 
-  const data =
-    new FormData(form);
-
-  const day =
-    Number(
-      data.get("cycleDay")
-    );
+function unlockApp(
+  password
+) {
 
   if (
-    !Number.isInteger(day) ||
-    day < 1 ||
-    day > 31
+    password !==
+    state.user.password
   ) {
 
     showToast(
-      "O dia deve estar entre 1 e 31."
+      "Senha incorreta."
     );
 
-    return;
+    return false;
   }
 
-  state.settings.cycleDay =
-    day;
+  setLoggedIn(true);
 
-  saveState();
-
-  renderSettings();
-
-  showToast(
-    "Ciclo atualizado para os próximos ciclos."
+  showScreen(
+    "main"
   );
+
+  renderAll();
+
+  return true;
 }
 
-function handlePasswordSubmit(form) {
 
-  const data =
-    new FormData(form);
+/* =========================================================
+   ALTERAR SENHA
+========================================================= */
 
-  const currentPassword =
-    String(
-      data.get("currentPassword") || ""
-    );
-
-  const newPassword =
-    String(
-      data.get("newPassword") || ""
-    );
+function changePassword(
+  currentPassword,
+  newPassword
+) {
 
   if (
     currentPassword !==
-    state.account.password
+    state.user.password
   ) {
 
     showToast(
       "Senha atual incorreta."
     );
 
-    return;
+    return false;
   }
 
-  if (!newPassword) {
+  if (
+    !newPassword ||
+    newPassword.length < 4
+  ) {
 
     showToast(
-      "Informe a nova senha."
+      "A nova senha precisa ter pelo menos 4 caracteres."
     );
 
-    return;
+    return false;
   }
 
-  state.account.password =
+  state.user.password =
     newPassword;
 
   saveState();
 
-  form.reset();
-
   showToast(
     "Senha alterada."
   );
+
+  return true;
 }
 
 
 /* =========================================================
-   CONFIGURAÇÕES
-   ========================================================= */
+   APAGAR TODOS OS DADOS
+========================================================= */
 
-function toggleSettingsSection(id) {
-
-  const element =
-    document.getElementById(id);
-
-  if (!element) return;
-
-  element.classList.toggle(
-    "hidden"
-  );
-}
-
-
-/* =========================================================
-   BLOQUEIO
-   ========================================================= */
-
-function lockApp() {
-
-  state.session.locked =
-    true;
-
-  saveState();
-
-  closeModal();
-  closeSettings();
-
-  render();
-
-  showToast(
-    "FX bloqueado."
-  );
-}
-
-
-/* =========================================================
-   APAGAR TUDO
-   ========================================================= */
-
-function confirmDeleteAll() {
-
-  const first =
-    window.confirm(
-      "Apagar TODOS os dados do FX?"
-    );
-
-  if (!first) return;
-
-  const password =
-    window.prompt(
-      "Digite sua senha atual:"
-    );
+function resetAllData(
+  password,
+  confirmation
+) {
 
   if (
     password !==
-    state.account.password
+    state.user.password
   ) {
 
     showToast(
       "Senha incorreta."
     );
 
-    return;
+    return false;
   }
 
-  const second =
-    window.confirm(
-      "Confirme novamente: todos os dados serão apagados."
-    );
-
-  if (!second) return;
-
-  const third =
-    window.prompt(
-      "Digite a senha novamente para confirmar:"
-    );
-
   if (
-    third !==
-    state.account.password
+    confirmation !== "APAGAR"
   ) {
 
     showToast(
-      "Senha incorreta."
+      'Digite APAGAR para confirmar.'
     );
 
-    return;
+    return false;
   }
 
   localStorage.removeItem(
     STORAGE_KEY
   );
 
+  localStorage.removeItem(
+    SESSION_KEY
+  );
+
   state =
-    createInitialState();
+    createDefaultState();
 
-  closeModal();
-  closeSettings();
-
-  render();
+  showScreen(
+    "setup"
+  );
 
   showToast(
     "Todos os dados foram apagados."
   );
+
+  return true;
 }
 
 
 /* =========================================================
    BACKUP
-   ========================================================= */
+========================================================= */
 
 function exportBackup() {
 
-  try {
+  const backup = {
 
-    const backup = {
-      app: APP_NAME,
-      schemaVersion:
-        state.schemaVersion,
-      exportedAt:
-        nowISO(),
-      data:
-        state
+    fx: "FX",
+
+    version:
+      FX_VERSION,
+
+    exportedAt:
+      new Date().toISOString(),
+
+    state:
+      state
+
+  };
+
+  const json =
+    JSON.stringify(
+      backup,
+      null,
+      2
+    );
+
+  const blob =
+    new Blob(
+      [json],
+      {
+        type:
+          "application/json"
+      }
+    );
+
+  const url =
+    URL.createObjectURL(
+      blob
+    );
+
+  const link =
+    document.createElement(
+      "a"
+    );
+
+  link.href = url;
+
+  link.download =
+    `fx-backup-${todayISO()}.json`;
+
+  document.body.appendChild(
+    link
+  );
+
+  link.click();
+
+  link.remove();
+
+  URL.revokeObjectURL(
+    url
+  );
+
+  showToast(
+    "Backup exportado."
+  );
+}
+
+
+/* =========================================================
+   IMPORTAÇÃO DE BACKUP
+========================================================= */
+
+function importBackupFile(
+  file
+) {
+
+  if (!file) {
+    return;
+  }
+
+  const reader =
+    new FileReader();
+
+  reader.onload =
+    event => {
+
+      try {
+
+        const backup =
+          JSON.parse(
+            event.target.result
+          );
+
+        const importedState =
+          backup?.state ||
+          backup;
+
+        const normalized =
+          normalizeState(
+            importedState
+          );
+
+        const confirmed =
+          window.confirm(
+            "Importar este backup substituirá os dados atuais. Continuar?"
+          );
+
+        if (!confirmed) {
+          return;
+        }
+
+        state =
+          normalized;
+
+        saveState();
+
+        setLoggedIn(
+          false
+        );
+
+        showScreen(
+          "login"
+        );
+
+        showToast(
+          "Backup importado."
+        );
+
+      } catch (error) {
+
+        console.error(
+          error
+        );
+
+        showToast(
+          "Arquivo de backup inválido."
+        );
+
+      }
+
     };
 
-    const blob =
-      new Blob(
-        [
-          JSON.stringify(
-            backup,
-            null,
-            2
-          )
-        ],
-        {
-          type:
-            "application/json"
-        }
-      );
+  reader.readAsText(
+    file
+  );
+}
 
-    const url =
-      URL.createObjectURL(
-        blob
-      );
 
-    const link =
-      document.createElement(
-        "a"
-      );
+/* =========================================================
+   TELA
+========================================================= */
 
-    link.href = url;
+function showScreen(
+  name
+) {
 
-    link.download =
-      `fx-backup-${todayISO()}.json`;
-
-    document.body.appendChild(
-      link
+  document
+    .querySelectorAll(
+      ".screen"
+    )
+    .forEach(
+      screen =>
+        screen.classList.add(
+          "hidden"
+        )
     );
 
-    link.click();
-
-    link.remove();
-
-    URL.revokeObjectURL(
-      url
+  const screen =
+    document.getElementById(
+      `screen-${name}`
     );
 
-    showToast(
-      "Backup exportado."
+  if (screen) {
+
+    screen.classList.remove(
+      "hidden"
     );
 
-  } catch (error) {
-
-    console.error(error);
-
-    showToast(
-      "Não foi possível exportar o backup."
-    );
   }
 }
 
 
 /* =========================================================
    TOAST
-   ========================================================= */
+========================================================= */
 
-function showToast(message) {
+let toastTimer = null;
+
+function showToast(
+  message
+) {
 
   let toast =
     document.getElementById(
-      "toast"
+      "fx-toast"
     );
 
   if (!toast) {
@@ -4267,7 +4725,8 @@ function showToast(message) {
         "div"
       );
 
-    toast.id = "toast";
+    toast.id =
+      "fx-toast";
 
     toast.className =
       "toast";
@@ -4275,10 +4734,11 @@ function showToast(message) {
     document.body.appendChild(
       toast
     );
+
   }
 
   toast.textContent =
-    String(message);
+    message;
 
   toast.classList.remove(
     "hidden"
@@ -4292,72 +4752,1116 @@ function showToast(message) {
     setTimeout(
       () => {
 
-        toast.classList.add(
-          "hidden"
-        );
+        toast.remove();
 
       },
-      2500
+      2600
+    );
+}
+
+
+/* =========================================================
+   RESUMO DO NOVO CICLO
+========================================================= */
+
+function showCycleSummaryIfNeeded() {
+
+  const cycle =
+    ensureCycle(
+      state.currentCycle
+    );
+
+  if (
+    cycle.reminderShown
+  ) {
+    return;
+  }
+
+  const available =
+    getAvailable(cycle);
+
+  if (
+    available <= 0 &&
+    state.settings.salaryReference <= 0
+  ) {
+    return;
+  }
+
+  cycle.reminderShown =
+    true;
+
+  saveState();
+
+  setTimeout(
+    () => {
+
+      openCycleSummary();
+
+    },
+    400
+  );
+}
+
+
+function openCycleSummary() {
+
+  const cycle =
+    ensureCycle(
+      state.currentCycle
+    );
+
+  const salary =
+    getSalaryAvailable(cycle);
+
+  const extra =
+    getExtraAvailable(cycle);
+
+  const total =
+    salary + extra;
+
+  const root =
+    openModal(`
+
+      <div class="modal-header">
+
+        <h2>
+          Novo ciclo
+        </h2>
+
+      </div>
+
+      <div class="info-box">
+
+        <strong>
+          Dinheiro disponível
+        </strong>
+
+        Salário:
+        ${formatMoney(salary)}
+
+        <br>
+
+        Extra:
+        ${formatMoney(extra)}
+
+        <br><br>
+
+        Total:
+        ${formatMoney(total)}
+
+      </div>
+
+      ${
+        total > 0
+          ? `
+            <p class="modal-description">
+              Você pode escolher quanto deseja guardar na Reserva.
+            </p>
+
+            <label>
+              Valor para Reserva
+            </label>
+
+            <input
+              id="cycle-reserve-value"
+              inputmode="decimal"
+              placeholder="R$ 0,00"
+            >
+          `
+          : ""
+      }
+
+      <div class="modal-actions">
+
+        ${
+          total > 0
+            ? `
+              <button
+                type="button"
+                class="primary-button"
+                id="cycle-save-reserve"
+              >
+                Guardar na Reserva
+              </button>
+            `
+            : ""
+        }
+
+        <button
+          type="button"
+          class="secondary-button"
+          data-close-modal
+        >
+          Continuar
+        </button>
+
+      </div>
+
+  `);
+
+  root
+    .querySelectorAll(
+      "[data-close-modal]"
+    )
+    .forEach(button =>
+      button.addEventListener(
+        "click",
+        closeModal
+      )
+    );
+
+  root
+    .querySelector(
+      "#cycle-save-reserve"
+    )
+    ?.addEventListener(
+      "click",
+      () => {
+
+        const amount =
+          parseMoney(
+            root.querySelector(
+              "#cycle-reserve-value"
+            ).value
+          );
+
+        if (amount <= 0) {
+
+          showToast(
+            "Digite um valor."
+          );
+
+          return;
+        }
+
+        /*
+          Primeiro usa Salário.
+          Se acabar, não completa
+          automaticamente com Extra.
+        */
+
+        if (
+          amount <=
+          getSalaryAvailable(cycle)
+        ) {
+
+          depositReserve({
+            amount,
+            source: "salary"
+          });
+
+          closeModal();
+
+          return;
+
+        }
+
+        if (
+          amount <=
+          getExtraAvailable(cycle)
+        ) {
+
+          depositReserve({
+            amount,
+            source: "extra"
+          });
+
+          closeModal();
+
+          return;
+
+        }
+
+        showToast(
+          "O valor escolhido não existe em uma única origem."
+        );
+
+      }
+    );
+}
+
+
+/* =========================================================
+   EVENTOS
+========================================================= */
+
+function setupEvents() {
+
+  document.addEventListener(
+    "click",
+    event => {
+
+      const screenButton =
+        event.target.closest(
+          "[data-screen]"
+        );
+
+      if (
+        screenButton
+      ) {
+
+        const screen =
+          screenButton.dataset.screen;
+
+        showScreen(
+          screen
+        );
+
+        renderNavigation();
+
+        return;
+      }
+
+
+      if (
+        event.target.closest(
+          "[data-lock]"
+        )
+      ) {
+
+        lockApp();
+
+        return;
+      }
+
+
+      if (
+        event.target.closest(
+          "[data-extra]"
+        )
+      ) {
+
+        openExtraModal();
+
+        return;
+      }
+
+
+      if (
+        event.target.closest(
+          "[data-history]"
+        )
+      ) {
+
+        openHistory();
+
+        return;
+      }
+
+
+      if (
+        event.target.closest(
+          "[data-pizza]"
+        )
+      ) {
+
+        openPizza();
+
+        return;
+      }
+
+
+      if (
+        event.target.closest(
+          "[data-previous-cycle]"
+        )
+      ) {
+
+        openPreviousCycle();
+
+        return;
+      }
+
+
+      if (
+        event.target.closest(
+          "[data-create-category]"
+        )
+      ) {
+
+        openCreateCategory();
+
+        return;
+      }
+
+
+      const editButton =
+        event.target.closest(
+          "[data-edit-category]"
+        );
+
+      if (
+        editButton
+      ) {
+
+        openEditCategory(
+          editButton.dataset.editCategory
+        );
+
+        return;
+      }
+
+
+      if (
+        event.target.closest(
+          "[data-export-backup]"
+        )
+      ) {
+
+        exportBackup();
+
+        return;
+      }
+
+
+      if (
+        event.target.closest(
+          "[data-import-backup]"
+        )
+      ) {
+
+        document
+          .getElementById(
+            "backup-import-input"
+          )
+          ?.click();
+
+        return;
+      }
+
+    }
+  );
+
+
+  document
+    .getElementById(
+      "backup-import-input"
+    )
+    ?.addEventListener(
+      "change",
+      event => {
+
+        const file =
+          event.target.files?.[0];
+
+        importBackupFile(
+          file
+        );
+
+        event.target.value =
+          "";
+
+      }
+    );
+
+
+  document
+    .getElementById(
+      "extra-button"
+    )
+    ?.addEventListener(
+      "click",
+      openExtraModal
+    );
+
+
+  document
+    .getElementById(
+      "lock-button"
+    )
+    ?.addEventListener(
+      "click",
+      lockApp
+    );
+
+
+  document
+    .getElementById(
+      "history-button"
+    )
+    ?.addEventListener(
+      "click",
+      openHistory
+    );
+
+
+  document
+    .getElementById(
+      "pizza-button"
+    )
+    ?.addEventListener(
+      "click",
+      openPizza
+    );
+
+
+  document
+    .getElementById(
+      "previous-cycle-button"
+    )
+    ?.addEventListener(
+      "click",
+      openPreviousCycle
+    );
+
+
+  document
+    .getElementById(
+      "create-category-button"
+    )
+    ?.addEventListener(
+      "click",
+      openCreateCategory
+    );
+
+
+  document
+    .getElementById(
+      "export-backup-button"
+    )
+    ?.addEventListener(
+      "click",
+      exportBackup
+    );
+
+
+  document
+    .getElementById(
+      "import-backup-button"
+    )
+    ?.addEventListener(
+      "click",
+      () =>
+        document
+          .getElementById(
+            "backup-import-input"
+          )
+          ?.click()
+    );
+
+
+  /*
+    Configuração do salário
+  */
+
+  document
+    .getElementById(
+      "save-salary-button"
+    )
+    ?.addEventListener(
+      "click",
+      () => {
+
+        const value =
+          document
+            .getElementById(
+              "settings-salary"
+            )
+            ?.value;
+
+        const split =
+          document
+            .getElementById(
+              "settings-salary-split"
+            )
+            ?.checked;
+
+        state.settings.salarySplit =
+          Boolean(split);
+
+        if (
+          setSalaryReference(
+            value
+          )
+        ) {
+
+          showToast(
+            "Salário salvo."
+          );
+
+          renderAll();
+
+        }
+
+      }
+    );
+
+
+  /*
+    Ciclo
+  */
+
+  document
+    .getElementById(
+      "save-cycle-button"
+    )
+    ?.addEventListener(
+      "click",
+      () => {
+
+        const input =
+          document
+            .getElementById(
+              "settings-cycle-day"
+            );
+
+        const day =
+          Number(input?.value);
+
+        if (
+          !Number.isInteger(day) ||
+          day < 1 ||
+          day > 31
+        ) {
+
+          showToast(
+            "O dia deve estar entre 1 e 31."
+          );
+
+          return;
+        }
+
+        state.settings.cycleDay =
+          day;
+
+        saveState();
+
+        showToast(
+          "Ciclo salvo. A alteração vale para o próximo ciclo."
+        );
+
+      }
+    );
+
+
+  /*
+    Bloqueio / login
+  */
+
+  document
+    .getElementById(
+      "login-form"
+    )
+    ?.addEventListener(
+      "submit",
+      event => {
+
+        event.preventDefault();
+
+        const password =
+          document
+            .getElementById(
+              "login-password"
+            )
+            ?.value;
+
+        unlockApp(
+          password
+        );
+
+      }
+    );
+
+
+  /*
+    Primeiro acesso
+  */
+
+  document
+    .getElementById(
+      "setup-form"
+    )
+    ?.addEventListener(
+      "submit",
+      event => {
+
+        event.preventDefault();
+
+        completeSetup();
+
+      }
+    );
+
+
+  /*
+    Alteração de senha
+  */
+
+  document
+    .getElementById(
+      "change-password-button"
+    )
+    ?.addEventListener(
+      "click",
+      openChangePasswordModal
+    );
+
+
+  /*
+    Apagar tudo
+  */
+
+  document
+    .getElementById(
+      "delete-all-button"
+    )
+    ?.addEventListener(
+      "click",
+      openDeleteAllModal
+    );
+
+}
+
+
+/* =========================================================
+   PRIMEIRO ACESSO
+========================================================= */
+
+function completeSetup() {
+
+  const name =
+    document
+      .getElementById(
+        "setup-user"
+      )
+      ?.value
+      ?.trim();
+
+  const password =
+    document
+      .getElementById(
+        "setup-password"
+      )
+      ?.value;
+
+  const salary =
+    document
+      .getElementById(
+        "setup-salary"
+      )
+      ?.value;
+
+  const split =
+    document
+      .getElementById(
+        "setup-salary-split"
+      )
+      ?.checked;
+
+  if (!name) {
+
+    showToast(
+      "Digite o nome do usuário."
+    );
+
+    return;
+  }
+
+  if (
+    !password ||
+    password.length < 4
+  ) {
+
+    showToast(
+      "A senha precisa ter pelo menos 4 caracteres."
+    );
+
+    return;
+  }
+
+  const salaryValue =
+    parseMoney(salary);
+
+  state.user.name =
+    name;
+
+  state.user.password =
+    password;
+
+  state.settings.salaryReference =
+    salaryValue;
+
+  state.settings.salarySplit =
+    Boolean(split);
+
+  state.settings.cycleDay =
+    5;
+
+  state.setupComplete =
+    true;
+
+  state.currentCycle =
+    currentCycleKey();
+
+  const cycle =
+    ensureCycle(
+      state.currentCycle
+    );
+
+  cycle.salary =
+    salaryValue;
+
+  cycle.salaryReceived =
+    true;
+
+  saveState();
+
+  setLoggedIn(
+    true
+  );
+
+  showScreen(
+    "main"
+  );
+
+  renderAll();
+
+  showToast(
+    "FX configurado."
+  );
+}
+
+
+/* =========================================================
+   MODAL ALTERAR SENHA
+========================================================= */
+
+function openChangePasswordModal() {
+
+  const root =
+    openModal(`
+
+      <div class="modal-header">
+
+        <h2>
+          Alterar senha
+        </h2>
+
+        <button
+          type="button"
+          class="modal-close"
+          data-close-modal
+        >
+          ×
+        </button>
+
+      </div>
+
+      <label>
+        Senha atual
+      </label>
+
+      <input
+        id="current-password"
+        type="password"
+        autocomplete="current-password"
+      >
+
+      <label>
+        Nova senha
+      </label>
+
+      <input
+        id="new-password"
+        type="password"
+        autocomplete="new-password"
+      >
+
+      <div class="modal-actions">
+
+        <button
+          type="button"
+          class="primary-button"
+          id="confirm-password-change"
+        >
+          Salvar
+        </button>
+
+        <button
+          type="button"
+          class="secondary-button"
+          data-close-modal
+        >
+          Cancelar
+        </button>
+
+      </div>
+
+  `);
+
+  root
+    .querySelectorAll(
+      "[data-close-modal]"
+    )
+    .forEach(button =>
+      button.addEventListener(
+        "click",
+        closeModal
+      )
+    );
+
+  root
+    .querySelector(
+      "#confirm-password-change"
+    )
+    .addEventListener(
+      "click",
+      () => {
+
+        const result =
+          changePassword(
+
+            root.querySelector(
+              "#current-password"
+            ).value,
+
+            root.querySelector(
+              "#new-password"
+            ).value
+
+          );
+
+        if (result) {
+          closeModal();
+        }
+
+      }
+    );
+}
+
+
+/* =========================================================
+   MODAL APAGAR TUDO
+========================================================= */
+
+function openDeleteAllModal() {
+
+  const root =
+    openModal(`
+
+      <div class="modal-header">
+
+        <h2>
+          Apagar todos os dados
+        </h2>
+
+        <button
+          type="button"
+          class="modal-close"
+          data-close-modal
+        >
+          ×
+        </button>
+
+      </div>
+
+      <p class="modal-description">
+        Essa ação apagará a conta e todos os dados financeiros do FX.
+        Não pode ser desfeita.
+      </p>
+
+      <label>
+        Senha atual
+      </label>
+
+      <input
+        id="delete-password"
+        type="password"
+      >
+
+      <label>
+        Digite APAGAR para confirmar
+      </label>
+
+      <input
+        id="delete-confirmation"
+        autocomplete="off"
+      >
+
+      <div class="modal-actions">
+
+        <button
+          type="button"
+          class="danger-button"
+          id="confirm-delete-all"
+        >
+          Apagar todos os dados
+        </button>
+
+        <button
+          type="button"
+          class="secondary-button"
+          data-close-modal
+        >
+          Cancelar
+        </button>
+
+      </div>
+
+  `);
+
+  root
+    .querySelectorAll(
+      "[data-close-modal]"
+    )
+    .forEach(button =>
+      button.addEventListener(
+        "click",
+        closeModal
+      )
+    );
+
+  root
+    .querySelector(
+      "#confirm-delete-all"
+    )
+    .addEventListener(
+      "click",
+      () => {
+
+        const result =
+          resetAllData(
+
+            root.querySelector(
+              "#delete-password"
+            ).value,
+
+            root.querySelector(
+              "#delete-confirmation"
+            ).value
+
+          );
+
+        if (result) {
+          closeModal();
+        }
+
+      }
     );
 }
 
 
 /* =========================================================
    INICIALIZAÇÃO
-   ========================================================= */
+========================================================= */
 
-function initialize() {
+function initializeFX() {
 
   loadState();
 
-  state.currentCycleKey =
-    getCycleKey(
-      new Date()
-    );
+  checkCycle();
+
+  setupEvents();
 
   if (
-    state.account.configured
+    !state.setupComplete
   ) {
 
-    ensureCycle(
-      state.currentCycleKey
+    showScreen(
+      "setup"
     );
 
-    const cycle =
-      state.cycles[
-        state.currentCycleKey
-      ];
+    renderAll();
 
-    updateSalarySplit(
-      cycle
-    );
-
-    saveState();
+    return;
   }
 
-  initializeSetup();
-  initializeUnlock();
-  initializeEvents();
+  if (
+    isLoggedIn()
+  ) {
 
-  render();
+    showScreen(
+      "main"
+    );
+
+  } else {
+
+    showScreen(
+      "login"
+    );
+
+  }
+
+  renderAll();
+
+}
+
+
+document.addEventListener(
+  "DOMContentLoaded",
+  initializeFX
+);
+
+
+/* =========================================================
+   SERVICE WORKER
+========================================================= */
+
+if (
+  "serviceWorker" in navigator
+) {
+
+  window.addEventListener(
+    "load",
+    () => {
+
+      navigator.serviceWorker
+        .register(
+          "./service-worker.js"
+        )
+        .catch(
+          error =>
+            console.error(
+              "FX Service Worker:",
+              error
+            )
+        );
+
+    }
+  );
+
 }
 
 
 /* =========================================================
-   START
-   ========================================================= */
+   DEBUG — SOMENTE DESENVOLVIMENTO
+========================================================= */
 
-if (
-  document.readyState ===
-  "loading"
-) {
+window.FX = {
 
-  document.addEventListener(
-    "DOMContentLoaded",
-    initialize
-  );
+  getState:
+    () => state,
 
-} else {
+  saveState,
 
-  initialize();
-    }
+  parseMoney,
+
+  formatMoney,
+
+  getReserveBalance,
+
+  getAvailable,
+
+  getSalaryAvailable,
+
+  getExtraAvailable,
+
+  addExpense,
+
+  addExtra,
+
+  depositReserve,
+
+  withdrawReserve,
+
+  createCategory,
+
+  updateCategory,
+
+  deleteCategory,
+
+  exportBackup,
+
+  importBackupFile
+
+};
