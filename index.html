@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
   <meta charset="UTF-8">
 
@@ -8,33 +9,72 @@
     content="width=device-width, initial-scale=1.0, viewport-fit=cover"
   >
 
-  <meta name="theme-color" content="#0b0f14">
+  <meta
+    name="theme-color"
+    content="#111111"
+  >
 
   <meta
     name="description"
     content="FX — Seu dinheiro. Suas regras."
   >
 
-  <link rel="manifest" href="manifest.json">
+  <meta
+    name="mobile-web-app-capable"
+    content="yes"
+  >
 
-  <link rel="icon" href="icon-192.png">
+  <meta
+    name="apple-mobile-web-app-capable"
+    content="yes"
+  >
 
-  <link rel="stylesheet" href="style.css">
+  <meta
+    name="apple-mobile-web-app-status-bar-style"
+    content="black"
+  >
+
+  <meta
+    name="apple-mobile-web-app-title"
+    content="FX"
+  >
 
   <title>FX — Seu dinheiro. Suas regras.</title>
+
+  <link
+    rel="manifest"
+    href="./manifest.json"
+  >
+
+  <link
+    rel="icon"
+    type="image/png"
+    sizes="192x192"
+    href="./icon-192.png"
+  >
+
+  <link
+    rel="apple-touch-icon"
+    href="./icon-192.png"
+  >
+
+  <link
+    rel="stylesheet"
+    href="./style.css"
+  >
 </head>
 
 <body>
 
-  <!-- =========================================================
-       APLICATIVO
-  ========================================================== -->
+  <!-- =====================================================
+       APP
+  ====================================================== -->
 
   <div id="app">
 
-    <!-- =======================================================
+    <!-- ===================================================
          TELA DE CONFIGURAÇÃO INICIAL
-    ======================================================== -->
+    ==================================================== -->
 
     <section
       id="screen-setup"
@@ -44,9 +84,13 @@
       <div class="setup-container">
 
         <div class="brand">
-          <div class="brand-logo">FX</div>
+          <div class="brand-mark">FX</div>
+
           <h1>Seu dinheiro.<br>Suas regras.</h1>
-          <p>Vamos configurar o FX.</p>
+
+          <p>
+            Vamos configurar o FX.
+          </p>
         </div>
 
         <form id="setup-form">
@@ -55,15 +99,15 @@
 
             <h2>Conta</h2>
 
-            <label for="setup-user">
+            <label for="setup-username">
               Usuário
             </label>
 
             <input
-              id="setup-user"
+              id="setup-username"
               type="text"
-              maxlength="40"
               autocomplete="username"
+              maxlength="30"
               required
             >
 
@@ -74,13 +118,12 @@
             <input
               id="setup-password"
               type="password"
-              maxlength="100"
               autocomplete="new-password"
+              minlength="4"
               required
             >
 
           </div>
-
 
           <div class="form-section">
 
@@ -98,28 +141,44 @@
               required
             >
 
-            <label class="switch-row">
-
-              <span>
-                Dividir salário
-              </span>
-
-              <input
-                id="setup-salary-split"
-                type="checkbox"
-              >
-
+            <label>
+              Dividir salário?
             </label>
 
+            <div class="choice-group">
+
+              <label class="choice">
+                <input
+                  type="radio"
+                  name="setup-salary-split"
+                  value="no"
+                  checked
+                >
+                <span>Não</span>
+              </label>
+
+              <label class="choice">
+                <input
+                  type="radio"
+                  name="setup-salary-split"
+                  value="yes"
+                >
+                <span>Sim</span>
+              </label>
+
+            </div>
+
             <div
-              id="setup-salary-split-info"
+              id="setup-split-info"
               class="info-box hidden"
             >
               <strong>Divisão fixa</strong>
 
               <p>
                 40% no dia 20
-                <br>
+              </p>
+
+              <p>
                 60% no 5º dia útil
               </p>
 
@@ -127,17 +186,16 @@
 
           </div>
 
-
           <div class="form-section">
 
             <h2>Ciclo</h2>
 
-            <label for="setup-cycle">
+            <label for="setup-cycle-day">
               Dia de início
             </label>
 
             <input
-              id="setup-cycle"
+              id="setup-cycle-day"
               type="number"
               min="1"
               max="31"
@@ -147,20 +205,21 @@
 
           </div>
 
-
           <div class="form-section">
 
             <h2>Categorias</h2>
 
-            <p class="section-description">
-              Confira as categorias padrão. Você poderá
-              alterar nome, ícone e limite.
+            <p class="muted">
+              Estas são as categorias iniciais do FX.
+              Você poderá editar os nomes, ícones e limites.
             </p>
 
-            <div id="setup-categories"></div>
+            <div
+              id="setup-categories"
+              class="setup-categories"
+            ></div>
 
           </div>
-
 
           <button
             type="submit"
@@ -176,33 +235,38 @@
     </section>
 
 
-    <!-- =======================================================
-         TELA DE BLOQUEIO
-    ======================================================== -->
+    <!-- ===================================================
+         TELA DE LOGIN
+    ==================================================== -->
 
     <section
-      id="screen-lock"
+      id="screen-login"
       class="screen hidden"
     >
 
-      <div class="lock-container">
+      <div class="login-container">
 
-        <div class="brand-logo">FX</div>
+        <div class="brand">
 
-        <h1>FX</h1>
+          <div class="brand-mark">
+            FX
+          </div>
 
-        <p>
-          Aplicativo bloqueado.
-        </p>
+          <h1>
+            Seu dinheiro.<br>
+            Suas regras.
+          </h1>
 
-        <form id="unlock-form">
+        </div>
 
-          <label for="unlock-password">
+        <form id="login-form">
+
+          <label for="login-password">
             Senha
           </label>
 
           <input
-            id="unlock-password"
+            id="login-password"
             type="password"
             autocomplete="current-password"
             required
@@ -212,19 +276,27 @@
             type="submit"
             class="primary-button"
           >
-            Desbloquear
+            Entrar
           </button>
 
         </form>
+
+        <button
+          id="login-recovery-button"
+          type="button"
+          class="text-button"
+        >
+          Recuperar senha
+        </button>
 
       </div>
 
     </section>
 
 
-    <!-- =======================================================
+    <!-- ===================================================
          TELA PRINCIPAL
-    ======================================================== -->
+    ==================================================== -->
 
     <section
       id="screen-main"
@@ -233,21 +305,27 @@
 
       <header class="main-header">
 
-        <div class="header-title">
-          <span id="current-cycle-label">
-            Ciclo atual
-          </span>
+        <div>
+          <div
+            id="current-cycle-label"
+            class="cycle-label"
+          >
+            Ciclo
+          </div>
 
-          <strong id="current-cycle-period">
-            —
-          </strong>
+          <div
+            id="current-cycle-period"
+            class="cycle-period"
+          >
+            --
+          </div>
         </div>
 
         <button
           id="lock-button"
           type="button"
           class="icon-button"
-          aria-label="Bloquear"
+          aria-label="Bloquear FX"
           title="Bloquear"
         >
           🔒
@@ -256,598 +334,193 @@
       </header>
 
 
-      <main class="main-content">
+      <!-- ================================================
+           SALDO PRINCIPAL
+      ================================================= -->
 
-        <!-- ===============================================
-             SALDO PRINCIPAL
-        ================================================ -->
+      <section
+        id="balance-card"
+        class="balance-card"
+      >
 
-        <section
-          id="balance-card"
-          class="balance-card"
+        <span class="balance-label">
+          Pode gastar
+        </span>
+
+        <strong
+          id="available-balance"
+          class="balance-value"
         >
+          R$ 0,00
+        </strong>
 
-          <span class="balance-label">
-            Pode gastar
-          </span>
+        <div class="balance-sources">
 
-          <strong
-            id="available-balance"
-            class="balance-value"
-          >
-            R$ 0,00
-          </strong>
+          <div class="balance-source">
 
-          <div class="balance-sources">
+            <span>
+              Salário
+            </span>
 
-            <div class="balance-source">
-
-              <span>Salário</span>
-
-              <strong id="salary-balance">
-                R$ 0,00
-              </strong>
-
-            </div>
-
-            <div class="balance-divider"></div>
-
-            <div class="balance-source">
-
-              <span>Extra</span>
-
-              <strong>
-                <span id="extra-balance">
-                  R$ 0,00
-                </span>
-
-                <button
-                  id="add-extra-button"
-                  type="button"
-                  class="extra-button"
-                >
-                  + Extra
-                </button>
-              </strong>
-
-            </div>
-
-          </div>
-
-        </section>
-
-
-        <!-- ===============================================
-             RESUMO DO CICLO
-        ================================================ -->
-
-        <section class="cycle-summary">
-
-          <div>
-            <span>Gastos</span>
-            <strong id="cycle-expenses">
+            <strong id="salary-balance">
               R$ 0,00
             </strong>
+
           </div>
 
-          <div>
-            <span>Reserva</span>
-            <strong id="reserve-balance">
+          <div class="balance-source extra-source">
+
+            <span>
+              + Extra
+            </span>
+
+            <strong id="extra-balance">
               R$ 0,00
             </strong>
-          </div>
-
-        </section>
-
-
-        <!-- ===============================================
-             CATEGORIAS
-        ================================================ -->
-
-        <section class="content-section">
-
-          <div class="section-header">
-
-            <h2>Categorias</h2>
 
           </div>
 
-          <div
-            id="categories-list"
-            class="categories-list"
-          ></div>
+        </div>
 
-        </section>
+      </section>
 
 
-        <!-- ===============================================
-             GASTOS
-        ================================================ -->
+      <!-- ================================================
+           CATEGORIAS
+      ================================================= -->
 
-        <section class="content-section">
+      <section class="content-section">
 
-          <div class="section-header">
+        <div class="section-header">
 
-            <h2>Gastos</h2>
+          <h2>
+            Categorias
+          </h2>
 
-          </div>
+        </div>
 
-          <div
-            id="expenses-list"
-            class="transactions-list"
-          ></div>
+        <div
+          id="categories-list"
+          class="categories-list"
+        ></div>
 
-          <button
-            id="view-all-history-button"
-            type="button"
-            class="secondary-button"
-          >
-            Ver tudo
-          </button>
+      </section>
 
-        </section>
 
-      </main>
+      <!-- ================================================
+           RESUMO DE GASTOS
+      ================================================= -->
+
+      <section class="content-section">
+
+        <div class="section-header">
+
+          <h2>
+            Gastos
+          </h2>
+
+        </div>
+
+        <div
+          id="expenses-list"
+          class="expenses-list"
+        ></div>
+
+      </section>
+
+
+      <!-- ================================================
+           EXTRA
+      ================================================= -->
+
+      <button
+        id="add-extra-button"
+        type="button"
+        class="extra-button"
+      >
+        <span>+</span>
+
+        <span>
+          Extra
+        </span>
+      </button>
+
+
+      <!-- ================================================
+           RODAPÉ
+      ================================================= -->
+
+      <nav class="bottom-navigation">
+
+        <button
+          id="nav-home"
+          type="button"
+          class="nav-button active"
+        >
+          <span>⌂</span>
+          <small>Início</small>
+        </button>
+
+        <button
+          id="nav-settings"
+          type="button"
+          class="nav-button"
+        >
+          <span>⚙</span>
+          <small>Configurações</small>
+        </button>
+
+      </nav>
 
     </section>
 
 
-    <!-- =======================================================
-         MODAL DE GASTO
-    ======================================================== -->
-
-    <div
-      id="expense-modal"
-      class="modal hidden"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="expense-modal-title"
-    >
-
-      <div class="modal-backdrop"></div>
-
-      <div class="modal-box">
-
-        <div class="modal-header">
-
-          <h2 id="expense-modal-title">
-            Novo gasto
-          </h2>
-
-          <button
-            type="button"
-            class="modal-close"
-            data-close-modal="expense-modal"
-            aria-label="Fechar"
-          >
-            ×
-          </button>
-
-        </div>
-
-
-        <form id="expense-form">
-
-          <input
-            id="expense-category-id"
-            type="hidden"
-          >
-
-          <label for="expense-value">
-            Valor
-          </label>
-
-          <input
-            id="expense-value"
-            type="text"
-            inputmode="decimal"
-            placeholder="R$ 0,00"
-            required
-          >
-
-
-          <label for="expense-origin">
-            Origem
-          </label>
-
-          <select
-            id="expense-origin"
-            required
-          >
-
-            <option value="salary">
-              Salário
-            </option>
-
-            <option value="extra">
-              Extra
-            </option>
-
-            <option value="reserve">
-              Reserva
-            </option>
-
-          </select>
-
-
-          <label for="expense-description">
-            Descrição
-          </label>
-
-          <input
-            id="expense-description"
-            type="text"
-            maxlength="100"
-            placeholder="Opcional"
-          >
-
-
-          <button
-            type="submit"
-            class="primary-button"
-          >
-            Lançar
-          </button>
-
-        </form>
-
-      </div>
-
-    </div>
-
-
-    <!-- =======================================================
-         MODAL DE EXTRA
-    ======================================================== -->
-
-    <div
-      id="extra-modal"
-      class="modal hidden"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="extra-modal-title"
-    >
-
-      <div class="modal-backdrop"></div>
-
-      <div class="modal-box">
-
-        <div class="modal-header">
-
-          <h2 id="extra-modal-title">
-            Adicionar Extra
-          </h2>
-
-          <button
-            type="button"
-            class="modal-close"
-            data-close-modal="extra-modal"
-            aria-label="Fechar"
-          >
-            ×
-          </button>
-
-        </div>
-
-
-        <form id="extra-form">
-
-          <label for="extra-value">
-            Valor
-          </label>
-
-          <input
-            id="extra-value"
-            type="text"
-            inputmode="decimal"
-            placeholder="R$ 0,00"
-            required
-          >
-
-
-          <label for="extra-description">
-            Descrição
-          </label>
-
-          <input
-            id="extra-description"
-            type="text"
-            maxlength="100"
-            placeholder="Opcional"
-          >
-
-
-          <button
-            type="submit"
-            class="primary-button"
-          >
-            Salvar
-          </button>
-
-        </form>
-
-      </div>
-
-    </div>
-
-
-    <!-- =======================================================
-         MODAL DE RESERVA
-    ======================================================== -->
-
-    <div
-      id="reserve-modal"
-      class="modal hidden"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="reserve-modal-title"
-    >
-
-      <div class="modal-backdrop"></div>
-
-      <div class="modal-box">
-
-        <div class="modal-header">
-
-          <h2 id="reserve-modal-title">
-            Reserva
-          </h2>
-
-          <button
-            type="button"
-            class="modal-close"
-            data-close-modal="reserve-modal"
-            aria-label="Fechar"
-          >
-            ×
-          </button>
-
-        </div>
-
-
-        <div class="reserve-balance-modal">
-
-          <span>Saldo da Reserva</span>
-
-          <strong id="modal-reserve-balance">
-            R$ 0,00
-          </strong>
-
-        </div>
-
-
-        <div class="reserve-actions">
-
-          <button
-            id="reserve-save-button"
-            type="button"
-            class="secondary-button"
-          >
-            Guardar
-          </button>
-
-          <button
-            id="reserve-withdraw-button"
-            type="button"
-            class="secondary-button"
-          >
-            Retirar
-          </button>
-
-        </div>
-
-
-        <div
-          id="reserve-save-form-container"
-          class="reserve-form-container hidden"
-        >
-
-          <form id="reserve-save-form">
-
-            <label for="reserve-save-origin">
-              Origem
-            </label>
-
-            <select id="reserve-save-origin">
-
-              <option value="salary">
-                Salário
-              </option>
-
-              <option value="extra">
-                Extra
-              </option>
-
-            </select>
-
-
-            <label for="reserve-save-value">
-              Valor
-            </label>
-
-            <input
-              id="reserve-save-value"
-              type="text"
-              inputmode="decimal"
-              placeholder="R$ 0,00"
-              required
-            >
-
-
-            <button
-              type="submit"
-              class="primary-button"
-            >
-              Guardar
-            </button>
-
-          </form>
-
-        </div>
-
-
-        <div
-          id="reserve-withdraw-form-container"
-          class="reserve-form-container hidden"
-        >
-
-          <form id="reserve-withdraw-form">
-
-            <label for="reserve-withdraw-value">
-              Valor
-            </label>
-
-            <input
-              id="reserve-withdraw-value"
-              type="text"
-              inputmode="decimal"
-              placeholder="R$ 0,00"
-              required
-            >
-
-
-            <button
-              type="submit"
-              class="primary-button"
-            >
-              Retirar
-            </button>
-
-          </form>
-
-        </div>
-
-      </div>
-
-    </div>
-
-
-    <!-- =======================================================
-         MODAL DA CATEGORIA
-    ======================================================== -->
-
-    <div
-      id="category-modal"
-      class="modal hidden"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="category-modal-title"
-    >
-
-      <div class="modal-backdrop"></div>
-
-      <div class="modal-box">
-
-        <div class="modal-header">
-
-          <h2 id="category-modal-title">
-            Categoria
-          </h2>
-
-          <button
-            type="button"
-            class="modal-close"
-            data-close-modal="category-modal"
-            aria-label="Fechar"
-          >
-            ×
-          </button>
-
-        </div>
-
-
-        <div
-          id="category-details"
-          class="category-details"
-        ></div>
-
-
-        <div
-          id="category-expenses"
-          class="transactions-list"
-        ></div>
-
-      </div>
-
-    </div>
-
-
-    <!-- =======================================================
-         TELA DE HISTÓRICO
-    ======================================================== -->
-
-    <div
-      id="history-panel"
-      class="panel hidden"
-    >
-
-      <header class="panel-header">
-
-        <button
-          type="button"
-          class="back-button"
-          data-close-panel="history-panel"
-        >
-          ←
-        </button>
-
-        <h2>Histórico</h2>
-
-      </header>
-
-
-      <main class="panel-content">
-
-        <div
-          id="full-history-list"
-          class="transactions-list"
-        ></div>
-
-      </main>
-
-    </div>
-
-
-    <!-- =======================================================
+    <!-- ===================================================
          TELA DE CONFIGURAÇÕES
-    ======================================================== -->
+    ==================================================== -->
 
-    <div
-      id="settings-panel"
-      class="panel hidden"
+    <section
+      id="screen-settings"
+      class="screen hidden"
     >
 
-      <header class="panel-header">
+      <header class="settings-header">
 
         <button
+          id="settings-back-button"
           type="button"
-          class="back-button"
-          data-close-panel="settings-panel"
+          class="icon-button"
         >
           ←
         </button>
 
-        <h2>Configurações</h2>
+        <h1>
+          Configurações
+        </h1>
 
       </header>
 
 
-      <main class="panel-content">
+      <main class="settings-list">
 
 
         <!-- CATEGORIAS -->
 
-        <section class="settings-section">
+        <div class="settings-item">
 
           <button
             type="button"
-            class="settings-item"
-            data-settings-section="settings-categories"
+            class="settings-toggle"
+            data-target="settings-categories"
           >
-            <span>📂 Categorias</span>
-            <span>⌄</span>
-          </button>
+            <span>
+              Categorias
+            </span>
 
+            <span>
+              ›
+            </span>
+          </button>
 
           <div
             id="settings-categories"
@@ -859,7 +532,6 @@
               class="settings-category-list"
             ></div>
 
-
             <button
               id="create-category-button"
               type="button"
@@ -868,276 +540,202 @@
               + Criar categoria
             </button>
 
-
-            <div
-              id="create-category-form-container"
-              class="inline-form-container hidden"
-            >
-
-              <form id="create-category-form">
-
-                <label for="new-category-name">
-                  Nome
-                </label>
-
-                <input
-                  id="new-category-name"
-                  type="text"
-                  maxlength="40"
-                  required
-                >
-
-
-                <label for="new-category-icon">
-                  Ícone
-                </label>
-
-                <input
-                  id="new-category-icon"
-                  type="text"
-                  maxlength="4"
-                  placeholder="🏷️"
-                  required
-                >
-
-
-                <label class="switch-row">
-
-                  <span>
-                    Limite
-                  </span>
-
-                  <input
-                    id="new-category-has-limit"
-                    type="checkbox"
-                  >
-
-                </label>
-
-
-                <div
-                  id="new-category-limit-container"
-                  class="hidden"
-                >
-
-                  <label for="new-category-limit">
-                    Valor do limite
-                  </label>
-
-                  <input
-                    id="new-category-limit"
-                    type="text"
-                    inputmode="decimal"
-                    placeholder="R$ 0,00"
-                  >
-
-                </div>
-
-
-                <button
-                  type="submit"
-                  class="primary-button"
-                >
-                  Salvar
-                </button>
-
-              </form>
-
-            </div>
-
           </div>
 
-        </section>
+        </div>
 
 
         <!-- SALÁRIO -->
 
-        <section class="settings-section">
+        <div class="settings-item">
 
           <button
             type="button"
-            class="settings-item"
-            data-settings-section="settings-salary"
+            class="settings-toggle"
+            data-target="settings-salary"
           >
-            <span>💰 Salário</span>
-            <span>⌄</span>
-          </button>
+            <span>
+              Salário
+            </span>
 
+            <span>
+              ›
+            </span>
+          </button>
 
           <div
             id="settings-salary"
             class="settings-content hidden"
           >
 
-            <form id="salary-settings-form">
+            <label for="settings-salary-value">
+              Valor
+            </label>
 
-              <label for="settings-salary-value">
-                Valor
-              </label>
+            <input
+              id="settings-salary-value"
+              type="text"
+              inputmode="decimal"
+              placeholder="R$ 0,00"
+            >
 
-              <input
-                id="settings-salary-value"
-                type="text"
-                inputmode="decimal"
-                placeholder="R$ 0,00"
-                required
-              >
+            <label>
+              Dividir
+            </label>
 
+            <div class="choice-group">
 
-              <label class="switch-row">
-
-                <span>
-                  Dividir
-                </span>
-
+              <label class="choice">
                 <input
-                  id="settings-salary-split"
-                  type="checkbox"
+                  type="radio"
+                  name="settings-salary-split"
+                  value="no"
                 >
-
+                <span>Não</span>
               </label>
 
+              <label class="choice">
+                <input
+                  type="radio"
+                  name="settings-salary-split"
+                  value="yes"
+                >
+                <span>Sim</span>
+              </label>
 
-              <div
-                id="settings-salary-split-info"
-                class="info-box hidden"
-              >
+            </div>
 
-                <strong>Divisão fixa</strong>
+            <div class="info-box">
+              <strong>Divisão fixa</strong>
 
-                <p>
-                  40% — dia 20
-                  <br>
-                  60% — 5º dia útil
-                </p>
+              <p>
+                40% no dia 20
+              </p>
 
-              </div>
+              <p>
+                60% no 5º dia útil
+              </p>
+            </div>
 
-
-              <button
-                type="submit"
-                class="primary-button"
-              >
-                Salvar
-              </button>
-
-            </form>
+            <button
+              id="save-salary-button"
+              type="button"
+              class="primary-button"
+            >
+              Salvar
+            </button>
 
           </div>
 
-        </section>
+        </div>
 
 
         <!-- CICLO -->
 
-        <section class="settings-section">
+        <div class="settings-item">
 
           <button
             type="button"
-            class="settings-item"
-            data-settings-section="settings-cycle"
+            class="settings-toggle"
+            data-target="settings-cycle"
           >
-            <span>🔄 Ciclo</span>
-            <span>⌄</span>
-          </button>
+            <span>
+              Ciclo
+            </span>
 
+            <span>
+              ›
+            </span>
+          </button>
 
           <div
             id="settings-cycle"
             class="settings-content hidden"
           >
 
-            <form id="cycle-settings-form">
+            <label for="settings-cycle-day">
+              Dia de início
+            </label>
 
-              <label for="settings-cycle-day">
-                Dia de início
-              </label>
+            <input
+              id="settings-cycle-day"
+              type="number"
+              min="1"
+              max="31"
+            >
 
-              <input
-                id="settings-cycle-day"
-                type="number"
-                min="1"
-                max="31"
-                required
-              >
-
-
-              <button
-                type="submit"
-                class="primary-button"
-              >
-                Salvar
-              </button>
-
-            </form>
+            <button
+              id="save-cycle-button"
+              type="button"
+              class="primary-button"
+            >
+              Salvar
+            </button>
 
           </div>
 
-        </section>
+        </div>
 
 
         <!-- MÊS ANTERIOR -->
 
-        <section class="settings-section">
+        <div class="settings-item">
 
           <button
             id="previous-cycle-button"
             type="button"
-            class="settings-item"
+            class="settings-toggle"
           >
-
-            <span>
-              📅 Mês anterior
+            <span id="previous-cycle-label">
+              Mês anterior
             </span>
 
-            <strong id="previous-cycle-label">
-              —
-            </strong>
-
+            <span>
+              ›
+            </span>
           </button>
 
-        </section>
+        </div>
 
 
         <!-- PIZZA -->
 
-        <section class="settings-section">
+        <div class="settings-item">
 
           <button
             id="pizza-button"
             type="button"
-            class="settings-item"
+            class="settings-toggle"
           >
-
             <span>
-              🥧 Pizza
+              Pizza
             </span>
 
-            <span>›</span>
-
+            <span>
+              ›
+            </span>
           </button>
 
-        </section>
+        </div>
 
 
         <!-- SEGURANÇA -->
 
-        <section class="settings-section">
+        <div class="settings-item">
 
           <button
             type="button"
-            class="settings-item"
-            data-settings-section="settings-security"
+            class="settings-toggle"
+            data-target="settings-security"
           >
-
             <span>
-              🔐 Segurança
+              Segurança
             </span>
 
-            <span>⌄</span>
-
+            <span>
+              ›
+            </span>
           </button>
-
 
           <div
             id="settings-security"
@@ -1152,7 +750,6 @@
               Alterar senha
             </button>
 
-
             <button
               id="master-key-button"
               type="button"
@@ -1160,7 +757,6 @@
             >
               Chave mestra
             </button>
-
 
             <button
               id="delete-all-data-button"
@@ -1172,306 +768,43 @@
 
           </div>
 
-        </section>
+        </div>
 
       </main>
 
-    </div>
-
-
-    <!-- =======================================================
-         PAINEL DO CICLO ANTERIOR
-    ======================================================== -->
-
-    <div
-      id="previous-cycle-panel"
-      class="panel hidden"
-    >
-
-      <header class="panel-header">
-
-        <button
-          type="button"
-          class="back-button"
-          data-close-panel="previous-cycle-panel"
-        >
-          ←
-        </button>
-
-        <h2 id="previous-cycle-title">
-          Mês anterior
-        </h2>
-
-      </header>
-
-
-      <main
-        id="previous-cycle-content"
-        class="panel-content readonly-content"
-      ></main>
-
-    </div>
-
-
-    <!-- =======================================================
-         PAINEL DA PIZZA
-    ======================================================== -->
-
-    <div
-      id="pizza-panel"
-      class="panel hidden"
-    >
-
-      <header class="panel-header">
-
-        <button
-          type="button"
-          class="back-button"
-          data-close-panel="pizza-panel"
-        >
-          ←
-        </button>
-
-        <h2>Pizza</h2>
-
-      </header>
-
-
-      <main class="panel-content">
-
-        <div
-          id="pizza-chart"
-          class="pizza-chart"
-        ></div>
-
-        <div
-          id="pizza-legend"
-          class="pizza-legend"
-        ></div>
-
-      </main>
-
-    </div>
-
-
-    <!-- =======================================================
-         MODAL ALTERAR SENHA
-    ======================================================== -->
-
-    <div
-      id="password-modal"
-      class="modal hidden"
-      role="dialog"
-      aria-modal="true"
-    >
-
-      <div class="modal-backdrop"></div>
-
-      <div class="modal-box">
-
-        <div class="modal-header">
-
-          <h2>Alterar senha</h2>
-
-          <button
-            type="button"
-            class="modal-close"
-            data-close-modal="password-modal"
-          >
-            ×
-          </button>
-
-        </div>
-
-
-        <form id="password-form">
-
-          <label for="current-password">
-            Senha atual
-          </label>
-
-          <input
-            id="current-password"
-            type="password"
-            required
-          >
-
-
-          <label for="new-password">
-            Nova senha
-          </label>
-
-          <input
-            id="new-password"
-            type="password"
-            required
-          >
-
-
-          <label for="confirm-password">
-            Confirmar nova senha
-          </label>
-
-          <input
-            id="confirm-password"
-            type="password"
-            required
-          >
-
-
-          <button
-            type="submit"
-            class="primary-button"
-          >
-            Alterar senha
-          </button>
-
-        </form>
-
-      </div>
-
-    </div>
-
-
-    <!-- =======================================================
-         MODAL APAGAR DADOS
-    ======================================================== -->
-
-    <div
-      id="delete-data-modal"
-      class="modal hidden"
-      role="dialog"
-      aria-modal="true"
-    >
-
-      <div class="modal-backdrop"></div>
-
-      <div class="modal-box danger-modal">
-
-        <div class="modal-header">
-
-          <h2>Apagar todos os dados</h2>
-
-          <button
-            type="button"
-            class="modal-close"
-            data-close-modal="delete-data-modal"
-          >
-            ×
-          </button>
-
-        </div>
-
-
-        <p>
-          Esta ação apagará a conta e todos os dados
-          financeiros do FX.
-        </p>
-
-        <p>
-          Essa ação não pode ser desfeita.
-        </p>
-
-
-        <form id="delete-data-form">
-
-          <label for="delete-password">
-            Senha atual
-          </label>
-
-          <input
-            id="delete-password"
-            type="password"
-            required
-          >
-
-
-          <label for="delete-confirmation">
-            Digite APAGAR para confirmar
-          </label>
-
-          <input
-            id="delete-confirmation"
-            type="text"
-            autocomplete="off"
-            required
-          >
-
-
-          <button
-            type="submit"
-            class="danger-button"
-          >
-            Apagar todos os dados
-          </button>
-
-        </form>
-
-      </div>
-
-    </div>
-
-
-    <!-- =======================================================
-         TOAST / MENSAGENS
-    ======================================================== -->
-
-    <div
-      id="toast"
-      class="toast hidden"
-      role="status"
-      aria-live="polite"
-    ></div>
-
-
-    <!-- =======================================================
-         NAVEGAÇÃO INFERIOR
-    ======================================================== -->
-
-    <nav
-      id="bottom-navigation"
-      class="bottom-navigation hidden"
-    >
-
-      <button
-        id="nav-home"
-        type="button"
-        class="nav-button active"
-      >
-        <span>⌂</span>
-        <small>Início</small>
-      </button>
-
-
-      <button
-        id="nav-history"
-        type="button"
-        class="nav-button"
-      >
-        <span>↕</span>
-        <small>Histórico</small>
-      </button>
-
-
-      <button
-        id="nav-settings"
-        type="button"
-        class="nav-button"
-      >
-        <span>⚙</span>
-        <small>Configurações</small>
-      </button>
-
-    </nav>
+    </section>
 
   </div>
 
 
-  <!-- =========================================================
-       JAVASCRIPT
-  ========================================================== -->
+  <!-- =====================================================
+       MODAIS
+  ====================================================== -->
 
-  <script src="app.js"></script>
+  <div
+    id="modal-root"
+    class="modal-root hidden"
+  >
+
+    <!-- Conteúdo dos modais será criado pelo JavaScript -->
+
+  </div>
+
+
+  <!-- =====================================================
+       TOAST
+  ====================================================== -->
+
+  <div
+    id="toast"
+    class="toast hidden"
+    role="status"
+    aria-live="polite"
+  ></div>
+
+
+  <script src="./app.js"></script>
 
 </body>
-        </html>
+
+</html>
