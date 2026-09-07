@@ -1,810 +1,397 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-
 <head>
-  <meta charset="UTF-8">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>A Cidade Infinita</title>
 
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0, viewport-fit=cover"
-  >
+<style>
+    * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+    }
 
-  <meta
-    name="theme-color"
-    content="#111111"
-  >
+    body {
+        background: #080808;
+        color: white;
+        font-family: Arial, sans-serif;
+        overflow: hidden;
+    }
 
-  <meta
-    name="description"
-    content="FX — Seu dinheiro. Suas regras."
-  >
+    canvas {
+        display: block;
+        width: 100vw;
+        height: 100vh;
+        background: #101010;
+    }
 
-  <meta
-    name="mobile-web-app-capable"
-    content="yes"
-  >
+    #info {
+        position: fixed;
+        top: 15px;
+        left: 15px;
+        z-index: 10;
+        background: rgba(0,0,0,.75);
+        padding: 14px 18px;
+        border-radius: 12px;
+        font-size: 14px;
+        line-height: 1.7;
+        backdrop-filter: blur(8px);
+    }
 
-  <meta
-    name="apple-mobile-web-app-capable"
-    content="yes"
-  >
+    #info strong {
+        color: #fff;
+    }
 
-  <meta
-    name="apple-mobile-web-app-status-bar-style"
-    content="black"
-  >
-
-  <meta
-    name="apple-mobile-web-app-title"
-    content="FX"
-  >
-
-  <title>FX — Seu dinheiro. Suas regras.</title>
-
-  <link
-    rel="manifest"
-    href="./manifest.json"
-  >
-
-  <link
-    rel="icon"
-    type="image/png"
-    sizes="192x192"
-    href="./icon-192.png"
-  >
-
-  <link
-    rel="apple-touch-icon"
-    href="./icon-192.png"
-  >
-
-  <link
-    rel="stylesheet"
-    href="./style.css"
-  >
+    #hint {
+        position: fixed;
+        bottom: 15px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0,0,0,.75);
+        padding: 10px 18px;
+        border-radius: 20px;
+        font-size: 13px;
+    }
+</style>
 </head>
 
 <body>
 
-  <!-- =====================================================
-       APP
-  ====================================================== -->
-
-  <div id="app">
-
-    <!-- ===================================================
-         TELA DE CONFIGURAÇÃO INICIAL
-    ==================================================== -->
-
-    <section
-      id="screen-setup"
-      class="screen hidden"
-    >
-
-      <div class="setup-container">
-
-        <div class="brand">
-          <div class="brand-mark">FX</div>
-
-          <h1>Seu dinheiro.<br>Suas regras.</h1>
-
-          <p>
-            Vamos configurar o FX.
-          </p>
-        </div>
+<canvas id="game"></canvas>
 
-        <form id="setup-form">
+<div id="info">
+    <div><strong>ESCALA DA CIDADE</strong></div>
+    <div>Distância original: <span id="distance">100%</span></div>
+    <div>Seu tamanho: <span id="size">100%</span></div>
+    <div>Passo atual: <span id="step">1.00</span></div>
+    <div>Passos nesta etapa: <span id="steps">0</span> / 1000</div>
+</div>
 
-          <div class="form-section">
+<div id="hint">
+    ⬆️ / W = andar para a borda
+</div>
 
-            <h2>Conta</h2>
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
 
-            <label for="setup-username">
-              Usuário
-            </label>
-
-            <input
-              id="setup-username"
-              type="text"
-              autocomplete="username"
-              maxlength="30"
-              required
-            >
+function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+}
 
-            <label for="setup-password">
-              Senha
-            </label>
+window.addEventListener("resize", resize);
+resize();
 
-            <input
-              id="setup-password"
-              type="password"
-              autocomplete="new-password"
-              minlength="4"
-              required
-            >
+/*
+    =====================================================
+    REGRAS DA CIDADE
+    =====================================================
 
-          </div>
+    A cidade tem raio físico FINITO.
 
-          <div class="form-section">
+    O jogador começa no centro.
 
-            <h2>Salário</h2>
+    A cada 1000 passos:
+        - ele percorre metade da distância restante
+        - seu tamanho diminui pela metade
+        - seu passo diminui pela metade
 
-            <label for="setup-salary">
-              Valor do salário
-            </label>
+    Como tudo ao redor acompanha a escala,
+    cada nova metade continua parecendo ter
+    aproximadamente 1000 passos.
 
-            <input
-              id="setup-salary"
-              type="text"
-              inputmode="decimal"
-              placeholder="R$ 0,00"
-              required
-            >
+    =====================================================
+*/
 
-            <label>
-              Dividir salário?
-            </label>
+const CITY_RADIUS = 1000;
 
-            <div class="choice-group">
+// posição física normalizada:
+// 0 = centro
+// 1 = borda
+let position = 0;
 
-              <label class="choice">
-                <input
-                  type="radio"
-                  name="setup-salary-split"
-                  value="no"
-                  checked
-                >
-                <span>Não</span>
-              </label>
+// escala do jogador
+let playerScale = 1;
 
-              <label class="choice">
-                <input
-                  type="radio"
-                  name="setup-salary-split"
-                  value="yes"
-                >
-                <span>Sim</span>
-              </label>
+// passo original
+const BASE_STEP = 1;
 
-            </div>
+// teclas
+const keys = {};
 
-            <div
-              id="setup-split-info"
-              class="info-box hidden"
-            >
-              <strong>Divisão fixa</strong>
+window.addEventListener("keydown", e => {
+    keys[e.key.toLowerCase()] = true;
+});
 
-              <p>
-                40% no dia 20
-              </p>
+window.addEventListener("keyup", e => {
+    keys[e.key.toLowerCase()] = false;
+});
 
-              <p>
-                60% no 5º dia útil
-              </p>
+function movePlayer() {
 
-            </div>
+    if (!(keys["arrowup"] || keys["w"])) {
+        return;
+    }
 
-          </div>
+    /*
+        Quanto menor o jogador,
+        menor é seu passo.
 
-          <div class="form-section">
+        Portanto o passo acompanha
+        exatamente a escala.
+    */
 
-            <h2>Ciclo</h2>
+    const currentStep = BASE_STEP * playerScale;
 
-            <label for="setup-cycle-day">
-              Dia de início
-            </label>
+    /*
+        Movimento físico.
+    */
 
-            <input
-              id="setup-cycle-day"
-              type="number"
-              min="1"
-              max="31"
-              value="5"
-              required
-            >
+    position += currentStep / CITY_RADIUS;
 
-          </div>
+    if (position > 0.999999999) {
+        position = 0.999999999;
+    }
 
-          <div class="form-section">
+    /*
+        A regra da cidade:
 
-            <h2>Categorias</h2>
+        Conforme você percorre a distância,
+        a escala acompanha a distância restante.
 
-            <p class="muted">
-              Estas são as categorias iniciais do FX.
-              Você poderá editar os nomes, ícones e limites.
-            </p>
+        A escala é proporcional ao
+        restante da cidade.
+    */
 
-            <div
-              id="setup-categories"
-              class="setup-categories"
-            ></div>
+    playerScale = 1 - position;
 
-          </div>
+    /*
+        Evita chegar matematicamente a zero.
+    */
 
-          <button
-            type="submit"
-            class="primary-button"
-          >
-            Começar
-          </button>
+    if (playerScale < 0.000001) {
+        playerScale = 0.000001;
+    }
 
-        </form>
+    updateUI();
+}
 
-      </div>
+function updateUI() {
 
-    </section>
+    const remaining = 1 - position;
 
+    document.getElementById("distance").textContent =
+        (remaining * 100).toFixed(6) + "%";
 
-    <!-- ===================================================
-         TELA DE LOGIN
-    ==================================================== -->
+    document.getElementById("size").textContent =
+        (playerScale * 100).toFixed(6) + "%";
 
-    <section
-      id="screen-login"
-      class="screen hidden"
-    >
+    document.getElementById("step").textContent =
+        playerScale.toFixed(8);
 
-      <div class="login-container">
+    /*
+        Quantos passos foram dados
+        na escala atual.
+    */
 
-        <div class="brand">
+    const stageProgress =
+        ((position / (1 - playerScale + 0.000000001)) * 1000);
 
-          <div class="brand-mark">
-            FX
-          </div>
+    document.getElementById("steps").textContent =
+        Math.min(1000, Math.floor(stageProgress));
+}
 
-          <h1>
-            Seu dinheiro.<br>
-            Suas regras.
-          </h1>
+function drawCity() {
 
-        </div>
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        <form id="login-form">
+    const cx = canvas.width / 2;
+    const cy = canvas.height / 2;
 
-          <label for="login-password">
-            Senha
-          </label>
+    /*
+        Quanto mais perto da borda,
+        mais o mundo é comprimido
+        para manter a experiência local
+        aparentemente normal.
+    */
 
-          <input
-            id="login-password"
-            type="password"
-            autocomplete="current-password"
-            required
-          >
+    const visualScale = 0.25 + playerScale * 0.75;
 
-          <button
-            type="submit"
-            class="primary-button"
-          >
-            Entrar
-          </button>
+    // ==================================================
+    // CÉU / FUNDO
+    // ==================================================
 
-        </form>
+    ctx.fillStyle = "#101010";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        <button
-          id="login-recovery-button"
-          type="button"
-          class="text-button"
-        >
-          Recuperar senha
-        </button>
+    // ==================================================
+    // CIDADE
+    // ==================================================
 
-      </div>
+    ctx.save();
 
-    </section>
+    ctx.translate(cx, cy);
 
+    /*
+        A cidade é circular.
+    */
 
-    <!-- ===================================================
-         TELA PRINCIPAL
-    ==================================================== -->
+    const cityRadius =
+        Math.min(canvas.width, canvas.height) * 0.43;
 
-    <section
-      id="screen-main"
-      class="screen hidden"
-    >
+    ctx.beginPath();
+    ctx.arc(0, 0, cityRadius, 0, Math.PI * 2);
 
-      <header class="main-header">
+    ctx.fillStyle = "#191919";
+    ctx.fill();
 
-        <div>
-          <div
-            id="current-cycle-label"
-            class="cycle-label"
-          >
-            Ciclo
-          </div>
+    ctx.strokeStyle = "#777";
+    ctx.lineWidth = 4;
+    ctx.stroke();
 
-          <div
-            id="current-cycle-period"
-            class="cycle-period"
-          >
-            --
-          </div>
-        </div>
+    /*
+        Anéis da cidade.
+    */
 
-        <button
-          id="lock-button"
-          type="button"
-          class="icon-button"
-          aria-label="Bloquear FX"
-          title="Bloquear"
-        >
-          🔒
-        </button>
+    for (let r = 0.2; r <= 0.8; r += 0.2) {
 
-      </header>
+        ctx.beginPath();
 
+        ctx.arc(
+            0,
+            0,
+            cityRadius * r,
+            0,
+            Math.PI * 2
+        );
 
-      <!-- ================================================
-           SALDO PRINCIPAL
-      ================================================= -->
+        ctx.strokeStyle = "#333";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+    }
 
-      <section
-        id="balance-card"
-        class="balance-card"
-      >
+    /*
+        Ruas radiais.
+    */
 
-        <span class="balance-label">
-          Pode gastar
-        </span>
+    for (let i = 0; i < 16; i++) {
 
-        <strong
-          id="available-balance"
-          class="balance-value"
-        >
-          R$ 0,00
-        </strong>
+        const angle =
+            (Math.PI * 2 / 16) * i;
 
-        <div class="balance-sources">
+        ctx.beginPath();
 
-          <div class="balance-source">
+        ctx.moveTo(0, 0);
 
-            <span>
-              Salário
-            </span>
+        ctx.lineTo(
+            Math.cos(angle) * cityRadius,
+            Math.sin(angle) * cityRadius
+        );
 
-            <strong id="salary-balance">
-              R$ 0,00
-            </strong>
+        ctx.strokeStyle = "#292929";
+        ctx.lineWidth = 12;
+        ctx.stroke();
+    }
 
-          </div>
+    /*
+        Prédios.
 
-          <div class="balance-source extra-source">
+        Eles diminuem junto com
+        a escala do jogador.
+    */
 
-            <span>
-              + Extra
-            </span>
+    const buildingScale = visualScale;
 
-            <strong id="extra-balance">
-              R$ 0,00
-            </strong>
+    for (let i = 0; i < 40; i++) {
 
-          </div>
+        const angle =
+            (Math.PI * 2 / 40) * i;
 
-        </div>
+        const radius =
+            cityRadius * (0.15 + (i % 5) * 0.12);
 
-      </section>
+        const x =
+            Math.cos(angle) * radius;
 
+        const y =
+            Math.sin(angle) * radius;
 
-      <!-- ================================================
-           CATEGORIAS
-      ================================================= -->
+        const w = 35 * buildingScale;
+        const h = 55 * buildingScale;
 
-      <section class="content-section">
+        ctx.fillStyle = "#555";
 
-        <div class="section-header">
+        ctx.fillRect(
+            x - w / 2,
+            y - h / 2,
+            w,
+            h
+        );
+    }
 
-          <h2>
-            Categorias
-          </h2>
+    ctx.restore();
 
-        </div>
+    // ==================================================
+    // JOGADOR
+    // ==================================================
 
-        <div
-          id="categories-list"
-          class="categories-list"
-        ></div>
+    ctx.save();
 
-      </section>
+    ctx.translate(cx, cy);
 
+    /*
+        O jogador permanece no centro da câmera.
 
-      <!-- ================================================
-           RESUMO DE GASTOS
-      ================================================= -->
+        A cidade é que parece se mover.
+    */
 
-      <section class="content-section">
+    const playerSize =
+        22 * Math.max(playerScale, 0.08);
 
-        <div class="section-header">
+    ctx.beginPath();
 
-          <h2>
-            Gastos
-          </h2>
+    ctx.arc(
+        0,
+        0,
+        playerSize,
+        0,
+        Math.PI * 2
+    );
 
-        </div>
+    ctx.fillStyle = "#ffffff";
+    ctx.fill();
 
-        <div
-          id="expenses-list"
-          class="expenses-list"
-        ></div>
+    ctx.restore();
 
-      </section>
+    // ==================================================
+    // INDICADOR DA BORDA
+    // ==================================================
 
+    ctx.fillStyle = "#fff";
+    ctx.font = "14px Arial";
+    ctx.textAlign = "center";
 
-      <!-- ================================================
-           EXTRA
-      ================================================= -->
+    ctx.fillText(
+        "BORDA DA CIDADE",
+        cx,
+        35
+    );
+}
 
-      <button
-        id="add-extra-button"
-        type="button"
-        class="extra-button"
-      >
-        <span>+</span>
+function gameLoop() {
 
-        <span>
-          Extra
-        </span>
-      </button>
+    movePlayer();
+    drawCity();
 
+    requestAnimationFrame(gameLoop);
+}
 
-      <!-- ================================================
-           RODAPÉ
-      ================================================= -->
+updateUI();
+gameLoop();
 
-      <nav class="bottom-navigation">
-
-        <button
-          id="nav-home"
-          type="button"
-          class="nav-button active"
-        >
-          <span>⌂</span>
-          <small>Início</small>
-        </button>
-
-        <button
-          id="nav-settings"
-          type="button"
-          class="nav-button"
-        >
-          <span>⚙</span>
-          <small>Configurações</small>
-        </button>
-
-      </nav>
-
-    </section>
-
-
-    <!-- ===================================================
-         TELA DE CONFIGURAÇÕES
-    ==================================================== -->
-
-    <section
-      id="screen-settings"
-      class="screen hidden"
-    >
-
-      <header class="settings-header">
-
-        <button
-          id="settings-back-button"
-          type="button"
-          class="icon-button"
-        >
-          ←
-        </button>
-
-        <h1>
-          Configurações
-        </h1>
-
-      </header>
-
-
-      <main class="settings-list">
-
-
-        <!-- CATEGORIAS -->
-
-        <div class="settings-item">
-
-          <button
-            type="button"
-            class="settings-toggle"
-            data-target="settings-categories"
-          >
-            <span>
-              Categorias
-            </span>
-
-            <span>
-              ›
-            </span>
-          </button>
-
-          <div
-            id="settings-categories"
-            class="settings-content hidden"
-          >
-
-            <div
-              id="settings-category-list"
-              class="settings-category-list"
-            ></div>
-
-            <button
-              id="create-category-button"
-              type="button"
-              class="secondary-button"
-            >
-              + Criar categoria
-            </button>
-
-          </div>
-
-        </div>
-
-
-        <!-- SALÁRIO -->
-
-        <div class="settings-item">
-
-          <button
-            type="button"
-            class="settings-toggle"
-            data-target="settings-salary"
-          >
-            <span>
-              Salário
-            </span>
-
-            <span>
-              ›
-            </span>
-          </button>
-
-          <div
-            id="settings-salary"
-            class="settings-content hidden"
-          >
-
-            <label for="settings-salary-value">
-              Valor
-            </label>
-
-            <input
-              id="settings-salary-value"
-              type="text"
-              inputmode="decimal"
-              placeholder="R$ 0,00"
-            >
-
-            <label>
-              Dividir
-            </label>
-
-            <div class="choice-group">
-
-              <label class="choice">
-                <input
-                  type="radio"
-                  name="settings-salary-split"
-                  value="no"
-                >
-                <span>Não</span>
-              </label>
-
-              <label class="choice">
-                <input
-                  type="radio"
-                  name="settings-salary-split"
-                  value="yes"
-                >
-                <span>Sim</span>
-              </label>
-
-            </div>
-
-            <div class="info-box">
-              <strong>Divisão fixa</strong>
-
-              <p>
-                40% no dia 20
-              </p>
-
-              <p>
-                60% no 5º dia útil
-              </p>
-            </div>
-
-            <button
-              id="save-salary-button"
-              type="button"
-              class="primary-button"
-            >
-              Salvar
-            </button>
-
-          </div>
-
-        </div>
-
-
-        <!-- CICLO -->
-
-        <div class="settings-item">
-
-          <button
-            type="button"
-            class="settings-toggle"
-            data-target="settings-cycle"
-          >
-            <span>
-              Ciclo
-            </span>
-
-            <span>
-              ›
-            </span>
-          </button>
-
-          <div
-            id="settings-cycle"
-            class="settings-content hidden"
-          >
-
-            <label for="settings-cycle-day">
-              Dia de início
-            </label>
-
-            <input
-              id="settings-cycle-day"
-              type="number"
-              min="1"
-              max="31"
-            >
-
-            <button
-              id="save-cycle-button"
-              type="button"
-              class="primary-button"
-            >
-              Salvar
-            </button>
-
-          </div>
-
-        </div>
-
-
-        <!-- MÊS ANTERIOR -->
-
-        <div class="settings-item">
-
-          <button
-            id="previous-cycle-button"
-            type="button"
-            class="settings-toggle"
-          >
-            <span id="previous-cycle-label">
-              Mês anterior
-            </span>
-
-            <span>
-              ›
-            </span>
-          </button>
-
-        </div>
-
-
-        <!-- PIZZA -->
-
-        <div class="settings-item">
-
-          <button
-            id="pizza-button"
-            type="button"
-            class="settings-toggle"
-          >
-            <span>
-              Pizza
-            </span>
-
-            <span>
-              ›
-            </span>
-          </button>
-
-        </div>
-
-
-        <!-- SEGURANÇA -->
-
-        <div class="settings-item">
-
-          <button
-            type="button"
-            class="settings-toggle"
-            data-target="settings-security"
-          >
-            <span>
-              Segurança
-            </span>
-
-            <span>
-              ›
-            </span>
-          </button>
-
-          <div
-            id="settings-security"
-            class="settings-content hidden"
-          >
-
-            <button
-              id="change-password-button"
-              type="button"
-              class="secondary-button"
-            >
-              Alterar senha
-            </button>
-
-            <button
-              id="master-key-button"
-              type="button"
-              class="secondary-button"
-            >
-              Chave mestra
-            </button>
-
-            <button
-              id="delete-all-data-button"
-              type="button"
-              class="danger-button"
-            >
-              Apagar todos os dados
-            </button>
-
-          </div>
-
-        </div>
-
-      </main>
-
-    </section>
-
-  </div>
-
-
-  <!-- =====================================================
-       MODAIS
-  ====================================================== -->
-
-  <div
-    id="modal-root"
-    class="modal-root hidden"
-  >
-
-    <!-- Conteúdo dos modais será criado pelo JavaScript -->
-
-  </div>
-
-
-  <!-- =====================================================
-       TOAST
-  ====================================================== -->
-
-  <div
-    id="toast"
-    class="toast hidden"
-    role="status"
-    aria-live="polite"
-  ></div>
-
-
-  <script src="./app.js"></script>
+</script>
 
 </body>
-
 </html>
